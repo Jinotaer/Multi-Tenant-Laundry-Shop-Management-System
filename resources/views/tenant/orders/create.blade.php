@@ -1,0 +1,174 @@
+<x-tenant-layout>
+    <x-slot name="header">
+        <h2 class="font-semibold text-xl text-gray-800 leading-tight">New Order</h2>
+    </x-slot>
+
+    @php $theme = tenant()->getThemePreset(); @endphp
+
+    <div class="max-w-3xl">
+        {{-- Show validation errors --}}
+        @if ($errors->any())
+            <div class="mb-6 rounded-lg border border-red-200 bg-red-50 p-4">
+                <h3 class="font-semibold text-red-800 mb-2">⚠️ Please fix these errors:</h3>
+                <ul class="list-disc list-inside space-y-1">
+                    @foreach ($errors->all() as $error)
+                        <li class="text-sm text-red-700">{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
+
+        <div class="bg-white shadow-sm sm:rounded-lg">
+            <div class="p-6">
+                <form method="POST" action="{{ route('tenant.orders.store') }}" class="space-y-6"
+                    x-data="{
+                        serviceId: '{{ old('service_id', '') }}',
+                        weight: {{ old('weight', 0) }},
+                        services: {{ Js::from($services) }},
+                        items: {{ Js::from(old('items', [['name' => '', 'qty' => 1, 'price' => '']])) }},
+                        get selectedService() {
+                            return this.services.find(s => s.id == this.serviceId);
+                        },
+                        get serviceTotal() {
+                            if (!this.selectedService) return 0;
+                            if (this.selectedService.price_type === 'per_kilo') {
+                                return parseFloat(this.selectedService.price) * parseFloat(this.weight || 0);
+                            }
+                            return parseFloat(this.selectedService.price);
+                        },
+                        get itemsTotal() {
+                            return this.items.reduce((sum, i) => sum + (parseFloat(i.qty || 0) * parseFloat(i.price || 0)), 0);
+                        },
+                        get total() {
+                            return this.serviceTotal + this.itemsTotal;
+                        },
+                        addItem() { this.items.push({ name: '', qty: 1, price: '' }); },
+                        removeItem(index) { if (this.items.length > 1) this.items.splice(index, 1); }
+                    }">
+                    @csrf
+
+                    {{-- Customer --}}
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Customer <span class="text-red-500">*</span></label>
+                        <select name="customer_id" required
+                            class="block w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500 @error('customer_id') border-red-300 @enderror">
+                            <option value="">— Select Customer —</option>
+                            @foreach ($customers as $customer)
+                                <option value="{{ $customer->id }}" {{ old('customer_id', request('customer_id')) == $customer->id ? 'selected' : '' }}>
+                                    {{ $customer->name }}{{ $customer->phone ? ' ('.$customer->phone.')' : '' }}
+                                </option>
+                            @endforeach
+                        </select>
+                        @error('customer_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        <a href="{{ route('tenant.customers.create') }}" class="mt-1 inline-block text-xs {{ $theme['nav_active_text'] }} hover:underline">+ Add new customer</a>
+                    </div>
+
+                    {{-- Service & Weight --}}
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Service</label>
+                            <select name="service_id" x-model="serviceId"
+                                class="block w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                <option value="">— No Service —</option>
+                                @foreach ($services as $service)
+                                    <option value="{{ $service->id }}">{{ $service->name }} ({{ $service->formatted_price }})</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div x-show="selectedService && selectedService.price_type === 'per_kilo'" x-transition>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Weight (kg) <span class="text-red-500">*</span></label>
+                            <input type="number" name="weight" x-model="weight" min="0" step="0.01"
+                                class="block w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        </div>
+                    </div>
+
+                    {{-- Status & Due Date --}}
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Status <span class="text-red-500">*</span></label>
+                            <select name="status" required
+                                class="block w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                @foreach ($statuses as $key => $label)
+                                    <option value="{{ $key }}" {{ old('status', 'received') === $key ? 'selected' : '' }}>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+                            <input type="date" name="due_date" value="{{ old('due_date') }}"
+                                class="block w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        </div>
+                    </div>
+
+                    {{-- Additional Items --}}
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="block text-sm font-medium text-gray-700">Additional Items</label>
+                            <button type="button" @click="addItem()"
+                                class="inline-flex items-center gap-1 text-xs font-medium {{ $theme['nav_active_text'] }} hover:underline">
+                                + Add Item
+                            </button>
+                        </div>
+
+                        <div class="space-y-2">
+                            <template x-for="(item, index) in items" :key="index">
+                                <div class="grid grid-cols-12 gap-2 items-center">
+                                    <div class="col-span-6">
+                                        <input type="text" :name="`items[${index}][name]`" x-model="item.name"
+                                            placeholder="Item (e.g. Shirt, Pants)"
+                                            class="block w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                    </div>
+                                    <div class="col-span-2">
+                                        <input type="number" :name="`items[${index}][qty]`" x-model="item.qty" min="1"
+                                            placeholder="Qty"
+                                            class="block w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                    </div>
+                                    <div class="col-span-3">
+                                        <input type="number" :name="`items[${index}][price]`" x-model="item.price" min="0" step="0.01"
+                                            placeholder="Price (₱)"
+                                            class="block w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                    </div>
+                                    <div class="col-span-1 text-center">
+                                        <button type="button" @click="removeItem(index)"
+                                            class="text-red-400 hover:text-red-600 disabled:opacity-30"
+                                            :disabled="items.length === 1">
+                                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    {{-- Total --}}
+                    <div class="flex items-center justify-between rounded-lg bg-gray-50 px-4 py-3">
+                        <span class="text-sm font-medium text-gray-700">Total Amount</span>
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm text-gray-500">₱</span>
+                            <input type="number" name="total_amount" :value="total.toFixed(2)"
+                                min="0" step="0.01" required readonly
+                                class="w-32 rounded-md border-gray-300 shadow-sm text-sm text-right font-semibold focus:border-indigo-500 focus:ring-indigo-500">
+                        </div>
+                    </div>
+
+                    {{-- Notes --}}
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                        <textarea name="notes" rows="2"
+                            class="block w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">{{ old('notes') }}</textarea>
+                    </div>
+
+                    <div class="flex items-center gap-3 pt-2">
+                        <button type="submit"
+                            class="inline-flex items-center rounded-md {{ $theme['primary_bg'] }} {{ $theme['primary_hover'] }} px-5 py-2 text-sm font-medium text-white shadow-sm transition">
+                            Create Order
+                        </button>
+                        <a href="{{ route('tenant.orders.index') }}" class="text-sm text-gray-600 hover:text-gray-900">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</x-tenant-layout>

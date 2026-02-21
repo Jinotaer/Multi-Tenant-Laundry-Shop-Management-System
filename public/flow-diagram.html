@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laundry Shop Management - Full System Flow</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f0f4f8;
+            padding: 30px 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #1a202c;
+            margin-bottom: 8px;
+            font-size: 1.6rem;
+        }
+        .subtitle {
+            text-align: center;
+            color: #718096;
+            margin-bottom: 30px;
+            font-size: 0.95rem;
+        }
+        .diagram-container {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            overflow-x: auto;
+        }
+        .mermaid {
+            display: flex;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>Laundry Shop Management System</h1>
+    <p class="subtitle">Full System Flow Diagram</p>
+    <div class="diagram-container">
+        <div class="mermaid">
+flowchart TD
+    subgraph PUBLIC["🌐 Public — Central Domain (localhost)"]
+        A([🏠 Landing Page /]) --> B[📋 View Pricing /pricing]
+        B --> C[📝 Register Shop /register-shop]
+    end
+
+    subgraph REGISTRATION["🏗️ Shop Registration Flow"]
+        C --> D{Select Plan}
+        D -->|Free Plan| E[Create Tenant\n+ 30-day Trial]
+        D -->|Premium Plan| F[Create Tenant\nNo trial]
+        E --> G[Provision Tenant DB\n+ Domain subdomain.localhost]
+        F --> G
+        G --> H[Create Owner User\nin Tenant DB]
+        H --> I[📧 Send Approval Email]
+        I --> J[/shop-pending page/]
+    end
+
+    subgraph ADMIN["🔐 Admin Portal — /admin"]
+        AA([🔑 Admin Login]) --> AB[📊 Admin Dashboard]
+        AB --> AC[👥 Manage Tenants]
+        AB --> AD[💳 Manage Subscription Plans]
+        AC --> AE{Tenant Actions}
+        AE --> AF[✅ Enable / Disable Shop]
+        AE --> AG[💰 Mark Paid / Unpaid]
+        AE --> AH[⚙️ Update Features / Plan]
+        AE --> AI[🗑️ Delete Tenant]
+        AD --> AJ[Create / Edit / Delete Plans]
+    end
+
+    subgraph TENANT_APP["🏪 Tenant App — subdomain.localhost"]
+        J --> K[Tenant visits subdomain.localhost]
+        K --> L{CheckTenantEnabled\nmiddleware}
+        L -->|Disabled| M[🚫 503 Shop Disabled]
+        L -->|Enabled| N[🔑 Login / Register]
+        N --> O{Auth +\nCheckTrialStatus}
+        O -->|Free Plan + Active Trial| P[🏠 Dashboard]
+        O -->|Paid Subscription| P
+        O -->|Trial Expired| Q[⏰ /trial-expired]
+        O -->|Premium, Not Paid| R[💳 /payment page]
+    end
+
+    subgraph PAYMENT["💳 Payment Flow — PayMongo"]
+        R --> S[POST /payment/checkout]
+        S --> T{Check existing\npending payments}
+        T -->|Already paid externally| U[✅ Activate Tenant\nis_paid = true]
+        T -->|Active checkout URL exists| V[Reuse checkout link]
+        T -->|No active session| W[Create new PayMongo\ncheckout session]
+        W --> X[🔗 Redirect to PayMongo\nhosted checkout]
+        X --> Y{Payment Result}
+        Y -->|Success| Z[Webhook POST /webhooks/paymongo\nor /payment/success]
+        Z --> U
+        U --> P
+        Y -->|Failed / Cancelled| R
+        V --> X
+    end
+
+    subgraph DASHBOARD["📱 Tenant Dashboard"]
+        P --> PA[👤 Profile & Settings]
+        P --> PB[📋 Subscription Info]
+        P --> PC[🔧 Feature Flags]
+        P --> PD[🎨 Theme Customization]
+    end
+
+    style PUBLIC fill:#e8f4fd,stroke:#2196F3,color:#0d47a1
+    style REGISTRATION fill:#e8f5e9,stroke:#4CAF50,color:#1b5e20
+    style ADMIN fill:#fff3e0,stroke:#FF9800,color:#e65100
+    style TENANT_APP fill:#fce4ec,stroke:#E91E63,color:#880e4f
+    style PAYMENT fill:#f3e5f5,stroke:#9C27B0,color:#4a148c
+    style DASHBOARD fill:#e0f2f1,stroke:#009688,color:#004d40
+        </div>
+    </div>
+
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            flowchart: {
+                curve: 'basis',
+                padding: 20,
+                useMaxWidth: true,
+            }
+        });
+    </script>
+</body>
+</html>
