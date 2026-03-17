@@ -23,6 +23,7 @@ class Admin extends Authenticatable
         'password',
         'role',
         'theme',
+        'layout_settings',
         'logo_path',
     ];
 
@@ -69,6 +70,7 @@ class Admin extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'layout_settings' => 'array',
         ];
     }
 }

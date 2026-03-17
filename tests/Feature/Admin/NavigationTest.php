@@ -29,5 +29,5 @@ it('does not render badge when there are no pending registrations', function () 
         ->get(route('admin.dashboard'))
         ->assertOk();
 
-    $response->assertDontSee('inline-flex');
+    $response->assertDontSee('bg-yellow-400');
 });

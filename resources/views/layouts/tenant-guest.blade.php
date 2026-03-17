@@ -1,30 +1,80 @@
+﻿@php
+    $tenant = tenant();
+    $layoutSettingsService = app(\App\Services\LayoutSettingsService::class);
+    $workspaceDefaults = $layoutSettingsService->tenantDefaults($tenant);
+    $theme = app(\App\Services\ThemeService::class)->getTenantTheme();
+    $shopName = $tenant?->data['shop_name'] ?? 'LaundryTrack';
+    $fontSizeValue = $layoutSettingsService->fontSizeValue($workspaceDefaults['font_size']);
+    $radiusValue = $layoutSettingsService->borderRadiusValue($workspaceDefaults['border_radius']);
+    $colorModeLabel = data_get(
+        config('layout.options.color_mode'),
+        $workspaceDefaults['color_mode'] . '.label',
+        ucfirst($workspaceDefaults['color_mode']),
+    );
+@endphp
+
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<html
+    lang="{{ str_replace('_', '-', app()->getLocale()) }}"
+    data-theme="{{ $workspaceDefaults['theme'] }}"
+    data-color-mode="{{ $workspaceDefaults['color_mode'] }}"
+    data-font-size="{{ $workspaceDefaults['font_size'] }}"
+    data-border-radius="{{ $workspaceDefaults['border_radius'] }}"
+    style="font-size: {{ $fontSizeValue }}; --tenant-radius: {{ $radiusValue }}; --tenant-theme-accent: {{ $theme['preview'] ?? '#6366f1' }}; --tenant-theme-accent-soft: {{ ($theme['preview'] ?? '#6366f1') . '18' }}; --tenant-theme-accent-soft-strong: {{ ($theme['preview'] ?? '#6366f1') . '30' }};"
+>
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
+        <meta name="color-scheme" content="light dark">
 
-        <title>{{ tenant('data')['shop_name'] ?? config('app.name', 'LaundryTrack') }}</title>
+        <title>{{ $shopName }}</title>
 
-        <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
+        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700,800&display=swap" rel="stylesheet" />
 
-        <!-- Scripts -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])
-    </head>
-    <body class="font-sans text-gray-900 antialiased">
-        <div class="min-h-screen flex flex-col sm:justify-center items-center pt-6 sm:pt-0 bg-gray-100">
-            <div>
-                <a href="/" class="text-xl font-bold text-gray-800">
-                    {{ tenant('data')['shop_name'] ?? 'LaundryTrack' }}
-                </a>
-            </div>
 
-            <div class="w-full sm:max-w-md mt-6 px-6 py-4 bg-white shadow-md overflow-hidden sm:rounded-lg">
-                {{ $slot }}
+        <script>
+            (() => {
+                const colorMode = @js($workspaceDefaults['color_mode']);
+                const root = document.documentElement;
+                const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+
+                const applyColorMode = () => {
+                    const shouldUseDark = colorMode === 'dark' || (colorMode === 'system' && mediaQuery.matches);
+                    root.classList.toggle('dark', shouldUseDark);
+                    root.dataset.colorMode = colorMode;
+                };
+
+                applyColorMode();
+
+                if (colorMode === 'system') {
+                    if (typeof mediaQuery.addEventListener === 'function') {
+                        mediaQuery.addEventListener('change', applyColorMode);
+                    } else if (typeof mediaQuery.addListener === 'function') {
+                        mediaQuery.addListener(applyColorMode);
+                    }
+                }
+            })();
+        </script>
+    </head>
+    <body class="font-sans antialiased">
+        <div class="tenant-shell tenant-auth-shell">
+            <div class="flex min-h-screen flex-col items-center justify-center px-4 py-6 sm:px-6">
+                <div class="w-full sm:max-w-md">
+                    <div class="tenant-auth-card px-6 py-6 sm:px-8 sm:py-8">
+                        {{ $slot }}
+                    </div>
+
+                    <p class="mt-4 text-center text-xs font-medium uppercase tracking-[0.24em] text-slate-400 dark:text-slate-500">
+                        {{ $shopName }} &middot; {{ $theme['label'] }} &middot; {{ $colorModeLabel }}
+                    </p>
+                </div>
             </div>
         </div>
     </body>
 </html>
+
+
+

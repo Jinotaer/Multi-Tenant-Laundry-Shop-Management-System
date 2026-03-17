@@ -25,7 +25,7 @@ class SettingsController extends Controller
         $userOverrides = $layoutSettingsService->userOverrides($user);
         $resolvedSettings = $layoutSettingsService->resolve($tenant, $user);
         $logoUrl = $tenant->logo_path && Storage::disk('public')->exists($tenant->logo_path)
-            ? asset('storage/'.ltrim($tenant->logo_path, '/'))
+            ? Storage::disk('public')->url($tenant->logo_path)
             : null;
 
         return view('tenant.settings.theme', [

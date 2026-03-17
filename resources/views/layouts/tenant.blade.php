@@ -8,7 +8,7 @@
     $resolvedLayout = $layoutSettingsService->resolve(tenant(), $currentUser);
     $shopName = tenant('data')['shop_name'] ?? config('app.name', 'LaundryTrack');
     $logoUrl = tenant()->logo_path && Storage::disk('public')->exists(tenant()->logo_path)
-        ? asset('storage/' . ltrim(tenant()->logo_path, '/'))
+        ? Storage::disk('public')->url(tenant()->logo_path)
         : null;
     $isSidebarRight = $resolvedLayout['sidebar_position'] === 'right';
     $isCompactSidebar = $resolvedLayout['sidebar_style'] === 'compact';
@@ -104,10 +104,10 @@
             <div x-show="sidebarOpen" x-transition:enter="transition-opacity ease-linear duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="transition-opacity ease-linear duration-300" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" class="fixed inset-0 z-40 bg-gray-950/60 lg:hidden" x-on:click="sidebarOpen = false" x-cloak></div>
 
             <aside :class="sidebarOpen ? 'translate-x-0' : '{{ $mobileClosedSidebarClass }}'" class="fixed inset-y-0 {{ $mobileSidebarPositionClass }} {{ $desktopSidebarPositionClass }} {{ $floatingDesktopPositionClass }} z-50 w-72 {{ $desktopSidebarWidthClass }} flex flex-col {{ $sidebarSurfaceClasses }} transform transition-transform duration-300 ease-in-out lg:translate-x-0">
-                <div class="flex h-16 items-center justify-between border-b border-gray-200 px-6 dark:border-slate-800">
+                <div class="flex min-h-[5.5rem] items-center justify-between border-b border-gray-200 px-6 pt-5 pb-6 dark:border-slate-800">
                     <a href="{{ route('tenant.dashboard') }}" class="flex min-w-0 items-center gap-2">
                         @if ($logoVisible)
-                            <img src="{{ $logoUrl }}" alt="Logo" class="h-8 w-8 flex-shrink-0 rounded-xl object-contain">
+                            <img src="{{ $logoUrl }}" alt="Tenant Logo" class="h-8 w-8 flex-shrink-0 rounded-xl object-contain">
                         @endif
                         <span class="tenant-wordmark tenant-wordmark-sidebar truncate {{ $navLabelVisibilityClass }}">
                             <span>Laundry</span><span class="tenant-wordmark-accent">Track</span>
@@ -214,10 +214,6 @@
                             <button x-on:click="sidebarOpen = true" class="-m-2.5 p-2.5 text-gray-700 dark:text-slate-100 lg:hidden">
                                 <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" /></svg>
                             </button>
-
-                            @if ($logoVisible)
-                                <img src="{{ $logoUrl }}" alt="Logo" class="h-9 w-9 rounded-xl object-contain">
-                            @endif
 
                             <div class="min-w-0 flex-1">
                                 <p class="tenant-wordmark tenant-wordmark-topbar">

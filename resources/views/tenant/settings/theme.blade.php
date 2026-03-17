@@ -38,7 +38,7 @@
             ],
             'logo_visibility' => [
                 'label' => 'Logo Visibility',
-                'description' => 'Show or hide the uploaded logo mark in the dashboard shell.',
+                'description' => 'Show or hide the uploaded logo mark in the sidebar brand area.',
             ],
         ];
         $workspaceBagHasErrors = $errors->tenantLayoutDefaults->any();
@@ -293,7 +293,7 @@
                 <div class="tenant-panel overflow-hidden">
                     <div class="border-b border-gray-200 px-6 py-5 dark:border-slate-800">
                         <h4 class="text-base font-semibold text-gray-900 dark:text-slate-100">Workspace Logo</h4>
-                        <p class="mt-1 text-sm text-gray-500 dark:text-slate-400">Upload a logo for the sidebar and topbar. Layout visibility is controlled separately above.</p>
+                        <p class="mt-1 text-sm text-gray-500 dark:text-slate-400">Upload a logo for the sidebar brand area. Layout visibility is controlled separately above.</p>
                     </div>
                     <div class="p-6">
                         <div class="flex flex-col gap-6 md:flex-row md:items-start">

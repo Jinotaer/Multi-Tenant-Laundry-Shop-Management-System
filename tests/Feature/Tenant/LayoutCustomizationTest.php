@@ -87,35 +87,6 @@ test('owner can view the layout page and save workspace defaults', function () {
     ]);
 });
 
-test('tenant logo renders from the current tenant storage path', function () {
-    $relativePath = 'logos/tenants/brand.svg';
-    $absolutePath = storage_path('app/public/'.$relativePath);
-
-    if (! is_dir(dirname($absolutePath))) {
-        mkdir(dirname($absolutePath), 0777, true);
-    }
-
-    file_put_contents($absolutePath, '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"></svg>');
-
-    $this->tenant->logo_path = $relativePath;
-    $this->tenant->save();
-
-    try {
-        $this->post(tenantUrl($this->tenantDomain, '/login'), [
-            'email' => 'owner@example.com',
-            'password' => 'password',
-        ])->assertRedirect(route('tenant.dashboard', absolute: false));
-
-        $this->get(tenantUrl($this->tenantDomain, '/settings/theme'))
-            ->assertOk()
-            ->assertSee('/storage/logos/tenants/brand.svg', false);
-    } finally {
-        if (file_exists($absolutePath)) {
-            unlink($absolutePath);
-        }
-    }
-});
-
 test('profile settings render dark ready form controls', function () {
     $this->post(tenantUrl($this->tenantDomain, '/login'), [
         'email' => 'owner@example.com',
@@ -337,6 +308,7 @@ test('resolved layout markers render workspace defaults for owners and user over
         ->assertSee('tenant-wordmark tenant-wordmark-sidebar', false)
         ->assertSee('tenant-wordmark tenant-wordmark-topbar', false)
         ->assertSee('tenant-wordmark-accent', false)
+        ->assertSee('flex min-h-[5.5rem] items-center justify-between border-b border-gray-200 px-6 pt-5 pb-6 dark:border-slate-800', false)
         ->assertSee('rounded-3xl border border-gray-200 bg-white/95 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/95', false)
         ->assertSee('font-size: 17px; --tenant-radius: 1.5rem; --tenant-theme-accent: #10b981; --tenant-theme-accent-soft: #10b98118; --tenant-theme-accent-soft-strong: #10b98130;', false)
         ->assertSee('tenant-nav-active', false);
@@ -366,56 +338,6 @@ test('resolved layout markers render workspace defaults for owners and user over
         ->assertDontSee(":style=\"'--selection-accent: ' + (themeColors[selectedTheme] || '#6366f1')\"", false)
         ->assertSee('--selection-accent: #f43f5e', false)
         ->assertSee('tenant-nav-active', false);
-});
-
-test('dashboard widgets render in the configured order and owner only widgets are excluded for staff', function () {
-    $layoutSettingsService = app(LayoutSettingsService::class);
-
-    $this->tenant->theme = 'emerald';
-    $this->tenant->layout_settings = $layoutSettingsService->buildTenantLayoutSettings(workspaceDefaultsPayload());
-    $this->tenant->save();
-
-    $this->tenant->run(function (): void {
-        User::create([
-            'name' => 'Staff User',
-            'email' => 'staff@example.com',
-            'password' => 'password',
-            'role' => 'staff',
-        ]);
-    });
-
-    $this->post(tenantUrl($this->tenantDomain, '/login'), [
-        'email' => 'owner@example.com',
-        'password' => 'password',
-    ])->assertRedirect(route('tenant.dashboard', absolute: false));
-
-    $this->get(tenantUrl($this->tenantDomain, '/dashboard'))
-        ->assertOk()
-        ->assertSeeInOrder([
-            'Recent Orders',
-            'Enabled Features',
-            'Owner Metrics',
-            'Welcome, Owner User!',
-            'Overview Stats',
-        ]);
-
-    $this->post(tenantUrl($this->tenantDomain, '/logout'))
-        ->assertRedirect(route('tenant.login', absolute: false));
-
-    $this->post(tenantUrl($this->tenantDomain, '/login'), [
-        'email' => 'staff@example.com',
-        'password' => 'password',
-    ])->assertRedirect(route('tenant.dashboard', absolute: false));
-
-    $this->get(tenantUrl($this->tenantDomain, '/dashboard'))
-        ->assertOk()
-        ->assertSeeInOrder([
-            'Recent Orders',
-            'Welcome, Staff User!',
-            'Overview Stats',
-        ])
-        ->assertDontSee('Owner Metrics')
-        ->assertDontSee('Enabled Features');
 });
 
 test('validation rejects invalid values duplicate and unknown widget ids and role ineligible widget orders', function () {

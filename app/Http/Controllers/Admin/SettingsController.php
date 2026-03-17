@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\UpdateAdminLayoutSettingsRequest;
+use App\Services\AdminLayoutSettingsService;
 use App\Services\ThemeService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -15,13 +17,17 @@ class SettingsController extends Controller
     /**
      * Display the admin settings page.
      */
-    public function index(ThemeService $themeService): View
-    {
+    public function index(
+        ThemeService $themeService,
+        AdminLayoutSettingsService $adminLayoutSettingsService
+    ): View {
         $admin = Auth::guard('admin')->user();
 
         return view('admin.settings.theme', [
             'presets' => $themeService->getAllPresets(),
-            'currentTheme' => $admin->theme ?? config('themes.default'),
+            'resolvedLayout' => $adminLayoutSettingsService->resolve($admin),
+            'optionGroups' => $adminLayoutSettingsService->options(),
+            'widgetCatalog' => $adminLayoutSettingsService->widgets(),
             'logoUrl' => $admin->logo_path ? Storage::disk('public')->url($admin->logo_path) : null,
         ]);
     }
@@ -29,17 +35,18 @@ class SettingsController extends Controller
     /**
      * Update the admin's theme preference.
      */
-    public function updateTheme(Request $request): RedirectResponse
-    {
-        $request->validate([
-            'theme' => ['required', 'string', 'in:'.implode(',', array_keys(config('themes.presets')))],
-        ]);
-
+    public function updateTheme(
+        UpdateAdminLayoutSettingsRequest $request,
+        AdminLayoutSettingsService $adminLayoutSettingsService
+    ): RedirectResponse {
         $admin = Auth::guard('admin')->user();
-        $admin->theme = $request->input('theme');
+        $validated = $request->validated();
+
+        $admin->theme = $validated['theme'];
+        $admin->layout_settings = $adminLayoutSettingsService->buildLayoutSettings($validated);
         $admin->save();
 
-        return back()->with('success', 'Theme updated successfully.');
+        return back()->with('success', 'Admin layout updated successfully.');
     }
 
     /**
