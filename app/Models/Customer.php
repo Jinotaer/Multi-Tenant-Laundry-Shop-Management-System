@@ -22,6 +22,7 @@ class Customer extends Authenticatable
         'email',
         'password',
         'role',
+        'layout_preferences',
         'notes',
     ];
 
@@ -44,7 +45,23 @@ class Customer extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'layout_preferences' => 'array',
         ];
+    }
+
+    public function isOwner(): bool
+    {
+        return false;
+    }
+
+    public function isStaff(): bool
+    {
+        return false;
+    }
+
+    public function isCustomer(): bool
+    {
+        return $this->role === 'customer';
     }
 
     /**

@@ -40,7 +40,7 @@ Route::middleware([
 ])->group(function () {
 
     // Guest routes
-    Route::middleware('guest')->group(function () {
+    Route::middleware('guest:web,customer')->group(function () {
         Route::get('/login', [LoginController::class, 'create'])->name('tenant.login');
         Route::post('/login', [LoginController::class, 'store']);
         Route::get('/register', [RegisterController::class, 'create'])->name('tenant.register');
@@ -71,6 +71,9 @@ Route::middleware([
         // All routes below require active trial or paid subscription
         Route::middleware(CheckTrialStatus::class)->group(function () {
             Route::get('/dashboard', [DashboardController::class, 'index'])->name('tenant.dashboard');
+            Route::get('/settings/theme', [SettingsController::class, 'index'])->name('tenant.settings.theme');
+            Route::patch('/settings/theme/preferences', [SettingsController::class, 'updatePreferences'])->name('tenant.settings.theme.preferences.update');
+            Route::delete('/settings/theme/preferences', [SettingsController::class, 'resetPreferences'])->name('tenant.settings.theme.preferences.reset');
 
             // === Owner & Staff routes (day-to-day operations) ===
             Route::middleware('role:owner,staff')->group(function () {
@@ -145,8 +148,7 @@ Route::middleware([
                     return redirect()->route('tenant.settings.profile');
                 })->name('tenant.settings.index');
 
-                // Theme & Logo
-                Route::get('/settings/theme', [SettingsController::class, 'index'])->name('tenant.settings.theme');
+                // Layout defaults & logo
                 Route::patch('/settings/theme', [SettingsController::class, 'updateTheme'])->name('tenant.settings.theme.update');
                 Route::post('/settings/logo', [SettingsController::class, 'updateLogo'])->name('tenant.settings.logo');
                 Route::delete('/settings/logo', [SettingsController::class, 'removeLogo'])->name('tenant.settings.logo.remove');
@@ -168,7 +170,7 @@ Route::middleware([
 
     // Redirect root to dashboard or login
     Route::get('/', function () {
-        if (auth()->check()) {
+        if (auth()->guard('web')->check() || auth()->guard('customer')->check()) {
             return redirect()->route('tenant.dashboard');
         }
 

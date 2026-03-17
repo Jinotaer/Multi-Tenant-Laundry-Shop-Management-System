@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Customer;
 use App\Models\Order;
 use App\Models\User;
+use App\Services\LayoutSettingsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -15,7 +16,7 @@ class DashboardController extends Controller
     /**
      * Display the tenant dashboard based on user role.
      */
-    public function index(Request $request): View|RedirectResponse
+    public function index(Request $request, LayoutSettingsService $layoutSettingsService): View|RedirectResponse
     {
         $user = $request->user();
 
@@ -45,6 +46,7 @@ class DashboardController extends Controller
         return view('tenant.dashboard', [
             'user' => $user,
             'shopName' => tenant('data')['shop_name'] ?? tenant('id'),
+            'dashboardWidgets' => $layoutSettingsService->dashboardWidgetsFor(tenant(), $user),
             'totalCustomers' => $totalCustomers,
             'totalOrders' => $totalOrders,
             'ordersByStatus' => $ordersByStatus,

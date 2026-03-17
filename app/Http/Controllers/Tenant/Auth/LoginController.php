@@ -23,7 +23,7 @@ class LoginController extends Controller
 
     /**
      * Handle an incoming tenant authentication request.
-     * Supports login for Users (owner/staff) and Customers.
+     * Supports login for owner/staff users and customers.
      */
     public function store(Request $request): RedirectResponse
     {
@@ -35,18 +35,24 @@ class LoginController extends Controller
         $credentials = $request->only('email', 'password');
         $rememberMe = $request->boolean('remember');
 
-        // Try User (staff/owner) first
-        if (Auth::attempt($credentials, $rememberMe)) {
+        $user = User::query()
+            ->where('email', $credentials['email'])
+            ->whereIn('role', ['owner', 'staff'])
+            ->first();
+
+        if ($user && Hash::check($credentials['password'], $user->password)) {
+            Auth::guard('web')->login($user, $rememberMe);
             $request->session()->regenerate();
 
             return redirect()->intended(route('tenant.dashboard'));
         }
 
-        // Try Customer - manually check since Auth::attempt only uses default provider
-        $customer = Customer::where('email', $credentials['email'])->first();
+        $customer = Customer::query()
+            ->where('email', $credentials['email'])
+            ->first();
 
         if ($customer && Hash::check($credentials['password'], $customer->password)) {
-            Auth::login($customer, $rememberMe);
+            Auth::guard('customer')->login($customer, $rememberMe);
             $request->session()->regenerate();
 
             return redirect()->intended(route('tenant.dashboard'));
@@ -62,10 +68,15 @@ class LoginController extends Controller
      */
     public function destroy(Request $request): RedirectResponse
     {
-        Auth::logout();
+        if (Auth::guard('customer')->check()) {
+            Auth::guard('customer')->logout();
+        }
+
+        if (Auth::guard('web')->check()) {
+            Auth::guard('web')->logout();
+        }
 
         $request->session()->invalidate();
-
         $request->session()->regenerateToken();
 
         return redirect()->route('tenant.login');

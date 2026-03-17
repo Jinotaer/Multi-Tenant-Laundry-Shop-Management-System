@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Tenant;
 
 use App\Http\Controllers\Controller;
+use App\Models\Customer;
 use App\Models\Order;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -15,9 +16,9 @@ class CustomerPortalController extends Controller
     public function index(Request $request): View
     {
         $user = auth()->user();
-
-        // Find customer record linked by email
-        $customer = \App\Models\Customer::where('email', $user->email)->first();
+        $customer = $user instanceof Customer
+            ? $user
+            : Customer::query()->where('email', $user->email)->first();
 
         $activeOrders = collect();
         $orderHistory = collect();
@@ -46,7 +47,9 @@ class CustomerPortalController extends Controller
     public function show(Order $order): View
     {
         $user = auth()->user();
-        $customer = \App\Models\Customer::where('email', $user->email)->first();
+        $customer = $user instanceof Customer
+            ? $user
+            : Customer::query()->where('email', $user->email)->first();
 
         abort_unless($customer && $order->customer_id === $customer->id, 403);
 

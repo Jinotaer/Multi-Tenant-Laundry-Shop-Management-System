@@ -35,6 +35,7 @@ class Tenant extends BaseTenant implements TenantWithDatabase
             'id',
             'is_enabled',
             'theme',
+            'layout_settings',
             'features',
             'logo_path',
             'subscription_plan_id',
@@ -53,6 +54,7 @@ class Tenant extends BaseTenant implements TenantWithDatabase
         return [
             'is_enabled' => 'boolean',
             'is_paid' => 'boolean',
+            'layout_settings' => 'array',
             'features' => 'array',
             'trial_ends_at' => 'datetime',
         ];
@@ -66,7 +68,12 @@ class Tenant extends BaseTenant implements TenantWithDatabase
     public function getThemePreset(): array
     {
         $presets = config('themes.presets');
+        $user = auth('web')->user() ?? auth('customer')->user();
         $key = $this->theme ?? config('themes.default');
+
+        if ($user !== null && (! method_exists($user, 'isOwner') || ! $user->isOwner())) {
+            $key = data_get($user, 'layout_preferences.theme') ?? $key;
+        }
 
         return $presets[$key] ?? $presets[config('themes.default')];
     }

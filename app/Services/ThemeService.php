@@ -27,7 +27,12 @@ class ThemeService
     public function getTenantTheme(): array
     {
         $tenant = tenant();
+        $tenantUser = Auth::guard('web')->user() ?? Auth::guard('customer')->user();
         $key = $tenant?->theme ?? config('themes.default');
+
+        if ($tenantUser !== null && (! method_exists($tenantUser, 'isOwner') || ! $tenantUser->isOwner())) {
+            $key = data_get($tenantUser, 'layout_preferences.theme') ?? $key;
+        }
 
         return $this->resolvePreset($key);
     }

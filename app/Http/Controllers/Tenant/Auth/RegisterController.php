@@ -43,7 +43,8 @@ class RegisterController extends Controller
 
         event(new Registered($customer));
 
-        Auth::login($customer);
+        Auth::guard('customer')->login($customer);
+        $request->session()->regenerate();
 
         return redirect()->route('tenant.dashboard');
     }
