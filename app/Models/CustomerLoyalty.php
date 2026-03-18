@@ -11,6 +11,21 @@ class CustomerLoyalty extends Model
     use HasFactory;
 
     /**
+     * Tier spending thresholds.
+     *
+     * @return array<string, int>
+     */
+    public static function tierThresholds(): array
+    {
+        return [
+            'bronze' => 0,
+            'silver' => 10000,
+            'gold' => 20000,
+            'platinum' => 50000,
+        ];
+    }
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var list<string>
@@ -32,6 +47,8 @@ class CustomerLoyalty extends Model
     protected function casts(): array
     {
         return [
+            'points' => 'integer',
+            'stamps' => 'integer',
             'lifetime_spent' => 'decimal:2',
             'last_earned_at' => 'datetime',
         ];
@@ -50,10 +67,12 @@ class CustomerLoyalty extends Model
      */
     public static function calculateTier(float $spent): string
     {
+        $thresholds = self::tierThresholds();
+
         return match (true) {
-            $spent >= 50000 => 'platinum',
-            $spent >= 20000 => 'gold',
-            $spent >= 10000 => 'silver',
+            $spent >= $thresholds['platinum'] => 'platinum',
+            $spent >= $thresholds['gold'] => 'gold',
+            $spent >= $thresholds['silver'] => 'silver',
             default => 'bronze',
         };
     }
@@ -119,5 +138,63 @@ class CustomerLoyalty extends Model
     {
         return (float) $this->points;
     }
-}
 
+    /**
+     * Get the next loyalty tier, if any.
+     */
+    public function nextTier(): ?string
+    {
+        return match ($this->tier) {
+            'bronze' => 'silver',
+            'silver' => 'gold',
+            'gold' => 'platinum',
+            default => null,
+        };
+    }
+
+    /**
+     * Get the minimum lifetime spend required for the next tier.
+     */
+    public function nextTierThreshold(): ?int
+    {
+        $nextTier = $this->nextTier();
+
+        if (! $nextTier) {
+            return null;
+        }
+
+        return self::tierThresholds()[$nextTier] ?? null;
+    }
+
+    /**
+     * Get the remaining spend required to reach the next tier.
+     */
+    public function spendingNeededForNextTier(): float
+    {
+        $threshold = $this->nextTierThreshold();
+
+        if (! $threshold) {
+            return 0;
+        }
+
+        return max($threshold - (float) $this->lifetime_spent, 0);
+    }
+
+    /**
+     * Get progress percentage toward the next tier.
+     */
+    public function progressToNextTier(): int
+    {
+        $thresholds = self::tierThresholds();
+        $currentThreshold = $thresholds[$this->tier] ?? 0;
+        $nextThreshold = $this->nextTierThreshold();
+
+        if (! $nextThreshold || $nextThreshold <= $currentThreshold) {
+            return 100;
+        }
+
+        $progress = ((float) $this->lifetime_spent - $currentThreshold) / ($nextThreshold - $currentThreshold);
+
+        return (int) round(max(min($progress, 1), 0) * 100);
+    }
+}

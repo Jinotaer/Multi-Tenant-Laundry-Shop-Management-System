@@ -16,9 +16,7 @@ class OrderReadyForPickupNotification extends Mailable
     /**
      * Create a new message instance.
      */
-    public function __construct(public Order $order)
-    {
-    }
+    public function __construct(public Order $order) {}
 
     /**
      * Get the message envelope.
@@ -27,7 +25,6 @@ class OrderReadyForPickupNotification extends Mailable
     {
         return new Envelope(
             subject: "Your order #{$this->order->order_number} is ready for pickup!",
-            from: env('MAIL_FROM_ADDRESS', 'noreply@laundrytrack.com'),
         );
     }
 
@@ -44,6 +41,8 @@ class OrderReadyForPickupNotification extends Mailable
                 'serviceName' => $this->order->service?->name ?? 'Custom',
                 'totalAmount' => number_format($this->order->total_amount, 2),
                 'isPaid' => $this->order->payment_status === 'paid',
+                'actionUrl' => $this->actionUrl(),
+                'actionLabel' => tenant()->hasFeature('customer_portal') ? 'View Order Details' : 'View Notifications',
             ],
         );
     }
@@ -56,5 +55,22 @@ class OrderReadyForPickupNotification extends Mailable
     public function attachments(): array
     {
         return [];
+    }
+
+    /**
+     * Get the customer-facing action URL for this notification.
+     */
+    private function actionUrl(): string
+    {
+        $domain = tenant()?->domains()->first()?->domain;
+        $path = tenant()->hasFeature('customer_portal')
+            ? "/portal/{$this->order->id}"
+            : '/notifications';
+
+        if ($domain) {
+            return "http://{$domain}{$path}";
+        }
+
+        return route('tenant.notifications.index', absolute: false);
     }
 }

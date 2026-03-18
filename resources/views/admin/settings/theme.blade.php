@@ -36,6 +36,14 @@
                 'label' => 'Border Radius',
                 'description' => 'Adjust how rounded the cards, panels, and controls look.',
             ],
+            'icon_size' => [
+                'label' => 'Icon Size',
+                'description' => 'Control icon scale in navigation and actions.',
+            ],
+            'icon_stroke' => [
+                'label' => 'Icon Stroke',
+                'description' => 'Control icon line thickness across the shell.',
+            ],
             'logo_visibility' => [
                 'label' => 'Logo Visibility',
                 'description' => 'Show or hide the uploaded logo mark in the admin sidebar brand area.',
@@ -51,6 +59,8 @@
             'color_mode' => $formHasErrors ? old('color_mode', $resolvedLayout['color_mode']) : $resolvedLayout['color_mode'],
             'font_size' => $formHasErrors ? old('font_size', $resolvedLayout['font_size']) : $resolvedLayout['font_size'],
             'border_radius' => $formHasErrors ? old('border_radius', $resolvedLayout['border_radius']) : $resolvedLayout['border_radius'],
+            'icon_size' => $formHasErrors ? old('icon_size', $resolvedLayout['icon_size']) : $resolvedLayout['icon_size'],
+            'icon_stroke' => $formHasErrors ? old('icon_stroke', $resolvedLayout['icon_stroke']) : $resolvedLayout['icon_stroke'],
             'logo_visibility' => $formHasErrors ? old('logo_visibility', $resolvedLayout['logo_visibility'] ? '1' : '0') : ($resolvedLayout['logo_visibility'] ? '1' : '0'),
         ];
         $widgetOrder = $formHasErrors ? old('dashboard_widget_order', $resolvedLayout['dashboard_widget_order']) : $resolvedLayout['dashboard_widget_order'];

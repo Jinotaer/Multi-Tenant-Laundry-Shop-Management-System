@@ -11,7 +11,12 @@
         @endif
 
         <div class="flex items-center justify-between">
-            <p class="text-sm text-gray-500">Configure your laundry services and pricing.</p>
+            <div>
+                <p class="text-sm text-gray-500">Configure your laundry services and pricing.</p>
+                <p class="mt-1 text-xs text-gray-400">
+                    {{ $pricingMode === 'advanced' ? 'Advanced pricing is enabled: per-kilo, per-load, per-piece, and flat-rate services are available.' : 'Simple pricing is enabled: this shop is limited to per-kilo services.' }}
+                </p>
+            </div>
             <a href="{{ route('tenant.services.create') }}"
                 class="inline-flex items-center gap-2 rounded-md {{ $theme['primary_bg'] }} {{ $theme['primary_hover'] }} px-4 py-2 text-sm font-medium text-white shadow-sm transition">
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
@@ -53,7 +58,10 @@
                                         </div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        {{ \App\Models\Service::priceTypeLabels()[$service->price_type] ?? $service->price_type }}
+                                        <div>
+                                            <p>{{ \App\Models\Service::priceTypeLabels()[$service->price_type] ?? $service->price_type }}</p>
+                                            <p class="mt-0.5 text-xs text-gray-400">{{ $priceTypeDescriptions[$service->price_type] ?? '' }}</p>
+                                        </div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ $service->formatted_price }}</td>
                                     <td class="px-6 py-4 whitespace-nowrap">

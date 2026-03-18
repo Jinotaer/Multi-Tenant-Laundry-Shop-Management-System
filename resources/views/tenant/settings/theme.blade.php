@@ -114,11 +114,191 @@
             'selectedOptions' => $personalFormSelections,
             'defaultOptions' => $workspaceFormSelections,
         ];
+
+        $liveCustomizerState = [
+            'prefs' => [
+                'theme' => (string) $resolvedSettings['theme'],
+                'sidebar_position' => (string) $resolvedSettings['sidebar_position'],
+                'topbar_behavior' => (string) $resolvedSettings['topbar_behavior'],
+                'topbar_style' => (string) $resolvedSettings['topbar_style'],
+                'sidebar_style' => (string) $resolvedSettings['sidebar_style'],
+                'color_mode' => (string) $resolvedSettings['color_mode'],
+                'font_size' => (string) $resolvedSettings['font_size'],
+                'border_radius' => (string) $resolvedSettings['border_radius'],
+                'logo_visibility' => $resolvedSettings['logo_visibility'] ? '1' : '0',
+            ],
+            'themeColors' => $themePreviewColors,
+        ];
+
+        $liveCustomizerSaveRoute = route('tenant.settings.layout.save');
+        $liveCustomizerResetRoute = route('tenant.settings.layout.reset');
+        $liveCustomizerToken = csrf_token();
     @endphp
 
     @include('tenant.settings.partials.tabs')
 
     <div class="space-y-8">
+        @if ($canManageWorkspaceDefaults || $canManagePersonalPreferences)
+            <section class="tenant-panel overflow-hidden">
+                <div class="border-b border-gray-200 px-6 py-5 dark:border-slate-800">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-slate-100">Live Customization</h3>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-slate-400">All shell customizations are available here. Changes preview immediately after save.</p>
+                </div>
+
+                <div
+                    class="space-y-6 p-6"
+                    x-data="{
+                        prefs: @js($liveCustomizerState['prefs']),
+                        themeColors: @js($liveCustomizerState['themeColors']),
+                        saving: false,
+                        saved: false,
+                        saveError: '',
+                        init() {
+                            this.previewLayout();
+                        },
+                        previewLayout() {
+                            window.dispatchEvent(new CustomEvent('tenant-layout-preview', {
+                                detail: this.prefs,
+                            }));
+                        },
+                        async saveLiveCustomization() {
+                            this.saving = true;
+                            this.saved = false;
+                            this.saveError = '';
+
+                            try {
+                                const response = await fetch('{{ $liveCustomizerSaveRoute }}', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'X-CSRF-TOKEN': '{{ $liveCustomizerToken }}',
+                                        Accept: 'application/json',
+                                    },
+                                    body: JSON.stringify(this.prefs),
+                                });
+
+                                if (! response.ok) {
+                                    this.saveError = 'Unable to save your customization right now.';
+                                    return;
+                                }
+
+                                this.saved = true;
+                                setTimeout(() => {
+                                    this.saved = false;
+                                }, 2500);
+                            } catch (_error) {
+                                this.saveError = 'Network error while saving customization.';
+                            } finally {
+                                this.saving = false;
+                            }
+                        },
+                        async resetLiveCustomization() {
+                            if (! window.confirm('Reset customization to workspace defaults?')) {
+                                return;
+                            }
+
+                            await fetch('{{ $liveCustomizerResetRoute }}', {
+                                method: 'DELETE',
+                                headers: {
+                                    'X-CSRF-TOKEN': '{{ $liveCustomizerToken }}',
+                                    Accept: 'application/json',
+                                },
+                            });
+
+                            window.location.reload();
+                        },
+                    }"
+                    :style="'--selection-accent: ' + (themeColors[prefs.theme] ?? '#6366f1')"
+                >
+                    <section class="tenant-panel overflow-hidden border border-gray-200 dark:border-slate-800">
+                        <div class="border-b border-gray-200 px-6 py-5 dark:border-slate-800">
+                            <h4 class="text-base font-semibold text-gray-900 dark:text-slate-100">Theme Color</h4>
+                            <p class="mt-1 text-sm text-gray-500 dark:text-slate-400">Choose your active accent palette.</p>
+                        </div>
+                        <div class="p-6">
+                            <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6">
+                                @foreach ($presets as $key => $preset)
+                                    <button
+                                        type="button"
+                                        class="tenant-choice-card text-left"
+                                        :class="prefs.theme === '{{ $key }}' ? 'tenant-choice-card-active' : ''"
+                                        style="--selection-accent: {{ $preset['preview'] }}"
+                                        x-on:click="prefs.theme = '{{ $key }}'; previewLayout()"
+                                    >
+                                        <div class="mb-6 flex items-start justify-between gap-3">
+                                            <span class="tenant-selection-indicator" :class="prefs.theme === '{{ $key }}' ? 'opacity-100' : 'opacity-0'">Selected</span>
+                                            <span class="tenant-selection-check" :class="prefs.theme === '{{ $key }}' ? 'tenant-selection-check-active' : ''">
+                                                <svg fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" aria-hidden="true">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="m7.5 12.75 3 3 6-7.5" />
+                                                </svg>
+                                            </span>
+                                        </div>
+                                        <div class="mb-4 h-12 w-12 rounded-full shadow-inner" style="background-color: {{ $preset['preview'] }}"></div>
+                                        <p class="text-base font-semibold text-gray-900 dark:text-slate-100">{{ $preset['label'] }}</p>
+                                        <p class="mt-1 text-xs text-gray-500 dark:text-slate-400">{{ $preset['preview'] }}</p>
+                                    </button>
+                                @endforeach
+                            </div>
+                        </div>
+                    </section>
+
+                    <div class="grid gap-6 xl:grid-cols-2">
+                        @foreach ($settingSections as $field => $section)
+                            <section class="tenant-panel overflow-hidden border border-gray-200 dark:border-slate-800">
+                                <div class="border-b border-gray-200 px-6 py-5 dark:border-slate-800">
+                                    <h4 class="text-base font-semibold text-gray-900 dark:text-slate-100">{{ $section['label'] }}</h4>
+                                    <p class="mt-1 text-sm text-gray-500 dark:text-slate-400">{{ $section['description'] }}</p>
+                                </div>
+                                <div class="grid gap-3 p-6 md:grid-cols-2">
+                                    @foreach ($optionGroups[$field] as $value => $option)
+                                        <button
+                                            type="button"
+                                            class="tenant-choice-card text-left"
+                                            :class="prefs.{{ $field }} === '{{ (string) $value }}' ? 'tenant-choice-card-active' : ''"
+                                            x-on:click="prefs.{{ $field }} = '{{ (string) $value }}'; previewLayout()"
+                                        >
+                                            <div class="mb-6 flex items-start justify-between gap-3">
+                                                <span class="tenant-selection-indicator" :class="prefs.{{ $field }} === '{{ (string) $value }}' ? 'opacity-100' : 'opacity-0'">Selected</span>
+                                                <span class="tenant-selection-check" :class="prefs.{{ $field }} === '{{ (string) $value }}' ? 'tenant-selection-check-active' : ''">
+                                                    <svg fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" aria-hidden="true">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="m7.5 12.75 3 3 6-7.5" />
+                                                    </svg>
+                                                </span>
+                                            </div>
+                                            <p class="text-lg font-semibold text-gray-900 dark:text-slate-100">{{ $option['label'] }}</p>
+                                            <p class="mt-1 text-sm text-gray-500 dark:text-slate-400">{{ $option['description'] }}</p>
+                                        </button>
+                                    @endforeach
+                                </div>
+                            </section>
+                        @endforeach
+                    </div>
+
+                    <div class="flex flex-wrap items-center justify-end gap-3">
+                        <button
+                            type="button"
+                            class="tenant-button inline-flex items-center border border-gray-300 bg-white px-4 py-2 font-semibold text-xs uppercase tracking-widest text-gray-700 transition hover:bg-gray-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+                            x-on:click="resetLiveCustomization()"
+                        >
+                            Reset
+                        </button>
+                        <button
+                            type="button"
+                            class="tenant-button inline-flex items-center border border-transparent bg-gray-900 px-4 py-2 font-semibold text-xs uppercase tracking-widest text-white transition hover:bg-gray-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+                            x-on:click="saveLiveCustomization()"
+                            :disabled="saving"
+                        >
+                            <span x-show="!saving">Save Customization</span>
+                            <span x-show="saving">Saving...</span>
+                        </button>
+                    </div>
+
+                    <p x-show="saved" class="text-sm text-emerald-600 dark:text-emerald-400">Customization saved successfully.</p>
+                    <p x-show="saveError" x-text="saveError" class="text-sm text-red-600 dark:text-red-400"></p>
+                </div>
+            </section>
+        @endif
+
         @if ($canManageWorkspaceDefaults)
             <section class="space-y-6">
                 <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">

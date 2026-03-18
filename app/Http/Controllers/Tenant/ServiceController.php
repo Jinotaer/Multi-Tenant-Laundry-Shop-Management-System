@@ -16,8 +16,10 @@ class ServiceController extends Controller
     public function index(): View
     {
         $services = Service::orderBy('sort_order')->orderBy('name')->get();
+        $pricingMode = Service::pricingMode();
+        $priceTypeDescriptions = Service::priceTypeDescriptions();
 
-        return view('tenant.services.index', compact('services'));
+        return view('tenant.services.index', compact('services', 'pricingMode', 'priceTypeDescriptions'));
     }
 
     /**
@@ -26,8 +28,10 @@ class ServiceController extends Controller
     public function create(): View
     {
         $priceTypes = Service::availablePriceTypes();
+        $pricingMode = Service::pricingMode();
+        $priceTypeDescriptions = Service::priceTypeDescriptions();
 
-        return view('tenant.services.create', compact('priceTypes'));
+        return view('tenant.services.create', compact('priceTypes', 'pricingMode', 'priceTypeDescriptions'));
     }
 
     /**
@@ -47,8 +51,10 @@ class ServiceController extends Controller
     public function edit(Service $service): View
     {
         $priceTypes = Service::availablePriceTypes();
+        $pricingMode = Service::pricingMode();
+        $priceTypeDescriptions = Service::priceTypeDescriptions();
 
-        return view('tenant.services.edit', compact('service', 'priceTypes'));
+        return view('tenant.services.edit', compact('service', 'priceTypes', 'pricingMode', 'priceTypeDescriptions'));
     }
 
     /**

@@ -10,6 +10,8 @@ return [
         'theme' => 'indigo',
         'font_size' => 'base',
         'border_radius' => 'lg',
+        'icon_size' => 'base',
+        'icon_stroke' => 'base',
         'logo_visibility' => true,
         'dashboard_widget_order' => [
             'total_shops',

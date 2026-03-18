@@ -13,8 +13,8 @@ Great news! Your order **#{{ $orderNumber }}** is ready for pickup!
 **Payment Status:** Paid ✓
 @endif
 
-<x-mail::button :url="route('tenant.portal.show', ['order' => $order->id])">
-View Order Details
+<x-mail::button :url="$actionUrl">
+{{ $actionLabel }}
 </x-mail::button>
 
 Please pick up your order at your earliest convenience.

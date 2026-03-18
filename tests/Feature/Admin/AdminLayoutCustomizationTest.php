@@ -35,6 +35,8 @@ it('allows admins to save their layout settings', function () {
         'color_mode' => 'dark',
         'font_size' => 'lg',
         'border_radius' => 'xl',
+        'icon_size' => 'base',
+        'icon_stroke' => 'base',
         'logo_visibility' => false,
         'dashboard_widget_order' => [
             'pending_registrations',
@@ -90,9 +92,11 @@ it('renders resolved admin shell settings and dashboard widgets in saved order',
         ->assertSee('data-color-mode="dark"', false)
         ->assertSee('data-font-size="lg"', false)
         ->assertSee('data-border-radius="xl"', false)
+        ->assertSee('data-icon-size="base"', false)
+        ->assertSee('data-icon-stroke="base"', false)
         ->assertSee('data-logo-visibility="false"', false)
-        ->assertSee('class="pt-4 pb-4"', false)
-        ->assertSee('class="tenant-topbar tenant-topbar-accent px-4 py-4 sm:px-6"', false)
+        ->assertSee(':class="topbarWrapperClass"', false)
+        ->assertSee(':class="topbarSurfaceClass"', false)
         ->assertSee('tenant-wordmark tenant-wordmark-sidebar', false)
         ->assertSee('tenant-wordmark tenant-wordmark-topbar', false)
         ->assertSee('tenant-nav-active', false)
@@ -131,6 +135,21 @@ it('rejects invalid admin layout values and widget orders', function () {
         ]);
 });
 
+it('allows admins to save top sidebar position from the live customizer endpoint', function () {
+    $this->actingAs($this->admin, 'admin')
+        ->postJson(route('admin.settings.layout.save'), [
+            'sidebar_position' => 'top',
+        ])
+        ->assertOk()
+        ->assertJson([
+            'saved' => true,
+        ]);
+
+    $this->admin->refresh();
+
+    expect($this->admin->layout_settings['sidebar_position'] ?? null)->toBe('top');
+});
+
 function adminLayoutPayload(array $overrides = []): array
 {
     return array_merge([
@@ -142,6 +161,8 @@ function adminLayoutPayload(array $overrides = []): array
         'color_mode' => 'dark',
         'font_size' => 'lg',
         'border_radius' => 'xl',
+        'icon_size' => 'base',
+        'icon_stroke' => 'base',
         'logo_visibility' => '0',
         'dashboard_widget_order' => [
             'pending_registrations',

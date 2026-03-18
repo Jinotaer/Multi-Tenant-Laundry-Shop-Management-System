@@ -24,6 +24,8 @@ class Order extends Model
         'items',
         'total_amount',
         'payment_status',
+        'loyalty_points_awarded',
+        'loyalty_points_awarded_at',
         'paid_at',
         'due_date',
         'notes',
@@ -41,6 +43,8 @@ class Order extends Model
             'total_amount' => 'decimal:2',
             'weight' => 'decimal:2',
             'due_date' => 'date',
+            'loyalty_points_awarded' => 'integer',
+            'loyalty_points_awarded_at' => 'datetime',
             'paid_at' => 'datetime',
         ];
     }
@@ -86,6 +90,60 @@ class Order extends Model
             'ready' => 'Ready for Pickup',
             'claimed' => 'Claimed',
         ];
+    }
+
+    /**
+     * Get the ordered workflow sequence for the current tenant's plan.
+     *
+     * @return array<int, string>
+     */
+    public static function statusSequenceForPlan(): array
+    {
+        return array_keys(self::statusLabelsForPlan());
+    }
+
+    /**
+     * Get the terminal workflow status for the current tenant's plan.
+     */
+    public static function terminalStatusForPlan(): string
+    {
+        $sequence = self::statusSequenceForPlan();
+
+        return $sequence[array_key_last($sequence)] ?? 'claimed';
+    }
+
+    /**
+     * Get the in-process statuses for the current tenant's plan.
+     *
+     * @return array<int, string>
+     */
+    public static function activeProcessingStatusesForPlan(): array
+    {
+        $terminalStatus = self::terminalStatusForPlan();
+
+        return array_values(array_filter(
+            self::statusSequenceForPlan(),
+            fn (string $status): bool => ! in_array($status, ['ready', $terminalStatus], true),
+        ));
+    }
+
+    /**
+     * Get the next available workflow action for the given status.
+     *
+     * @return array<string, string>
+     */
+    public static function nextStatusActionsForPlan(string $currentStatus): array
+    {
+        $sequence = self::statusSequenceForPlan();
+        $currentIndex = array_search($currentStatus, $sequence, true);
+
+        if (! is_int($currentIndex) || $currentIndex >= count($sequence) - 1) {
+            return [];
+        }
+
+        $nextStatus = $sequence[$currentIndex + 1];
+
+        return [$nextStatus => self::transitionLabelForStatus($nextStatus)];
     }
 
     /**
@@ -156,5 +214,21 @@ class Order extends Model
     public function service(): BelongsTo
     {
         return $this->belongsTo(Service::class);
+    }
+
+    /**
+     * Get the CTA label for a workflow transition.
+     */
+    private static function transitionLabelForStatus(string $status): string
+    {
+        return match ($status) {
+            'in_progress' => 'Start Processing',
+            'washing' => 'Move to Washing',
+            'drying' => 'Move to Drying',
+            'folding' => 'Move to Folding',
+            'ready' => 'Mark Ready for Pickup',
+            'claimed' => 'Mark as Claimed',
+            default => 'Move to '.(self::statusLabels()[$status] ?? ucfirst(str_replace('_', ' ', $status))),
+        };
     }
 }

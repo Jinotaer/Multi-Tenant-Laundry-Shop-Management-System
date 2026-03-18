@@ -54,14 +54,7 @@ class OrderController extends Controller
         $data = $request->validated();
         $data['order_number'] = Order::generateOrderNumber();
         $data['payment_status'] = 'unpaid';
-
-        // Auto-calculate total if service + weight provided
-        if (! empty($data['service_id']) && ! empty($data['weight'])) {
-            $service = Service::find($data['service_id']);
-            if ($service && $service->price_type === 'per_kilo') {
-                $data['total_amount'] = $service->price * $data['weight'];
-            }
-        }
+        $data = $this->prepareOrderData($data);
 
         Order::create($data);
 
@@ -98,14 +91,7 @@ class OrderController extends Controller
     public function update(OrderRequest $request, Order $order): RedirectResponse
     {
         $data = $request->validated();
-
-        // Auto-calculate total if service + weight provided
-        if (! empty($data['service_id']) && ! empty($data['weight'])) {
-            $service = Service::find($data['service_id']);
-            if ($service && $service->price_type === 'per_kilo') {
-                $data['total_amount'] = $service->price * $data['weight'];
-            }
-        }
+        $data = $this->prepareOrderData($data);
 
         $order->update($data);
 
@@ -163,5 +149,44 @@ class OrderController extends Controller
 
         return redirect()->route('tenant.orders.index')
             ->with('success', 'Order deleted successfully.');
+    }
+
+    /**
+     * Normalize order pricing data before persisting it.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function prepareOrderData(array $data): array
+    {
+        $service = ! empty($data['service_id'])
+            ? Service::find((int) $data['service_id'])
+            : null;
+
+        if ($service) {
+            $data['items'] = $service->prepareOrderItems((array) ($data['items'] ?? []));
+            $data['weight'] = $service->requiresWeight()
+                ? (float) ($data['weight'] ?? 0)
+                : null;
+            $data['total_amount'] = $service->calculateOrderTotal(
+                $service->requiresWeight() ? (float) ($data['weight'] ?? 0) : null,
+                $data['items'],
+            );
+
+            return $data;
+        }
+
+        $data['items'] = array_map(
+            fn (array $item): array => [
+                'name' => $item['name'],
+                'qty' => $item['qty'],
+                'price' => round((float) ($item['price'] ?? 0), 2),
+            ],
+            Service::normalizeItemEntries((array) ($data['items'] ?? [])),
+        );
+        $data['weight'] = null;
+        $data['total_amount'] = Service::calculateItemizedTotal($data['items']);
+
+        return $data;
     }
 }

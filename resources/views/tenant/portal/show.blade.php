@@ -20,12 +20,16 @@
         <div class="bg-white shadow-sm sm:rounded-lg p-6">
             <h3 class="text-sm font-semibold text-gray-700 mb-4">Order Progress</h3>
             @php
-                $steps = ['pending' => 'Received', 'washing' => 'Washing', 'drying' => 'Drying', 'ready' => 'Ready for Pickup', 'delivered' => 'Delivered'];
-                $currentIndex = array_search($order->status, array_keys($steps));
+                $steps = \App\Models\Order::statusLabelsForPlan();
+                $currentIndex = array_search($order->status, array_keys($steps), true);
+                $currentIndex = is_int($currentIndex) ? $currentIndex : -1;
             @endphp
             <div class="flex items-center justify-between">
                 @foreach ($steps as $key => $label)
-                    @php $stepIndex = array_search($key, array_keys($steps)); @endphp
+                    @php
+                        $stepIndex = array_search($key, array_keys($steps), true);
+                        $stepIndex = is_int($stepIndex) ? $stepIndex : -1;
+                    @endphp
                     <div class="flex flex-col items-center flex-1">
                         <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold
                             {{ $stepIndex <= $currentIndex ? $theme['primary_bg'] . ' text-white' : 'bg-gray-200 text-gray-400' }}">

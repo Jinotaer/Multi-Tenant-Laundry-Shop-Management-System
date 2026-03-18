@@ -188,6 +188,58 @@
         accent-color: var(--tenant-theme-accent);
     }
 
+    .tenant-primary-action {
+        background-color: var(--tenant-theme-accent);
+        border-color: transparent;
+        color: #fff;
+        transition:
+            filter 150ms ease,
+            transform 150ms ease,
+            box-shadow 150ms ease;
+    }
+
+    .tenant-primary-action:hover {
+        filter: brightness(0.96);
+    }
+
+    .tenant-primary-action:focus-visible {
+        outline: none;
+        box-shadow:
+            0 0 0 2px var(--tenant-theme-accent),
+            0 0 0 5px var(--tenant-theme-accent-soft);
+    }
+
+    /* Keep primary action buttons in sync with live theme preview, even when rendered with static bg classes. */
+    .tenant-shell :is(button, a)[class*='text-white'][class*='bg-']:not([class*='bg-red-']):not([class*='bg-yellow-']):not([class*='bg-orange-']):not([class*='bg-gray-']):not([class*='bg-white']) {
+        background-color: var(--tenant-theme-accent) !important;
+        border-color: transparent !important;
+    }
+
+    .tenant-shell :is(button, a)[class*='text-white'][class*='bg-']:not([class*='bg-red-']):not([class*='bg-yellow-']):not([class*='bg-orange-']):not([class*='bg-gray-']):not([class*='bg-white']):hover {
+        filter: brightness(0.96);
+    }
+
+    .tenant-shell input:not([type='checkbox']):not([type='radio']):not([type='hidden']):not([type='file']):focus,
+    .tenant-shell select:focus,
+    .tenant-shell textarea:focus {
+        border-color: var(--tenant-theme-accent) !important;
+        box-shadow:
+            0 0 0 1px var(--tenant-theme-accent),
+            0 0 0 4px var(--tenant-theme-accent-soft) !important;
+        outline: none;
+    }
+
+    .tenant-shell input[type='checkbox'],
+    .tenant-shell input[type='radio'] {
+        accent-color: var(--tenant-theme-accent);
+    }
+
+    .tenant-shell :is(nav svg, button svg, a svg) {
+        width: var(--tenant-icon-size, 1.25rem);
+        height: var(--tenant-icon-size, 1.25rem);
+        stroke-width: var(--tenant-icon-stroke, 1.5) !important;
+    }
+
     .dark .tenant-auth-checkbox {
         border-color: rgb(71 85 105 / 1);
         background-color: rgb(15 23 42 / 1);

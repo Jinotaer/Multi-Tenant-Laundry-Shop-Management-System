@@ -7,8 +7,6 @@
 
     @php $theme = app(\App\Services\ThemeService::class)->getTenantTheme(); @endphp
 
-    @include('tenant.settings.partials.tabs')
-
     <div class="space-y-6">
         <div class="tenant-panel overflow-hidden">
             <div class="p-4 sm:p-8">

@@ -28,13 +28,7 @@
                 <div class="px-6 py-4 flex flex-wrap items-center gap-3">
                     {{-- Status Workflow --}}
                     @php
-                        $nextStatuses = match($order->status) {
-                            'pending' => ['washing' => 'Start Washing'],
-                            'washing' => ['drying' => 'Move to Drying'],
-                            'drying' => ['ready' => 'Mark Ready'],
-                            'ready' => ['delivered' => 'Mark Delivered'],
-                            default => [],
-                        };
+                        $nextStatuses = \App\Models\Order::nextStatusActionsForPlan($order->status);
                     @endphp
 
                     @foreach ($nextStatuses as $statusKey => $statusLabel)

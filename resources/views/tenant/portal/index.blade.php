@@ -15,6 +15,51 @@
                 <p class="text-xs text-yellow-600 mt-1">Your account email doesn't match any customer records. Please contact the shop.</p>
             </div>
         @else
+            @if (tenant()->hasFeature('customer_loyalty') && $loyalty)
+                <div class="grid grid-cols-1 gap-4 lg:grid-cols-4">
+                    <div class="rounded-2xl border border-amber-200 bg-amber-50 p-5 shadow-sm lg:col-span-2">
+                        <div class="flex items-start justify-between gap-4">
+                            <div>
+                                <p class="text-xs font-semibold uppercase tracking-[0.2em] text-amber-700">Loyalty Rewards</p>
+                                <h3 class="mt-2 text-xl font-semibold text-gray-900">{{ ucfirst($loyalty->tier) }} Tier</h3>
+                                <p class="mt-1 text-sm text-gray-600">{{ \App\Models\CustomerLoyalty::tierLabels()[$loyalty->tier] ?? ucfirst($loyalty->tier) }}</p>
+                            </div>
+                            <div class="rounded-2xl bg-white px-4 py-3 text-right shadow-sm">
+                                <p class="text-xs text-gray-500">Reward Value</p>
+                                <p class="text-lg font-semibold text-gray-900">â‚±{{ number_format($loyalty->getRewardValue(), 2) }}</p>
+                            </div>
+                        </div>
+
+                        @if ($loyalty->nextTier())
+                            <div class="mt-5">
+                                <div class="flex items-center justify-between text-xs text-gray-500">
+                                    <span>Progress to {{ ucfirst($loyalty->nextTier()) }}</span>
+                                    <span>{{ $loyalty->progressToNextTier() }}%</span>
+                                </div>
+                                <div class="mt-2 h-2 rounded-full bg-white">
+                                    <div class="h-2 rounded-full bg-amber-500" style="width: {{ $loyalty->progressToNextTier() }}%"></div>
+                                </div>
+                                <p class="mt-2 text-xs text-gray-500">Spend â‚±{{ number_format($loyalty->spendingNeededForNextTier(), 2) }} more to reach {{ ucfirst($loyalty->nextTier()) }}.</p>
+                            </div>
+                        @else
+                            <p class="mt-5 text-xs font-medium text-amber-700">Top tier unlocked. You are receiving the highest loyalty multiplier.</p>
+                        @endif
+                    </div>
+
+                    <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Points</p>
+                        <p class="mt-3 text-3xl font-semibold text-gray-900">{{ number_format($loyalty->points) }}</p>
+                        <p class="mt-1 text-xs text-gray-400">Earned from completed claimed orders.</p>
+                    </div>
+
+                    <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Stamps</p>
+                        <p class="mt-3 text-3xl font-semibold text-gray-900">{{ number_format($loyalty->stamps) }}</p>
+                        <p class="mt-1 text-xs text-gray-400">One stamp is added for each completed order.</p>
+                    </div>
+                </div>
+            @endif
+
             {{-- Active Orders --}}
             <div>
                 <h3 class="text-sm font-semibold text-gray-700 mb-3">Active Orders</h3>

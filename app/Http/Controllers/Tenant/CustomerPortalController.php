@@ -19,14 +19,31 @@ class CustomerPortalController extends Controller
         $customer = $user instanceof Customer
             ? $user
             : Customer::query()->where('email', $user->email)->first();
+        $completedStatuses = array_values(array_unique([
+            Order::terminalStatusForPlan(),
+            'delivered',
+        ]));
 
         $activeOrders = collect();
         $orderHistory = collect();
+        $loyalty = null;
 
         if ($customer) {
+            if (tenant()->hasFeature('customer_loyalty')) {
+                $loyalty = $customer->loyalty()->firstOrCreate(
+                    [],
+                    [
+                        'points' => 0,
+                        'stamps' => 0,
+                        'tier' => 'bronze',
+                        'lifetime_spent' => 0,
+                    ]
+                );
+            }
+
             $activeOrders = Order::where('customer_id', $customer->id)
                 ->with('service')
-                ->whereNotIn('status', ['delivered'])
+                ->whereNotIn('status', $completedStatuses)
                 ->latest()
                 ->get();
 
@@ -38,7 +55,7 @@ class CustomerPortalController extends Controller
                 ->withQueryString();
         }
 
-        return view('tenant.portal.index', compact('user', 'customer', 'activeOrders', 'orderHistory'));
+        return view('tenant.portal.index', compact('user', 'customer', 'activeOrders', 'orderHistory', 'loyalty'));
     }
 
     /**

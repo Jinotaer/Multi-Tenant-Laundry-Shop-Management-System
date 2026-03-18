@@ -90,6 +90,10 @@ class CustomerController extends Controller
      */
     public function show(Customer $customer): View
     {
+        if (tenant()->hasFeature('customer_loyalty')) {
+            $customer->load('loyalty');
+        }
+
         $orders = $customer->orders()->with('customer')->latest()->paginate(10);
 
         return view('tenant.customers.show', compact('customer', 'orders'));

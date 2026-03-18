@@ -1,4 +1,9 @@
 <section class="space-y-4" data-widget-key="overview_stats">
+    @php
+        $activeOrderCount = collect(\App\Models\Order::activeProcessingStatusesForPlan())
+            ->sum(fn (string $status): int => (int) ($ordersByStatus[$status] ?? 0));
+    @endphp
+
     <div class="flex items-center justify-between">
         <div>
             <p class="text-xs font-semibold uppercase tracking-[0.2em] text-gray-400">Overview</p>
@@ -31,15 +36,15 @@
             </div>
         </a>
 
-        <a href="{{ route('tenant.orders.index', ['status' => 'pending']) }}" class="tenant-card group flex items-center gap-4 p-5 transition hover:-translate-y-0.5 hover:shadow-lg">
+        <a href="{{ route('tenant.orders.index') }}" class="tenant-card group flex items-center gap-4 p-5 transition hover:-translate-y-0.5 hover:shadow-lg">
             <div class="flex h-12 w-12 items-center justify-center rounded-full bg-yellow-100 dark:bg-yellow-500/15">
                 <svg class="h-6 w-6 text-yellow-600 dark:text-yellow-300" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
             </div>
             <div>
-                <p class="text-xs uppercase tracking-wide text-gray-500">Pending</p>
-                <p class="mt-1 text-2xl font-bold text-gray-900">{{ $ordersByStatus['pending'] ?? 0 }}</p>
+                <p class="text-xs uppercase tracking-wide text-gray-500">Active Orders</p>
+                <p class="mt-1 text-2xl font-bold text-gray-900">{{ $activeOrderCount }}</p>
             </div>
         </a>
 

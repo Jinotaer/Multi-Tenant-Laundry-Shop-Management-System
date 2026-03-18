@@ -39,6 +39,8 @@ class UpdateAdminLayoutSettingsRequest extends FormRequest
             'color_mode' => ['required', 'string', Rule::in($this->allowedValues('color_mode'))],
             'font_size' => ['required', 'string', Rule::in($this->allowedValues('font_size'))],
             'border_radius' => ['required', 'string', Rule::in($this->allowedValues('border_radius'))],
+            'icon_size' => ['required', 'string', Rule::in($this->allowedValues('icon_size'))],
+            'icon_stroke' => ['required', 'string', Rule::in($this->allowedValues('icon_stroke'))],
             'logo_visibility' => ['required', 'boolean'],
             'dashboard_widget_order' => ['required', 'array'],
             'dashboard_widget_order.*' => ['required', 'string', Rule::in(array_keys(config('admin-layout.widgets', [])))],
@@ -61,6 +63,8 @@ class UpdateAdminLayoutSettingsRequest extends FormRequest
             'color_mode.required' => 'Choose the admin color mode.',
             'font_size.required' => 'Choose the admin font size.',
             'border_radius.required' => 'Choose the admin border radius.',
+            'icon_size.required' => 'Choose the admin icon size.',
+            'icon_stroke.required' => 'Choose the admin icon stroke.',
             'logo_visibility.required' => 'Choose whether the admin logo should be shown.',
             'dashboard_widget_order.required' => 'Arrange all admin dashboard widgets before saving.',
         ];

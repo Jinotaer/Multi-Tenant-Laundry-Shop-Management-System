@@ -29,20 +29,38 @@
                         get selectedService() {
                             return this.services.find(s => s.id == this.serviceId);
                         },
-                        get serviceTotal() {
+                        get serviceBaseTotal() {
                             if (!this.selectedService) return 0;
                             if (this.selectedService.price_type === 'per_kilo') {
-                                return parseFloat(this.selectedService.price) * parseFloat(this.weight || 0);
+                                return parseFloat(this.selectedService.price || 0) * parseFloat(this.weight || 0);
                             }
-                            return parseFloat(this.selectedService.price);
+                            if (this.selectedService.price_type === 'per_piece') {
+                                return 0;
+                            }
+                            return parseFloat(this.selectedService.price || 0);
+                        },
+                        lineItemPrice(item) {
+                            if (this.selectedService && this.selectedService.price_type === 'per_piece' && (item.price === '' || item.price === null || typeof item.price === 'undefined')) {
+                                return parseFloat(this.selectedService.price || 0);
+                            }
+
+                            return parseFloat(item.price || 0);
                         },
                         get itemsTotal() {
-                            return this.items.reduce((sum, i) => sum + (parseFloat(i.qty || 0) * parseFloat(i.price || 0)), 0);
+                            return this.items.reduce((sum, i) => sum + (parseFloat(i.qty || 0) * this.lineItemPrice(i)), 0);
                         },
                         get total() {
-                            return this.serviceTotal + this.itemsTotal;
+                            return this.serviceBaseTotal + this.itemsTotal;
                         },
-                        addItem() { this.items.push({ name: '', qty: 1, price: '' }); },
+                        addItem() {
+                            this.items.push({
+                                name: '',
+                                qty: 1,
+                                price: this.selectedService && this.selectedService.price_type === 'per_piece'
+                                    ? this.selectedService.price
+                                    : '',
+                            });
+                        },
                         removeItem(index) { if (this.items.length > 1) this.items.splice(index, 1); }
                     }">
                     @csrf
@@ -81,6 +99,15 @@
                                 class="block w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">
                         </div>
                     </div>
+
+                    <template x-if="selectedService">
+                        <div class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-xs text-gray-600">
+                            <p x-show="selectedService.price_type === 'per_kilo'">This order total is based on the recorded weight plus any priced add-ons below.</p>
+                            <p x-show="selectedService.price_type === 'per_load'">This service adds one fixed per-load charge plus any priced add-ons below.</p>
+                            <p x-show="selectedService.price_type === 'flat'">This service adds one flat-rate charge plus any priced add-ons below.</p>
+                            <p x-show="selectedService.price_type === 'per_piece'">Per-piece pricing is active. Each item line uses the service price by default unless you enter a custom line price.</p>
+                        </div>
+                    </template>
 
                     {{-- Status & Due Date --}}
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -125,7 +152,7 @@
                                     </div>
                                     <div class="col-span-3">
                                         <input type="number" :name="`items[${index}][price]`" x-model="item.price" min="0" step="0.01"
-                                            placeholder="Price (₱)"
+                                            :placeholder="selectedService && selectedService.price_type === 'per_piece' ? 'Default piece price' : 'Price (₱)'"
                                             class="block w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">
                                     </div>
                                     <div class="col-span-1 text-center">
@@ -172,3 +199,5 @@
         </div>
     </div>
 </x-tenant-layout>
+
+

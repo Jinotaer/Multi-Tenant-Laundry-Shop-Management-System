@@ -5,7 +5,11 @@ namespace App\Listeners;
 use App\Events\OrderStatusChanged;
 use App\Mail\OrderReadyForPickupNotification;
 use App\Mail\OrderStatusChangedNotification;
+use App\Models\Customer;
 use App\Models\CustomerLoyalty;
+use App\Models\Order;
+use App\Notifications\LoyaltyPointsEarnedNotification;
+use App\Notifications\OrderStatusDatabaseNotification;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Support\Facades\Mail;
@@ -30,36 +34,52 @@ class SendOrderStatusNotification implements ShouldQueue
         $order = $event->order->load('customer', 'service');
         $customer = $order->customer;
 
-        // Only send notifications if tenant has feature enabled
-        if (!tenant()->hasFeature('notifications')) {
+        if (! $customer || $event->oldStatus === $event->newStatus) {
             return;
         }
 
-        // Send email notification
-        Mail::send(new OrderStatusChangedNotification($order, $event->newStatus));
-
-        // Special notification when order is ready for pickup
-        if ($event->newStatus === 'ready') {
-            Mail::send(new OrderReadyForPickupNotification($order));
+        if (tenant()->hasFeature('notifications')) {
+            $this->sendCustomerNotifications($customer, $order, $event->newStatus);
         }
 
-        // Award loyalty points when order is claimed (completed)
         if ($event->newStatus === 'claimed') {
-            $this->awardLoyaltyPoints($customer, $order);
+            $loyalty = $this->awardLoyaltyPoints($customer, $order);
+
+            if ($loyalty && tenant()->hasFeature('notifications')) {
+                $customer->notify(new LoyaltyPointsEarnedNotification(
+                    $order,
+                    $loyalty,
+                    $order->loyalty_points_awarded,
+                ));
+            }
         }
     }
 
     /**
-     * Award loyalty points for completed order.
+     * Send customer-facing email and in-app notifications.
      */
-    private function awardLoyaltyPoints($customer, $order): void
+    private function sendCustomerNotifications(Customer $customer, Order $order, string $newStatus): void
     {
-        // Only if tenant has loyalty feature
-        if (!tenant()->hasFeature('customer_loyalty')) {
-            return;
+        if ($customer->email) {
+            if ($newStatus === 'ready') {
+                Mail::to($customer->email)->send(new OrderReadyForPickupNotification($order));
+            } else {
+                Mail::to($customer->email)->send(new OrderStatusChangedNotification($order, $newStatus));
+            }
         }
 
-        // Get or create loyalty record
+        $customer->notify(new OrderStatusDatabaseNotification($order, $newStatus));
+    }
+
+    /**
+     * Award loyalty points for a completed order.
+     */
+    private function awardLoyaltyPoints(Customer $customer, Order $order): ?CustomerLoyalty
+    {
+        if (! tenant()->hasFeature('customer_loyalty') || $order->loyalty_points_awarded_at) {
+            return null;
+        }
+
         $loyalty = CustomerLoyalty::firstOrCreate(
             ['customer_id' => $customer->id],
             [
@@ -70,10 +90,16 @@ class SendOrderStatusNotification implements ShouldQueue
             ]
         );
 
-        // Award 1 point per ₱100 spent, multiplied by tier multiplier
         $basePoints = (int) ($order->total_amount / 100);
         $points = (int) ($basePoints * $loyalty->getRewardMultiplier());
 
-        $loyalty->addPoints($points, $order->total_amount);
+        $loyalty->addPoints($points, (float) $order->total_amount);
+
+        $order->forceFill([
+            'loyalty_points_awarded' => $points,
+            'loyalty_points_awarded_at' => now(),
+        ])->saveQuietly();
+
+        return $loyalty->refresh();
     }
 }

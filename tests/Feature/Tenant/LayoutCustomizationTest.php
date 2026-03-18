@@ -4,7 +4,9 @@ use App\Models\Customer;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\LayoutSettingsService;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 beforeEach(function () {
@@ -223,6 +225,140 @@ test('customers can save shell preferences but cannot update workspace defaults'
 
     $this->patch(tenantUrl($this->tenantDomain, '/settings/theme'), workspaceDefaultsPayload())
         ->assertForbidden();
+});
+
+test('staff can save top sidebar position from live customizer endpoint', function () {
+    $staff = $this->tenant->run(function (): User {
+        return User::create([
+            'name' => 'Staff User',
+            'email' => 'staff-live@example.com',
+            'password' => 'password',
+            'role' => 'staff',
+        ]);
+    });
+
+    $this->post(tenantUrl($this->tenantDomain, '/login'), [
+        'email' => 'staff-live@example.com',
+        'password' => 'password',
+    ])->assertRedirect(route('tenant.dashboard', absolute: false));
+
+    $this->postJson(tenantUrl($this->tenantDomain, '/settings/layout/save'), [
+        'sidebar_position' => 'top',
+    ])
+        ->assertOk()
+        ->assertJson([
+            'saved' => true,
+        ]);
+
+    $storedPreferences = $this->tenant->run(fn (): ?array => User::find($staff->id)?->layout_preferences);
+
+    expect($storedPreferences['sidebar_position'] ?? null)->toBe('top');
+});
+
+test('owner can reset workspace defaults from live customizer endpoint', function () {
+    $this->tenant->theme = 'rose';
+    $this->tenant->layout_settings = [
+        'sidebar_position' => 'right',
+        'topbar_behavior' => 'static',
+        'topbar_style' => 'accent',
+        'sidebar_style' => 'floating',
+        'color_mode' => 'dark',
+    ];
+    $this->tenant->save();
+
+    $this->post(tenantUrl($this->tenantDomain, '/login'), [
+        'email' => 'owner@example.com',
+        'password' => 'password',
+    ])->assertRedirect(route('tenant.dashboard', absolute: false));
+
+    $this->deleteJson(tenantUrl($this->tenantDomain, '/settings/layout/reset'))
+        ->assertOk()
+        ->assertJson([
+            'reset' => true,
+        ]);
+
+    $this->tenant->refresh();
+
+    expect($this->tenant->theme)->toBe(config('layout.defaults.theme', config('themes.default')));
+    expect($this->tenant->layout_settings)->toBeNull();
+});
+
+test('owner can upload tenant logo', function () {
+    Storage::fake('public');
+
+    $this->post(tenantUrl($this->tenantDomain, '/login'), [
+        'email' => 'owner@example.com',
+        'password' => 'password',
+    ])->assertRedirect(route('tenant.dashboard', absolute: false));
+
+    $this->from(tenantUrl($this->tenantDomain, '/dashboard'))
+        ->post(tenantUrl($this->tenantDomain, '/settings/logo'), [
+            'logo' => UploadedFile::fake()->image('tenant-logo.png'),
+        ])
+        ->assertRedirect(tenantUrl($this->tenantDomain, '/dashboard'));
+
+    $this->tenant->refresh();
+
+    expect($this->tenant->logo_path)->not->toBeNull();
+    expect(Storage::disk('public')->exists($this->tenant->logo_path))->toBeTrue();
+});
+
+test('staff can upload tenant logo', function () {
+    Storage::fake('public');
+
+    $this->tenant->run(function (): User {
+        return User::create([
+            'name' => 'Staff User',
+            'email' => 'staff-logo@example.com',
+            'password' => 'password',
+            'role' => 'staff',
+        ]);
+    });
+
+    $this->post(tenantUrl($this->tenantDomain, '/login'), [
+        'email' => 'staff-logo@example.com',
+        'password' => 'password',
+    ])->assertRedirect(route('tenant.dashboard', absolute: false));
+
+    $this->from(tenantUrl($this->tenantDomain, '/dashboard'))
+        ->post(tenantUrl($this->tenantDomain, '/settings/logo'), [
+            'logo' => UploadedFile::fake()->image('tenant-logo.png'),
+        ])
+        ->assertRedirect(tenantUrl($this->tenantDomain, '/dashboard'));
+
+    $this->tenant->refresh();
+
+    expect($this->tenant->logo_path)->not->toBeNull();
+    expect(Storage::disk('public')->exists($this->tenant->logo_path))->toBeTrue();
+});
+
+test('customers can upload tenant logo', function () {
+    Storage::fake('public');
+
+    $this->tenant->run(function (): Customer {
+        return Customer::create([
+            'name' => 'Portal Customer',
+            'email' => 'customer-logo@example.com',
+            'password' => Hash::make('password'),
+            'role' => 'customer',
+        ]);
+    });
+
+    $this->post(tenantUrl($this->tenantDomain, '/login'), [
+        'email' => 'customer-logo@example.com',
+        'password' => 'password',
+    ])->assertRedirect(route('tenant.dashboard', absolute: false));
+
+    $this->from(tenantUrl($this->tenantDomain, '/dashboard'))
+        ->post(tenantUrl($this->tenantDomain, '/settings/logo'), [
+            'logo' => UploadedFile::fake()->image('tenant-logo.png'),
+        ])
+        ->assertRedirect(tenantUrl($this->tenantDomain, '/dashboard'));
+
+    $this->tenant->refresh();
+
+    expect($this->tenant->logo_path)->not->toBeNull();
+    expect(Storage::disk('public')->exists($this->tenant->logo_path))->toBeTrue();
 });
 
 test('resetting personal preferences clears overrides and falls back to tenant defaults', function () {

@@ -20,8 +20,7 @@ class DashboardController extends Controller
     {
         $user = $request->user();
 
-        // Redirect customer role to portal
-        if ($user->isCustomer()) {
+        if ($user->isCustomer() && tenant()->hasFeature('customer_portal')) {
             return redirect()->route('tenant.portal.index');
         }
 

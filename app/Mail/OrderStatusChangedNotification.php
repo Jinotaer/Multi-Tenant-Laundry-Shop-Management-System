@@ -19,19 +19,15 @@ class OrderStatusChangedNotification extends Mailable
     public function __construct(
         public Order $order,
         public string $newStatus,
-    ) {
-    }
+    ) {}
 
     /**
      * Get the message envelope.
      */
     public function envelope(): Envelope
     {
-        $shopName = tenant('data')['shop_name'] ?? tenant('id');
-
         return new Envelope(
             subject: "Order #{$this->order->order_number} status updated - {$this->order->status_label}",
-            from: env('MAIL_FROM_ADDRESS', 'noreply@laundrytrack.com'),
         );
     }
 
@@ -48,6 +44,8 @@ class OrderStatusChangedNotification extends Mailable
                 'customerName' => $this->order->customer->name,
                 'serviceName' => $this->order->service?->name ?? 'Custom',
                 'dueDate' => $this->order->due_date?->format('M d, Y'),
+                'actionUrl' => $this->actionUrl(),
+                'actionLabel' => tenant()->hasFeature('customer_portal') ? 'View Order Details' : 'View Notifications',
             ],
         );
     }
@@ -60,5 +58,22 @@ class OrderStatusChangedNotification extends Mailable
     public function attachments(): array
     {
         return [];
+    }
+
+    /**
+     * Get the customer-facing action URL for this notification.
+     */
+    private function actionUrl(): string
+    {
+        $domain = tenant()?->domains()->first()?->domain;
+        $path = tenant()->hasFeature('customer_portal')
+            ? "/portal/{$this->order->id}"
+            : '/notifications';
+
+        if ($domain) {
+            return "http://{$domain}{$path}";
+        }
+
+        return route('tenant.notifications.index', absolute: false);
     }
 }

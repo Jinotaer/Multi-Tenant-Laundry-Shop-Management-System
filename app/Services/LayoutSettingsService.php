@@ -261,6 +261,22 @@ class LayoutSettingsService
     }
 
     /**
+     * Get the icon CSS size value for a setting key.
+     */
+    public function iconSizeValue(string $iconSize): string
+    {
+        return config("layout.options.icon_size.{$iconSize}.css_size", '1.25rem');
+    }
+
+    /**
+     * Get the icon stroke width for a setting key.
+     */
+    public function iconStrokeValue(string $iconStroke): string
+    {
+        return config("layout.options.icon_stroke.{$iconStroke}.stroke_width", '1.5');
+    }
+
+    /**
      * Normalize an incoming layout settings payload.
      *
      * @param  array<string, mixed>  $settings
@@ -279,6 +295,8 @@ class LayoutSettingsService
             'color_mode',
             'font_size',
             'border_radius',
+            'icon_size',
+            'icon_stroke',
         ] as $setting) {
             $value = $settings[$setting] ?? null;
 

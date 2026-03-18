@@ -12,8 +12,8 @@ Your order **#{{ $orderNumber }}** status has been updated!
 **Due Date:** {{ $dueDate }}
 @endif
 
-<x-mail::button :url="route('tenant.portal.show', ['order' => $order->id])">
-View Order Details
+<x-mail::button :url="$actionUrl">
+{{ $actionLabel }}
 </x-mail::button>
 
 Thank you for choosing our service!

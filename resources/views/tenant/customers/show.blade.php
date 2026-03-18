@@ -13,6 +13,47 @@
     @php $theme = tenant()->getThemePreset(); @endphp
 
     <div class="space-y-6">
+        @if (tenant()->hasFeature('customer_loyalty'))
+            @php $loyalty = $customer->loyalty; @endphp
+
+            <div class="bg-white shadow-sm sm:rounded-lg">
+                <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                    <h3 class="text-sm font-semibold text-gray-700">Loyalty Summary</h3>
+                    <span class="inline-flex rounded-full px-3 py-1 text-xs font-medium {{ ($loyalty?->tier ?? 'bronze') === 'platinum' ? 'bg-slate-100 text-slate-700' : 'bg-amber-100 text-amber-700' }}">
+                        {{ ucfirst($loyalty?->tier ?? 'bronze') }} Tier
+                    </span>
+                </div>
+                <div class="p-6 grid grid-cols-1 gap-4 sm:grid-cols-4">
+                    <div>
+                        <p class="text-gray-400 text-xs uppercase tracking-wide mb-1">Points</p>
+                        <p class="text-2xl font-semibold text-gray-900">{{ number_format($loyalty?->points ?? 0) }}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-400 text-xs uppercase tracking-wide mb-1">Stamps</p>
+                        <p class="text-2xl font-semibold text-gray-900">{{ number_format($loyalty?->stamps ?? 0) }}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-400 text-xs uppercase tracking-wide mb-1">Lifetime Spent</p>
+                        <p class="text-2xl font-semibold text-gray-900">â‚±{{ number_format((float) ($loyalty?->lifetime_spent ?? 0), 2) }}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-400 text-xs uppercase tracking-wide mb-1">Reward Value</p>
+                        <p class="text-2xl font-semibold text-gray-900">â‚±{{ number_format($loyalty?->getRewardValue() ?? 0, 2) }}</p>
+                    </div>
+                </div>
+                @if ($loyalty && $loyalty->nextTier())
+                    <div class="px-6 pb-6">
+                        <div class="flex items-center justify-between text-xs text-gray-500">
+                            <span>Progress to {{ ucfirst($loyalty->nextTier()) }}</span>
+                            <span>{{ $loyalty->progressToNextTier() }}%</span>
+                        </div>
+                        <div class="mt-2 h-2 rounded-full bg-gray-100">
+                            <div class="h-2 rounded-full bg-amber-500" style="width: {{ $loyalty->progressToNextTier() }}%"></div>
+                        </div>
+                    </div>
+                @endif
+            </div>
+        @endif
 
         {{-- Customer Details --}}
         <div class="bg-white shadow-sm sm:rounded-lg">

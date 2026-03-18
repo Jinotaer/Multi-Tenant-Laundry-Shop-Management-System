@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Tenant;
 
 use App\Models\Order;
+use App\Models\Service;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -24,7 +25,7 @@ class OrderRequest extends FormRequest
             'items.*.name' => ['nullable', 'string', 'max:255'],
             'items.*.qty' => ['nullable', 'integer', 'min:1'],
             'items.*.price' => ['nullable', 'numeric', 'min:0'],
-            'total_amount' => ['required', 'numeric', 'min:0'],
+            'total_amount' => ['nullable', 'numeric', 'min:0'],
             'due_date' => ['nullable', 'date'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ];
@@ -41,5 +42,35 @@ class OrderRequest extends FormRequest
             return ! empty($item['name']) || ! empty($item['price']);
         });
         $this->merge(['items' => $items ?: null]);
+    }
+
+    /**
+     * Apply service-specific validation after the base rules pass.
+     */
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator): void {
+            $serviceId = $this->input('service_id');
+
+            if (! $serviceId) {
+                return;
+            }
+
+            $service = Service::find($serviceId);
+
+            if (! $service) {
+                return;
+            }
+
+            $normalizedItems = Service::normalizeItemEntries((array) ($this->input('items') ?? []));
+
+            if ($service->requiresWeight() && blank($this->input('weight'))) {
+                $validator->errors()->add('weight', 'Weight is required for per kilo services.');
+            }
+
+            if ($service->usesItemizedPricing() && $normalizedItems === []) {
+                $validator->errors()->add('items', 'Add at least one item for per piece services.');
+            }
+        });
     }
 }

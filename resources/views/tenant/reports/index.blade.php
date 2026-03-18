@@ -42,7 +42,7 @@
             <div class="bg-white rounded-lg shadow-sm p-6">
                 <h3 class="text-sm font-semibold text-gray-700 mb-4">Orders by Status</h3>
                 @php
-                    $statusLabels = \App\Models\Order::statusLabels();
+                    $statusLabels = \App\Models\Order::statusLabelsForPlan();
                     $statusColors = \App\Models\Order::statusColors();
                 @endphp
                 <div class="space-y-3">

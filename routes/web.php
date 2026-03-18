@@ -204,6 +204,14 @@ foreach (config('tenancy.central_domains') as $domain) {
                         AdminSettingsController::class,
                         'updateTheme',
                     ])->name('admin.settings.theme.update');
+                    Route::post('/settings/layout/save', [
+                        AdminSettingsController::class,
+                        'saveFromCustomizer',
+                    ])->name('admin.settings.layout.save');
+                    Route::delete('/settings/layout/reset', [
+                        AdminSettingsController::class,
+                        'resetFromCustomizer',
+                    ])->name('admin.settings.layout.reset');
                     Route::post('/settings/logo', [
                         AdminSettingsController::class,
                         'updateLogo',

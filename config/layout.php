@@ -10,6 +10,8 @@ return [
         'theme' => 'indigo',
         'font_size' => 'base',
         'border_radius' => 'lg',
+        'icon_size' => 'base',
+        'icon_stroke' => 'base',
         'logo_visibility' => true,
         'dashboard_widget_order' => [
             'welcome',
@@ -21,6 +23,10 @@ return [
     ],
     'options' => [
         'sidebar_position' => [
+            'top' => [
+                'label' => 'Top',
+                'description' => 'Place the navigation bar at the top of the page.',
+            ],
             'left' => [
                 'label' => 'Left',
                 'description' => 'Keep the primary navigation on the left side.',
@@ -116,6 +122,40 @@ return [
                 'css_value' => '1.5rem',
             ],
         ],
+        'icon_size' => [
+            'sm' => [
+                'label' => 'Small',
+                'description' => 'Compact icons across navigation and controls.',
+                'css_size' => '1rem',
+            ],
+            'base' => [
+                'label' => 'Base',
+                'description' => 'Balanced icon size for regular dashboard use.',
+                'css_size' => '1.25rem',
+            ],
+            'lg' => [
+                'label' => 'Large',
+                'description' => 'Larger icons for improved legibility.',
+                'css_size' => '1.5rem',
+            ],
+        ],
+        'icon_stroke' => [
+            'thin' => [
+                'label' => 'Thin',
+                'description' => 'Use a lighter icon stroke weight.',
+                'stroke_width' => '1.25',
+            ],
+            'base' => [
+                'label' => 'Base',
+                'description' => 'Default icon stroke weight.',
+                'stroke_width' => '1.5',
+            ],
+            'bold' => [
+                'label' => 'Bold',
+                'description' => 'Use stronger icon stroke weight.',
+                'stroke_width' => '2',
+            ],
+        ],
         'logo_visibility' => [
             '1' => [
                 'label' => 'Show logo',
@@ -135,7 +175,7 @@ return [
         ],
         'overview_stats' => [
             'label' => 'Overview Stats',
-            'description' => 'Customer, order, pending, and ready counts.',
+            'description' => 'Customer, order, active, and ready counts.',
             'roles' => ['owner', 'staff'],
         ],
         'owner_metrics' => [
