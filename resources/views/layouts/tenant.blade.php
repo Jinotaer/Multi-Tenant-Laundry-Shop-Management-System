@@ -4,6 +4,7 @@
 
     $layoutSettingsService = app(\App\Services\LayoutSettingsService::class);
     $currentUser = Auth::user();
+    $canManageTenantLogo = $currentUser !== null && (! method_exists($currentUser, 'isCustomer') || ! $currentUser->isCustomer());
     $theme = app(\App\Services\ThemeService::class)->getTenantTheme();
     $themePresets = app(\App\Services\ThemeService::class)->getAllPresets();
     $resolvedLayout = $layoutSettingsService->resolve(tenant(), $currentUser);
@@ -587,16 +588,18 @@
                         </div>
                     </div>
 
-                    <div>
-                        <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-400">Logo Visibility</p>
-                        <div class="grid grid-cols-2 gap-2">
-                            @foreach ($layoutOptions['logo_visibility'] as $value => $option)
-                                <button type="button" x-on:click="prefs.logo_visibility = {{ (string) $value === '1' ? 'true' : 'false' }}; applyPreview()" class="rounded-lg border px-2.5 py-2 text-xs font-medium transition" :class="optionPillClass(prefs.logo_visibility === {{ (string) $value === '1' ? 'true' : 'false' }})">{{ $option['label'] }}</button>
-                            @endforeach
+                    @if ($canManageTenantLogo)
+                        <div>
+                            <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-400">Logo Visibility</p>
+                            <div class="grid grid-cols-2 gap-2">
+                                @foreach ($layoutOptions['logo_visibility'] as $value => $option)
+                                    <button type="button" x-on:click="prefs.logo_visibility = {{ (string) $value === '1' ? 'true' : 'false' }}; applyPreview()" class="rounded-lg border px-2.5 py-2 text-xs font-medium transition" :class="optionPillClass(prefs.logo_visibility === {{ (string) $value === '1' ? 'true' : 'false' }})">{{ $option['label'] }}</button>
+                                @endforeach
+                            </div>
                         </div>
-                    </div>
+                    @endif
 
-                    @auth
+                    @if ($canManageTenantLogo)
                         <div class="rounded-xl border border-gray-200 p-3 dark:border-slate-700">
                             <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-400">Shop Logo</p>
 
@@ -619,7 +622,7 @@
                                 @endif
                             </div>
                         </div>
-                    @endauth
+                    @endif
                 </div>
 
                 <div class="mt-4 flex items-center justify-end gap-2">

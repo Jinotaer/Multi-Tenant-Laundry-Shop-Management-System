@@ -203,6 +203,8 @@ test('customers can save shell preferences but cannot update workspace defaults'
         ->assertDontSee('Save Workspace Defaults')
         ->assertSee('My Preferences')
         ->assertDontSee('My Dashboard Widget Order')
+        ->assertDontSee('Logo Visibility')
+        ->assertDontSee('Upload Logo')
         ->assertSee('Personal widget ordering is available for staff dashboards.');
 
     $payload = personalPreferencesPayload();

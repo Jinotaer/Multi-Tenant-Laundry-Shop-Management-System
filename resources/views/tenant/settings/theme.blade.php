@@ -41,6 +41,11 @@
                 'description' => 'Show or hide the uploaded logo mark in the sidebar brand area.',
             ],
         ];
+        $currentUser = auth()->user();
+
+        if ($currentUser && method_exists($currentUser, 'isCustomer') && $currentUser->isCustomer()) {
+            unset($settingSections['logo_visibility']);
+        }
         $workspaceBagHasErrors = $errors->tenantLayoutDefaults->any();
         $userBagHasErrors = $errors->userLayoutPreferences->any();
         $workspaceValues = [
