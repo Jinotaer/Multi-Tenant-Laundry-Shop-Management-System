@@ -292,3 +292,18 @@ Route::middleware([
         return redirect()->route('tenant.login');
     })->name('tenant.home');
 });
+
+
+use App\Http\Controllers\Tenant\UpdateController;
+// To be placed in the appropriate middleware group where settings are
+Route::middleware([
+    'web',
+    \Stancl\Tenancy\Middleware\InitializeTenancyByDomain::class,
+    \Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains::class,
+    'auth:web',
+])->group(function () {
+    Route::get('updates', [UpdateController::class, 'index'])->name('tenant.updates.index');
+    Route::post('updates/{release}/apply', [UpdateController::class, 'update'])->name('tenant.updates.apply');
+    Route::post('updates/{release}/rollback', [UpdateController::class, 'rollback'])->name('tenant.updates.rollback');
+});
+

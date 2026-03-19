@@ -41,5 +41,10 @@ return [
         'webhook_secret' => env('PAYMONGO_WEBHOOK_SECRET'),
         'base_url' => env('PAYMONGO_BASE_URL', 'https://api.paymongo.com/v1'),
     ],
+    
+    'github' => [
+        'repo' => env('GITHUB_REPO', 'Jinotaer/Multi-Tenant-Laundry-Shop-Management-System'),
+        'token' => env('GITHUB_TOKEN'),
+    ],
 
 ];

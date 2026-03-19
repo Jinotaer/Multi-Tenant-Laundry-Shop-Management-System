@@ -119,6 +119,23 @@ class Tenant extends BaseTenant implements TenantWithDatabase
         return $this->hasMany(Payment::class);
     }
 
+    /**
+     * Get the updates/versions for this tenant.
+     */
+    public function updates(): HasMany
+    {
+        return $this->hasMany(TenantUpdate::class);
+    }
+
+    /**
+     * Get the current active version tag for this tenant.
+     */
+    public function currentVersion(): string
+    {
+        $currentUpdate = $this->updates()->where('is_current', true)->with('release')->first();
+        return $currentUpdate ? $currentUpdate->release->version_tag : 'v1.0.0';
+    }
+
     public function isEnabled(): bool
     {
         return $this->is_enabled;

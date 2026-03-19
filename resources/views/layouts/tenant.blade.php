@@ -711,6 +711,13 @@
                             <span class="{{ $navLabelVisibilityClass }}">Settings</span>
                         </a>
 
+                        @if ($currentUser->isOwner())
+                        <a href="{{ route('tenant.updates.index') }}" title="Update Center" class="flex items-center px-3 py-2 text-sm font-medium rounded-md {{ $navAlignmentClass }} {{ request()->routeIs('tenant.updates.*') ? $activeNavClass : $inactiveNavClass }}">
+                            <svg class="{{ $iconSpacingClass }}" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>
+                            <span class="{{ $navLabelVisibilityClass }}">Update Center</span>
+                        </a>
+                        @endif
+
                         @if ($currentUser->isCustomer() && tenant()->hasFeature('customer_portal'))
                             <a href="{{ route('tenant.portal.index') }}" title="My Orders" class="flex items-center px-3 py-2 text-sm font-medium rounded-md {{ $navAlignmentClass }} {{ request()->routeIs('tenant.portal*') ? $activeNavClass : $inactiveNavClass }}">
                                 <svg class="{{ $iconSpacingClass }}" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>

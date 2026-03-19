@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\RegistrationController;
 use App\Http\Controllers\Admin\SettingsController as AdminSettingsController;
 use App\Http\Controllers\Admin\SubscriptionPlanController;
 use App\Http\Controllers\Admin\TenantController;
+use App\Http\Controllers\Admin\ReleaseController;
 use App\Http\Controllers\PayMongoWebhookController;
 use App\Http\Controllers\TenantRegistrationController;
 use App\Http\Controllers\WelcomeController;
@@ -220,6 +221,24 @@ foreach (config('tenancy.central_domains') as $domain) {
                         AdminSettingsController::class,
                         'removeLogo',
                     ])->name('admin.settings.logo.remove');
+
+                    // App Releases
+                    Route::get('/releases', [
+                        ReleaseController::class,
+                        'index',
+                    ])->name('admin.releases.index');
+                    Route::post('/releases/sync', [
+                        ReleaseController::class,
+                        'sync',
+                    ])->name('admin.releases.sync');
+                    Route::get('/releases/{release}', [
+                        ReleaseController::class,
+                        'show',
+                    ])->name('admin.releases.show');
+                    Route::post('/releases/{release}/force-all', [
+                        ReleaseController::class,
+                        'forceUpdateAll',
+                    ])->name('admin.releases.force-all');
                 });
             });
         });
