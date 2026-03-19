@@ -39,9 +39,9 @@
 
                 {{-- CTA Buttons --}}
                 <div class="hidden md:flex items-center gap-3">
-                    <a href="{{ route('admin.login') }}" class="text-sm font-medium text-gray-600 hover:text-gray-900 transition px-4 py-2">
+                    <!-- <a href="{{ route('admin.login') }}" class="text-sm font-medium text-gray-600 hover:text-gray-900 transition px-4 py-2">
                         Admin Login
-                    </a>
+                    </a> -->
                     <a href="{{ route('shop.pricing') }}" class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition shadow-sm">
                         Get Started
                     </a>
@@ -63,7 +63,7 @@
                     <a href="#pricing" x-on:click="mobileOpen = false" class="px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-900">Pricing</a>
                     <a href="#how-it-works" x-on:click="mobileOpen = false" class="px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-900">How It Works</a>
                     <hr class="my-2 border-gray-100">
-                    <a href="{{ route('admin.login') }}" class="px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-900">Admin Login</a>
+                    <!-- <a href="{{ route('admin.login') }}" class="px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-900">Admin Login</a> -->
                     <a href="{{ route('shop.pricing') }}" class="mx-3 inline-flex items-center justify-center px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition">
                         Get Started
                     </a>
@@ -108,7 +108,7 @@
                     <svg class="mr-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349m-16.5 11.65V9.35m0 0a3.001 3.001 0 003.75-.615A2.993 2.993 0 009.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 002.25 1.016c.896 0 1.7-.393 2.25-1.016A3.001 3.001 0 0021 9.349m-18 0V3h18v6.35" />
                     </svg>
-                    Get Started — Free Trial
+                    Get Started Today
                 </a>
                 <a href="#pricing" class="w-full sm:w-auto inline-flex items-center justify-center px-10 py-4 bg-white text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-all border border-gray-200 text-base hover:shadow-md hover:-translate-y-0.5">
                     View Pricing Plans
@@ -213,7 +213,7 @@
                         1
                     </div>
                     <h3 class="text-xl font-semibold text-gray-900 mb-3">Choose a Plan</h3>
-                    <p class="text-gray-600 leading-relaxed">Pick the plan that fits your business. All plans include a 30-day free trial.</p>
+                    <p class="text-gray-600 leading-relaxed">Pick the plan that best fits your business needs and scale.</p>
                 </div>
 
                 {{-- Step 2 --}}
@@ -231,7 +231,7 @@
                         3
                     </div>
                     <h3 class="text-xl font-semibold text-gray-900 mb-3">Get Approved</h3>
-                    <p class="text-gray-600 leading-relaxed">Our team reviews your application. Once approved, your 30-day free trial begins automatically.</p>
+                    <p class="text-gray-600 leading-relaxed">Our team reviews your application. Once approved, you can start managing your laundry operations.</p>
                 </div>
 
                 {{-- Step 4 --}}
@@ -331,7 +331,7 @@
                         {{-- CTA --}}
                         <div class="p-8 pt-0">
                             <a href="{{ route('shop.register', ['plan' => $plan->id]) }}" class="block w-full text-center px-6 py-3 rounded-xl font-semibold text-sm transition {{ !$plan->isFree() ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-200' : 'bg-gray-100 text-gray-900 hover:bg-gray-200' }}">
-                                {{ $plan->isFree() ? 'Start Free Trial' : 'Start Free Trial — ' . $plan->name }}
+                                {{ $plan->name === 'Basic' ? 'Get Started — ' . $plan->name : 'Subscribe to ' . $plan->name }}
                             </a>
                         </div>
                     </div>
@@ -348,7 +348,7 @@
             <p class="mt-4 text-lg text-indigo-100 max-w-2xl mx-auto">Join the growing number of laundry shop owners who trust LaundryTrack to run their operations efficiently.</p>
             <div class="mt-10">
                 <a href="{{ route('shop.pricing') }}" class="inline-flex items-center px-8 py-4 bg-white text-indigo-700 font-bold rounded-xl hover:bg-indigo-50 transition shadow-xl text-base">
-                    Start Your Free Trial
+                    Get Started Now
                     <svg class="ml-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
                     </svg>
