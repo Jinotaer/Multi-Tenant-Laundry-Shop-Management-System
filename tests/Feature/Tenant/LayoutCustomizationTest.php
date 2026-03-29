@@ -19,7 +19,7 @@ beforeEach(function () {
         'is_enabled' => true,
         'is_paid' => true,
         'theme' => 'indigo',
-        'features' => ['customer_portal', 'expense_tracking', 'reports'],
+        'features' => ['customer_portal', 'expense_tracking', 'reports', 'custom_branding'],
         'data' => ['shop_name' => 'Layout Shop'],
     ]);
 
@@ -295,7 +295,7 @@ test('owner can upload tenant logo', function () {
 
     $this->from(tenantUrl($this->tenantDomain, '/dashboard'))
         ->post(tenantUrl($this->tenantDomain, '/settings/logo'), [
-            'logo' => UploadedFile::fake()->image('tenant-logo.png'),
+            'logo' => fakeTenantLogo(),
         ])
         ->assertRedirect(tenantUrl($this->tenantDomain, '/dashboard'));
 
@@ -305,7 +305,7 @@ test('owner can upload tenant logo', function () {
     expect(Storage::disk('public')->exists($this->tenant->logo_path))->toBeTrue();
 });
 
-test('staff can upload tenant logo', function () {
+test('staff cannot upload tenant logo', function () {
     Storage::fake('public');
 
     $this->tenant->run(function (): User {
@@ -324,17 +324,16 @@ test('staff can upload tenant logo', function () {
 
     $this->from(tenantUrl($this->tenantDomain, '/dashboard'))
         ->post(tenantUrl($this->tenantDomain, '/settings/logo'), [
-            'logo' => UploadedFile::fake()->image('tenant-logo.png'),
+            'logo' => fakeTenantLogo(),
         ])
-        ->assertRedirect(tenantUrl($this->tenantDomain, '/dashboard'));
+        ->assertForbidden();
 
     $this->tenant->refresh();
 
-    expect($this->tenant->logo_path)->not->toBeNull();
-    expect(Storage::disk('public')->exists($this->tenant->logo_path))->toBeTrue();
+    expect($this->tenant->logo_path)->toBeNull();
 });
 
-test('customers can upload tenant logo', function () {
+test('customers cannot upload tenant logo', function () {
     Storage::fake('public');
 
     $this->tenant->run(function (): Customer {
@@ -353,14 +352,13 @@ test('customers can upload tenant logo', function () {
 
     $this->from(tenantUrl($this->tenantDomain, '/dashboard'))
         ->post(tenantUrl($this->tenantDomain, '/settings/logo'), [
-            'logo' => UploadedFile::fake()->image('tenant-logo.png'),
+            'logo' => fakeTenantLogo(),
         ])
-        ->assertRedirect(tenantUrl($this->tenantDomain, '/dashboard'));
+        ->assertForbidden();
 
     $this->tenant->refresh();
 
-    expect($this->tenant->logo_path)->not->toBeNull();
-    expect(Storage::disk('public')->exists($this->tenant->logo_path))->toBeTrue();
+    expect($this->tenant->logo_path)->toBeNull();
 });
 
 test('resetting personal preferences clears overrides and falls back to tenant defaults', function () {
@@ -572,4 +570,17 @@ function personalPreferencesPayload(array $overrides = []): array
             'overview_stats',
         ],
     ], $overrides);
+}
+
+function fakeTenantLogo(): UploadedFile
+{
+    return UploadedFile::fake()->createWithContent(
+        'tenant-logo.svg',
+        <<<'SVG'
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120">
+    <rect width="120" height="120" rx="24" fill="#111827"/>
+    <circle cx="60" cy="60" r="28" fill="#f59e0b"/>
+</svg>
+SVG
+    );
 }

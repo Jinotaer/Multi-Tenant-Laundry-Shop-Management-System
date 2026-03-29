@@ -13,6 +13,7 @@ class CheckTrialStatus
      *
      * Block access when the tenant's trial has expired and they haven't paid,
      * or when a premium tenant hasn't completed payment yet.
+     * Allow access during grace period after subscription expiration.
      *
      * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
      */
@@ -29,9 +30,25 @@ class CheckTrialStatus
             return $next($request);
         }
 
-        // If trial has expired and not paid, block access (except trial-expired page & logout).
+        // If in grace period after subscription expiration, allow access
+        if ($tenant->isInGracePeriod()) {
+            return $next($request);
+        }
+
+        // If trial has expired and not paid, block access (except allowed routes).
         if ($tenant->isTrialExpired()) {
-            $allowedRoutes = ['tenant.trial-expired', 'tenant.logout'];
+            $allowedRoutes = ['tenant.trial-expired', 'tenant.logout', 'tenant.subscription.renew', 'tenant.subscription.renew.checkout', 'tenant.subscription.renew.success'];
+
+            if (in_array($request->route()?->getName(), $allowedRoutes)) {
+                return $next($request);
+            }
+
+            return redirect()->route('tenant.trial-expired');
+        }
+
+        // If subscription expired and grace period ended, block access
+        if ($tenant->isSubscriptionExpired() && !$tenant->isInGracePeriod()) {
+            $allowedRoutes = ['tenant.trial-expired', 'tenant.logout', 'tenant.subscription.renew', 'tenant.subscription.renew.checkout', 'tenant.subscription.renew.success'];
 
             if (in_array($request->route()?->getName(), $allowedRoutes)) {
                 return $next($request);

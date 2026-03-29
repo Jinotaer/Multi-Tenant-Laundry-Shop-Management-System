@@ -2,14 +2,17 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Tenant\AnalyticsController;
 use App\Http\Controllers\Tenant\Auth\LoginController;
 use App\Http\Controllers\Tenant\Auth\RegisterController;
 use App\Http\Controllers\Tenant\CustomerController;
 use App\Http\Controllers\Tenant\CustomerPortalController;
 use App\Http\Controllers\Tenant\DashboardController;
 use App\Http\Controllers\Tenant\ExpenseController;
+use App\Http\Controllers\Tenant\InventoryController;
 use App\Http\Controllers\Tenant\NotificationController;
 use App\Http\Controllers\Tenant\OrderController;
+use App\Http\Controllers\Tenant\OrderPaymentController;
 use App\Http\Controllers\Tenant\PaymentController;
 use App\Http\Controllers\Tenant\ProfileController;
 use App\Http\Controllers\Tenant\ReportController;
@@ -17,6 +20,7 @@ use App\Http\Controllers\Tenant\ServiceController;
 use App\Http\Controllers\Tenant\SettingsController;
 use App\Http\Controllers\Tenant\StaffController;
 use App\Http\Controllers\Tenant\SubscriptionController;
+use App\Http\Controllers\Tenant\SupportTicketController;
 use App\Http\Middleware\CheckTenantEnabled;
 use App\Http\Middleware\CheckTrialStatus;
 use Illuminate\Support\Facades\Route;
@@ -101,6 +105,15 @@ Route::middleware([
                 'resetPreferences',
             ])->name('tenant.settings.theme.preferences.reset');
 
+            Route::post('/orders/{order}/payment/checkout', [
+                OrderPaymentController::class,
+                'checkout',
+            ])->name('tenant.order-payments.checkout');
+            Route::get('/orders/{order}/payment/success', [
+                OrderPaymentController::class,
+                'success',
+            ])->name('tenant.order-payments.success');
+
             // === Owner & Staff routes (day-to-day operations) ===
             Route::middleware('role:owner,staff')->group(function () {
                 // Customers
@@ -138,18 +151,12 @@ Route::middleware([
                     OrderController::class,
                     'receipt',
                 ])->name('tenant.orders.receipt');
+                Route::patch('/orders/{order}/redeem-loyalty', [
+                    OrderController::class,
+                    'redeemLoyalty',
+                ])->name('tenant.orders.redeem-loyalty');
 
             });
-
-            // Workspace logo
-            Route::post('/settings/logo', [
-                SettingsController::class,
-                'updateLogo',
-            ])->name('tenant.settings.logo');
-            Route::delete('/settings/logo', [
-                SettingsController::class,
-                'removeLogo',
-            ])->name('tenant.settings.logo.remove');
 
             // === Owner-only routes (management) ===
             Route::middleware('role:owner')->group(function () {
@@ -194,12 +201,62 @@ Route::middleware([
                 Route::middleware('feature:reports')
                     ->get('/reports', [ReportController::class, 'index'])
                     ->name('tenant.reports.index');
+                Route::middleware('feature:reports')
+                    ->get('/reports/export/excel', [ReportController::class, 'exportExcel'])
+                    ->name('tenant.reports.export-excel');
+                Route::middleware('feature:reports')
+                    ->get('/reports/export/pdf', [ReportController::class, 'exportPdf'])
+                    ->name('tenant.reports.export-pdf');
+                Route::middleware('feature:analytics_dashboard')
+                    ->get('/analytics', [AnalyticsController::class, 'index'])
+                    ->name('tenant.analytics.index');
+                Route::middleware('feature:inventory_management')->group(function () {
+                    Route::get('/inventory', [InventoryController::class, 'index'])->name('tenant.inventory.index');
+                    Route::get('/inventory/create', [InventoryController::class, 'create'])->name('tenant.inventory.create');
+                    Route::post('/inventory', [InventoryController::class, 'store'])->name('tenant.inventory.store');
+                    Route::get('/inventory/{inventory}/edit', [InventoryController::class, 'edit'])->name('tenant.inventory.edit');
+                    Route::put('/inventory/{inventory}', [InventoryController::class, 'update'])->name('tenant.inventory.update');
+                    Route::delete('/inventory/{inventory}', [InventoryController::class, 'destroy'])->name('tenant.inventory.destroy');
+                    Route::post('/inventory/{inventory}/adjust', [InventoryController::class, 'adjust'])->name('tenant.inventory.adjust');
+                });
+                Route::middleware('feature:priority_support')->group(function () {
+                    Route::get('/support', [SupportTicketController::class, 'index'])->name('tenant.support.index');
+                    Route::post('/support', [SupportTicketController::class, 'store'])->name('tenant.support.store');
+                });
 
                 // Subscription
                 Route::get('/subscription', [
                     SubscriptionController::class,
                     'index',
                 ])->name('tenant.subscription');
+                Route::get('/subscription/plans', [
+                    SubscriptionController::class,
+                    'plans',
+                ])->name('tenant.subscription.plans');
+                Route::get('/subscription/renew', [
+                    \App\Http\Controllers\Tenant\SubscriptionRenewalController::class,
+                    'show',
+                ])->name('tenant.subscription.renew');
+                Route::post('/subscription/renew/checkout', [
+                    \App\Http\Controllers\Tenant\SubscriptionRenewalController::class,
+                    'checkout',
+                ])->name('tenant.subscription.renew.checkout');
+                Route::get('/subscription/renew/success', [
+                    \App\Http\Controllers\Tenant\SubscriptionRenewalController::class,
+                    'success',
+                ])->name('tenant.subscription.renew.success');
+                Route::get('/subscription/upgrade', [
+                    \App\Http\Controllers\Tenant\SubscriptionUpgradeController::class,
+                    'show',
+                ])->name('tenant.subscription.upgrade');
+                Route::post('/subscription/upgrade/checkout', [
+                    \App\Http\Controllers\Tenant\SubscriptionUpgradeController::class,
+                    'checkout',
+                ])->name('tenant.subscription.upgrade.checkout');
+                Route::get('/subscription/upgrade/success', [
+                    \App\Http\Controllers\Tenant\SubscriptionUpgradeController::class,
+                    'success',
+                ])->name('tenant.subscription.upgrade.success');
 
                 // Settings
                 Route::get('/settings', function () {
@@ -211,6 +268,16 @@ Route::middleware([
                     SettingsController::class,
                     'updateTheme',
                 ])->name('tenant.settings.theme.update');
+                Route::middleware('feature:custom_branding')->group(function () {
+                    Route::post('/settings/logo', [
+                        SettingsController::class,
+                        'updateLogo',
+                    ])->name('tenant.settings.logo');
+                    Route::delete('/settings/logo', [
+                        SettingsController::class,
+                        'removeLogo',
+                    ])->name('tenant.settings.logo.remove');
+                });
             });
 
             // === Customer portal routes (Premium only) ===
@@ -293,8 +360,8 @@ Route::middleware([
     })->name('tenant.home');
 });
 
-
 use App\Http\Controllers\Tenant\UpdateController;
+
 // To be placed in the appropriate middleware group where settings are
 Route::middleware([
     'web',
@@ -306,4 +373,3 @@ Route::middleware([
     Route::post('updates/{release}/apply', [UpdateController::class, 'update'])->name('tenant.updates.apply');
     Route::post('updates/{release}/rollback', [UpdateController::class, 'rollback'])->name('tenant.updates.rollback');
 });
-

@@ -18,6 +18,7 @@ class Service extends Model
     protected $fillable = [
         'name',
         'description',
+        'bundle_items',
         'price_type',
         'price',
         'is_active',
@@ -32,6 +33,7 @@ class Service extends Model
     protected function casts(): array
     {
         return [
+            'bundle_items' => 'array',
             'price' => 'decimal:2',
             'is_active' => 'boolean',
         ];
@@ -118,6 +120,14 @@ class Service extends Model
     }
 
     /**
+     * Determine whether the service includes a predefined bundle.
+     */
+    public function hasBundleItems(): bool
+    {
+        return $this->defaultBundleItems() !== [];
+    }
+
+    /**
      * Normalize item entries before storing them on an order.
      *
      * @param  array<int, mixed>  $items
@@ -158,6 +168,17 @@ class Service extends Model
      */
     public function prepareOrderItems(array $items): array
     {
+        if ($items === [] && $this->hasBundleItems()) {
+            return array_map(
+                fn (array $item): array => [
+                    'name' => $item['name'],
+                    'qty' => $item['qty'],
+                    'price' => round((float) ($item['price'] ?? 0), 2),
+                ],
+                $this->defaultBundleItems(),
+            );
+        }
+
         $prepared = [];
 
         foreach (self::normalizeItemEntries($items) as $item) {
@@ -175,6 +196,16 @@ class Service extends Model
         }
 
         return $prepared;
+    }
+
+    /**
+     * Return normalized bundle items for the service.
+     *
+     * @return array<int, array{name: string, qty: int, price: float|null}>
+     */
+    public function defaultBundleItems(): array
+    {
+        return self::normalizeItemEntries((array) ($this->bundle_items ?? []));
     }
 
     /**

@@ -8,6 +8,7 @@ use App\Models\Order;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
@@ -40,6 +41,7 @@ beforeEach(function () {
         $customer = Customer::create([
             'name' => 'Portal Customer',
             'email' => 'customer@example.com',
+            'phone' => '09975880520',
             'password' => Hash::make('password'),
             'role' => 'customer',
         ]);
@@ -73,9 +75,10 @@ afterEach(function () {
     }
 });
 
-test('updating an order to ready sends the pickup email and stores an in app notification', function () {
-    $this->tenant->features = ['notifications', 'customer_portal'];
+test('updating an order to ready sends pickup email sms and stores an in app notification', function () {
+    $this->tenant->features = ['notifications', 'sms_notifications', 'customer_portal'];
     $this->tenant->save();
+    config(['services.sms.token' => 'test-sms-key']);
 
     $order = $this->tenant->run(function (): Order {
         return Order::create([
@@ -88,6 +91,11 @@ test('updating an order to ready sends the pickup email and stores an in app not
     });
 
     Mail::fake();
+    Http::fake([
+        'https://smsapiph.onrender.com/api/v1/send/sms' => Http::response([
+            'success' => true,
+        ]),
+    ]);
 
     ($this->loginOwner)();
 
@@ -101,6 +109,12 @@ test('updating an order to ready sends the pickup email and stores an in app not
         return $mail->hasTo('customer@example.com');
     });
     Mail::assertNotSent(OrderStatusChangedNotification::class);
+    Http::assertSent(function ($request): bool {
+        return $request->url() === 'https://smsapiph.onrender.com/api/v1/send/sms'
+            && $request->hasHeader('x-api-key', 'test-sms-key')
+            && $request['recipient'] === '+639975880520'
+            && $request['message'] === 'LaundryTrack: Order ORD-NOTIFY-0001 is now Ready for Pickup.';
+    });
 
     $notification = $this->tenant->run(function () {
         $customer = Customer::query()->where('email', 'customer@example.com')->firstOrFail();
@@ -121,9 +135,112 @@ test('updating an order to ready sends the pickup email and stores an in app not
         ->assertJsonPath('notifications.0.category', 'order_update');
 });
 
-test('mark all read clears unread notification counts', function () {
-    $this->tenant->features = ['notifications', 'customer_portal'];
+test('editing an order to ready dispatches notifications too', function () {
+    $this->tenant->features = ['notifications', 'sms_notifications', 'customer_portal'];
     $this->tenant->save();
+    config(['services.sms.token' => 'test-sms-key']);
+
+    $order = $this->tenant->run(function (): Order {
+        return Order::create([
+            'customer_id' => $this->customerId,
+            'order_number' => 'ORD-NOTIFY-0004',
+            'status' => 'in_progress',
+            'total_amount' => 180,
+            'payment_status' => 'unpaid',
+        ]);
+    });
+
+    Mail::fake();
+    Http::fake([
+        'https://smsapiph.onrender.com/api/v1/send/sms' => Http::response([
+            'success' => true,
+        ]),
+    ]);
+
+    ($this->loginOwner)();
+
+    $this->put(($this->tenantUrl)("/orders/{$order->id}"), [
+        'customer_id' => $this->customerId,
+        'status' => 'ready',
+        'items' => [],
+    ])->assertRedirect(route('tenant.orders.index', absolute: false));
+
+    Mail::assertSent(OrderReadyForPickupNotification::class, function (OrderReadyForPickupNotification $mail): bool {
+        return $mail->hasTo('customer@example.com');
+    });
+    Http::assertSent(function ($request): bool {
+        return $request->url() === 'https://smsapiph.onrender.com/api/v1/send/sms'
+            && $request['recipient'] === '+639975880520'
+            && $request['message'] === 'LaundryTrack: Order ORD-NOTIFY-0004 is now Ready for Pickup.';
+    });
+
+    $notification = $this->tenant->run(function () {
+        $customer = Customer::query()->where('email', 'customer@example.com')->firstOrFail();
+
+        return $customer->notifications()->latest()->first();
+    });
+
+    expect($notification)->not->toBeNull();
+    expect($notification->data['order_number'])->toBe('ORD-NOTIFY-0004');
+});
+
+test('updating an order to ready still sends pickup email when sms delivery fails', function () {
+    $this->tenant->features = ['notifications', 'sms_notifications', 'customer_portal'];
+    $this->tenant->save();
+    config(['services.sms.token' => 'test-sms-key']);
+
+    $order = $this->tenant->run(function (): Order {
+        return Order::create([
+            'customer_id' => $this->customerId,
+            'order_number' => 'ORD-NOTIFY-0003',
+            'status' => 'in_progress',
+            'total_amount' => 260,
+            'payment_status' => 'unpaid',
+        ]);
+    });
+
+    Mail::fake();
+    Http::fake([
+        'https://smsapiph.onrender.com/api/v1/send/sms' => Http::response([
+            'success' => false,
+            'error' => 'Carrier unreachable',
+        ], 503),
+    ]);
+
+    ($this->loginOwner)();
+
+    $this->from(($this->tenantUrl)("/orders/{$order->id}"))
+        ->patch(($this->tenantUrl)("/orders/{$order->id}/status"), [
+            'status' => 'ready',
+        ])
+        ->assertRedirect();
+
+    Mail::assertSent(OrderReadyForPickupNotification::class, function (OrderReadyForPickupNotification $mail): bool {
+        return $mail->hasTo('customer@example.com');
+    });
+    Mail::assertNotSent(OrderStatusChangedNotification::class);
+    Http::assertSent(function ($request): bool {
+        return $request->url() === 'https://smsapiph.onrender.com/api/v1/send/sms'
+            && $request->hasHeader('x-api-key', 'test-sms-key')
+            && $request['recipient'] === '+639975880520'
+            && $request['message'] === 'LaundryTrack: Order ORD-NOTIFY-0003 is now Ready for Pickup.';
+    });
+
+    $notification = $this->tenant->run(function () {
+        $customer = Customer::query()->where('email', 'customer@example.com')->firstOrFail();
+
+        return $customer->notifications()->latest()->first();
+    });
+
+    expect($notification)->not->toBeNull();
+    expect($notification->data['category'])->toBe('order_update');
+    expect($notification->data['order_number'])->toBe('ORD-NOTIFY-0003');
+});
+
+test('mark all read clears unread notification counts without sending sms for non ready updates', function () {
+    $this->tenant->features = ['notifications', 'sms_notifications', 'customer_portal'];
+    $this->tenant->save();
+    config(['services.sms.token' => 'test-sms-key']);
 
     $order = $this->tenant->run(function (): Order {
         return Order::create([
@@ -136,6 +253,7 @@ test('mark all read clears unread notification counts', function () {
     });
 
     Mail::fake();
+    Http::fake();
 
     ($this->loginOwner)();
 
@@ -162,6 +280,7 @@ test('mark all read clears unread notification counts', function () {
         return $customer->notifications()->latest()->first()?->read_at;
     });
 
+    Http::assertNothingSent();
     expect($readAt)->not->toBeNull();
 });
 

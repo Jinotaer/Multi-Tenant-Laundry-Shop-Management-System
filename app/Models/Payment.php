@@ -24,13 +24,19 @@ class Payment extends Model
     protected $fillable = [
         'tenant_id',
         'subscription_plan_id',
+        'payment_type',
+        'tenant_order_id',
         'paymongo_checkout_id',
         'paymongo_payment_id',
+        'checkout_url',
         'amount',
         'currency',
         'status',
         'payment_method',
         'description',
+        'customer_name',
+        'customer_email',
+        'metadata',
         'paid_at',
     ];
 
@@ -43,6 +49,7 @@ class Payment extends Model
     {
         return [
             'amount' => 'decimal:2',
+            'metadata' => 'array',
             'paid_at' => 'datetime',
         ];
     }
@@ -77,5 +84,21 @@ class Payment extends Model
     public function isPending(): bool
     {
         return $this->status === 'pending';
+    }
+
+    /**
+     * Check if this payment is for a subscription.
+     */
+    public function isSubscriptionPayment(): bool
+    {
+        return $this->payment_type === 'subscription';
+    }
+
+    /**
+     * Check if this payment is for an order.
+     */
+    public function isOrderPayment(): bool
+    {
+        return $this->payment_type === 'order';
     }
 }

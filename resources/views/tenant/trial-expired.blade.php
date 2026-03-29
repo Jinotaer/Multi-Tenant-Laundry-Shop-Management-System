@@ -73,7 +73,7 @@
                 </ul>
             </div>
 
-            <a href="mailto:support@laundrytrack.com" class="btn-upgrade">Contact Admin to Upgrade</a>
+            <a href="{{ route('tenant.subscription.renew') }}" class="btn-upgrade">Renew Subscription Now</a>
 
             @auth
                 <form method="POST" action="{{ route('tenant.logout') }}" style="display: inline;">

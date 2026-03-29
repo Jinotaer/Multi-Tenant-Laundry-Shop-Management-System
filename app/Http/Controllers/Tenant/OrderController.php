@@ -6,8 +6,10 @@ use App\Events\OrderStatusChanged;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Tenant\OrderRequest;
 use App\Models\Customer;
+use App\Models\CustomerLoyalty;
 use App\Models\Order;
 use App\Models\Service;
+use App\Services\PlanLimitService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -37,8 +39,13 @@ class OrderController extends Controller
     /**
      * Show the form for creating a new order.
      */
-    public function create(): View
+    public function create(): View|RedirectResponse
     {
+        if (! $this->canCreateOrder()) {
+            return redirect()->route('tenant.orders.index')
+                ->with('error', 'Monthly order limit reached for your current plan. Please upgrade to create more orders.');
+        }
+
         $customers = Customer::orderBy('name')->get();
         $services = Service::active()->orderBy('sort_order')->orderBy('name')->get();
         $statuses = Order::statusLabelsForPlan();
@@ -51,6 +58,11 @@ class OrderController extends Controller
      */
     public function store(OrderRequest $request): RedirectResponse
     {
+        if (! $this->canCreateOrder()) {
+            return redirect()->route('tenant.orders.index')
+                ->with('error', 'Monthly order limit reached for your current plan. Please upgrade to create more orders.');
+        }
+
         $data = $request->validated();
         $data['order_number'] = Order::generateOrderNumber();
         $data['payment_status'] = 'unpaid';
@@ -67,7 +79,13 @@ class OrderController extends Controller
      */
     public function show(Order $order): View
     {
-        $order->load(['customer', 'service']);
+        $relations = ['customer', 'service'];
+
+        if (tenant()->hasFeature('customer_loyalty')) {
+            $relations[] = 'customer.loyalty';
+        }
+
+        $order->load($relations);
         $statuses = Order::statusLabelsForPlan();
 
         return view('tenant.orders.show', compact('order', 'statuses'));
@@ -90,10 +108,17 @@ class OrderController extends Controller
      */
     public function update(OrderRequest $request, Order $order): RedirectResponse
     {
+        $oldStatus = $order->status;
         $data = $request->validated();
-        $data = $this->prepareOrderData($data);
+        $data = $this->prepareOrderData($data, $order);
 
         $order->update($data);
+
+        $newStatus = (string) ($data['status'] ?? $order->status);
+
+        if ($oldStatus !== $newStatus) {
+            OrderStatusChanged::dispatch($order->fresh(), $oldStatus, $newStatus);
+        }
 
         return redirect()->route('tenant.orders.index')
             ->with('success', "Order {$order->order_number} updated successfully.");
@@ -131,6 +156,60 @@ class OrderController extends Controller
     }
 
     /**
+     * Redeem customer loyalty points against an unpaid order.
+     */
+    public function redeemLoyalty(Request $request, Order $order): RedirectResponse
+    {
+        abort_unless(tenant()->hasFeature('customer_loyalty'), 403);
+
+        if ($order->isPaid()) {
+            return back()->with('error', 'Paid orders can no longer accept loyalty redemptions.');
+        }
+
+        if ($order->loyalty_points_redeemed > 0) {
+            return back()->with('error', 'Loyalty points have already been redeemed for this order.');
+        }
+
+        $validated = $request->validate([
+            'points' => ['required', 'integer', 'min:1'],
+        ]);
+
+        $loyalty = CustomerLoyalty::firstOrCreate(
+            ['customer_id' => $order->customer_id],
+            [
+                'points' => 0,
+                'stamps' => 0,
+                'tier' => 'bronze',
+                'lifetime_spent' => 0,
+            ],
+        );
+
+        $pointsToRedeem = min(
+            (int) $validated['points'],
+            (int) $loyalty->points,
+            (int) floor((float) $order->total_amount),
+        );
+
+        if ($pointsToRedeem < 1) {
+            return back()->with('error', 'This customer does not have enough loyalty points for this order.');
+        }
+
+        if (! $loyalty->redeemPoints($pointsToRedeem)) {
+            return back()->with('error', 'Unable to redeem loyalty points for this order.');
+        }
+
+        $discountAmount = round((float) $pointsToRedeem, 2);
+
+        $order->update([
+            'loyalty_points_redeemed' => $pointsToRedeem,
+            'loyalty_discount_amount' => $discountAmount,
+            'total_amount' => max(round((float) $order->total_amount - $discountAmount, 2), 0),
+        ]);
+
+        return back()->with('success', "Applied {$pointsToRedeem} loyalty points to order {$order->order_number}.");
+    }
+
+    /**
      * Show printable receipt for an order.
      */
     public function receipt(Order $order): View
@@ -157,7 +236,7 @@ class OrderController extends Controller
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
-    private function prepareOrderData(array $data): array
+    private function prepareOrderData(array $data, ?Order $existingOrder = null): array
     {
         $service = ! empty($data['service_id'])
             ? Service::find((int) $data['service_id'])
@@ -172,21 +251,41 @@ class OrderController extends Controller
                 $service->requiresWeight() ? (float) ($data['weight'] ?? 0) : null,
                 $data['items'],
             );
-
-            return $data;
+        } else {
+            $data['items'] = array_map(
+                fn (array $item): array => [
+                    'name' => $item['name'],
+                    'qty' => $item['qty'],
+                    'price' => round((float) ($item['price'] ?? 0), 2),
+                ],
+                Service::normalizeItemEntries((array) ($data['items'] ?? [])),
+            );
+            $data['weight'] = null;
+            $data['total_amount'] = Service::calculateItemizedTotal($data['items']);
         }
 
-        $data['items'] = array_map(
-            fn (array $item): array => [
-                'name' => $item['name'],
-                'qty' => $item['qty'],
-                'price' => round((float) ($item['price'] ?? 0), 2),
-            ],
-            Service::normalizeItemEntries((array) ($data['items'] ?? [])),
-        );
-        $data['weight'] = null;
-        $data['total_amount'] = Service::calculateItemizedTotal($data['items']);
+        $existingDiscount = round((float) ($existingOrder?->loyalty_discount_amount ?? 0), 2);
+
+        if ($existingDiscount > 0) {
+            $data['loyalty_points_redeemed'] = (int) ($existingOrder?->loyalty_points_redeemed ?? 0);
+            $data['loyalty_discount_amount'] = $existingDiscount;
+            $data['total_amount'] = max(round((float) $data['total_amount'] - $existingDiscount, 2), 0);
+        }
 
         return $data;
+    }
+
+    /**
+     * Determine whether the tenant can create another order this month.
+     */
+    private function canCreateOrder(): bool
+    {
+        $planLimitService = new PlanLimitService(tenant());
+        $currentMonthlyOrderCount = Order::query()
+            ->whereMonth('created_at', now()->month)
+            ->whereYear('created_at', now()->year)
+            ->count();
+
+        return $planLimitService->canAddOrder($currentMonthlyOrderCount);
     }
 }

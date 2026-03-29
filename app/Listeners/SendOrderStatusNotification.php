@@ -10,14 +10,12 @@ use App\Models\CustomerLoyalty;
 use App\Models\Order;
 use App\Notifications\LoyaltyPointsEarnedNotification;
 use App\Notifications\OrderStatusDatabaseNotification;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Queue\InteractsWithQueue;
+use App\Services\SmsService;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
-class SendOrderStatusNotification implements ShouldQueue
+class SendOrderStatusNotification
 {
-    use InteractsWithQueue;
-
     /**
      * Create the event listener.
      */
@@ -33,13 +31,14 @@ class SendOrderStatusNotification implements ShouldQueue
     {
         $order = $event->order->load('customer', 'service');
         $customer = $order->customer;
+        $smsService = app(SmsService::class);
 
         if (! $customer || $event->oldStatus === $event->newStatus) {
             return;
         }
 
         if (tenant()->hasFeature('notifications')) {
-            $this->sendCustomerNotifications($customer, $order, $event->newStatus);
+            $this->sendCustomerNotifications($customer, $order, $event->newStatus, $smsService);
         }
 
         if ($event->newStatus === 'claimed') {
@@ -58,17 +57,43 @@ class SendOrderStatusNotification implements ShouldQueue
     /**
      * Send customer-facing email and in-app notifications.
      */
-    private function sendCustomerNotifications(Customer $customer, Order $order, string $newStatus): void
+    private function sendCustomerNotifications(Customer $customer, Order $order, string $newStatus, SmsService $smsService): void
     {
+        if ($newStatus === 'ready') {
+            $this->sendReadyNotificationWithFallback($customer, $order, $smsService);
+
+            return;
+        }
+
         if ($customer->email) {
-            if ($newStatus === 'ready') {
-                Mail::to($customer->email)->send(new OrderReadyForPickupNotification($order));
-            } else {
-                Mail::to($customer->email)->send(new OrderStatusChangedNotification($order, $newStatus));
-            }
+            Mail::to($customer->email)->send(new OrderStatusChangedNotification($order, $newStatus));
         }
 
         $customer->notify(new OrderStatusDatabaseNotification($order, $newStatus));
+    }
+
+    /**
+     * Send the ready notification through all available customer channels.
+     */
+    private function sendReadyNotificationWithFallback(Customer $customer, Order $order, SmsService $smsService): void
+    {
+        if (tenant()->hasFeature('sms_notifications')) {
+            $smsService->sendOrderStatusUpdate($customer, $order, $order->status_label);
+        }
+
+        if ($customer->email) {
+            try {
+                Mail::to($customer->email)->send(new OrderReadyForPickupNotification($order));
+            } catch (\Throwable $exception) {
+                Log::warning('Ready notification email fallback failed.', [
+                    'customer_id' => $customer->id,
+                    'order_id' => $order->id,
+                    'message' => $exception->getMessage(),
+                ]);
+            }
+        }
+
+        $customer->notify(new OrderStatusDatabaseNotification($order, 'ready'));
     }
 
     /**

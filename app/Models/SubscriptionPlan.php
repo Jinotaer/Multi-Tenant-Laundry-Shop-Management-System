@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\TenantFeatureService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -9,6 +10,15 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class SubscriptionPlan extends Model
 {
     use HasFactory;
+
+    /**
+     * The database connection that should be used by the model.
+     *
+     * Subscription plans live in the central database, not tenant databases.
+     *
+     * @var string
+     */
+    protected $connection = 'mysql';
 
     /**
      * The attributes that are mass assignable.
@@ -66,7 +76,7 @@ class SubscriptionPlan extends Model
      */
     public function hasFeature(string $feature): bool
     {
-        return in_array($feature, $this->features ?? []);
+        return app(TenantFeatureService::class)->hasFeature($this->features, $feature);
     }
 
     /**

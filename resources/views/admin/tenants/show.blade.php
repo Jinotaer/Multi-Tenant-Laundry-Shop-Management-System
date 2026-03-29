@@ -1,11 +1,8 @@
 <x-admin-layout>
     <x-slot name="header">
-        <div class="flex items-center justify-between">
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                Shop: {{ $tenant->data['shop_name'] ?? $tenant->id }}
-            </h2>
-            <a href="{{ route('admin.tenants.index') }}" class="text-sm text-gray-600 hover:text-gray-900">&larr; Back to list</a>
-        </div>
+        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
+            Shop: {{ $tenant->data['shop_name'] ?? $tenant->id }}
+        </h2>
     </x-slot>
 
     @php $theme = app(\App\Services\ThemeService::class)->getAdminTheme(); @endphp
@@ -263,6 +260,12 @@
                                     <div>
                                         <div class="text-sm font-medium text-gray-900">{{ $featureDef['label'] }}</div>
                                         <div class="text-xs text-gray-500">{{ $featureDef['description'] }}</div>
+                                        @if (! empty($featureDef['requires']))
+                                            <div class="mt-1 text-[11px] font-medium text-amber-600">
+                                                Requires:
+                                                {{ collect($featureDef['requires'])->map(fn (string $feature): string => config("themes.features.{$feature}.label", $feature))->implode(', ') }}
+                                            </div>
+                                        @endif
                                     </div>
                                 </label>
                             @endforeach

@@ -4,7 +4,8 @@
 
     $layoutSettingsService = app(\App\Services\LayoutSettingsService::class);
     $currentUser = Auth::user();
-    $canManageTenantLogo = $currentUser !== null && (! method_exists($currentUser, 'isCustomer') || ! $currentUser->isCustomer());
+    $brandingEnabled = tenant()->hasFeature('custom_branding');
+    $canManageTenantLogo = $brandingEnabled && $currentUser !== null && (! method_exists($currentUser, 'isCustomer') || ! $currentUser->isCustomer());
     $theme = app(\App\Services\ThemeService::class)->getTenantTheme();
     $themePresets = app(\App\Services\ThemeService::class)->getAllPresets();
     $resolvedLayout = $layoutSettingsService->resolve(tenant(), $currentUser);
@@ -12,7 +13,7 @@
     $saveRoute = route('tenant.settings.layout.save');
     $resetRoute = route('tenant.settings.layout.reset');
     $csrfToken = csrf_token();
-    $logoUrl = tenant()->logo_path && Storage::disk('public')->exists(tenant()->logo_path)
+    $logoUrl = $brandingEnabled && tenant()->logo_path && Storage::disk('public')->exists(tenant()->logo_path)
         ? Storage::disk('public')->url(tenant()->logo_path)
         : null;
     $isSidebarTop = $resolvedLayout['sidebar_position'] === 'top';

@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use App\Services\TenantFeatureService;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Carbon;
 use Stancl\Tenancy\Contracts\TenantWithDatabase;
 use Stancl\Tenancy\Database\Concerns\HasDatabase;
 use Stancl\Tenancy\Database\Concerns\HasDomains;
@@ -40,6 +42,9 @@ class Tenant extends BaseTenant implements TenantWithDatabase
             'logo_path',
             'subscription_plan_id',
             'trial_ends_at',
+            'subscription_expires_at',
+            'grace_period_days',
+            'last_renewal_reminder_sent_at',
             'is_paid',
         ];
     }
@@ -57,6 +62,8 @@ class Tenant extends BaseTenant implements TenantWithDatabase
             'layout_settings' => 'array',
             'features' => 'array',
             'trial_ends_at' => 'datetime',
+            'subscription_expires_at' => 'datetime',
+            'last_renewal_reminder_sent_at' => 'datetime',
         ];
     }
 
@@ -83,7 +90,7 @@ class Tenant extends BaseTenant implements TenantWithDatabase
      */
     public function hasFeature(string $feature): bool
     {
-        return in_array($feature, $this->features ?? []);
+        return app(TenantFeatureService::class)->hasFeature($this->features, $feature);
     }
 
     /**
@@ -120,6 +127,19 @@ class Tenant extends BaseTenant implements TenantWithDatabase
     }
 
     /**
+     * Get the tenant's latest paid subscription payment.
+     */
+    public function latestPaidSubscriptionPayment(): ?Payment
+    {
+        return $this->payments()
+            ->where('payment_type', 'subscription')
+            ->where('status', 'paid')
+            ->whereNotNull('paid_at')
+            ->latest('paid_at')
+            ->first();
+    }
+
+    /**
      * Get the updates/versions for this tenant.
      */
     public function updates(): HasMany
@@ -133,6 +153,7 @@ class Tenant extends BaseTenant implements TenantWithDatabase
     public function currentVersion(): string
     {
         $currentUpdate = $this->updates()->where('is_current', true)->with('release')->first();
+
         return $currentUpdate ? $currentUpdate->release->version_tag : 'v1.0.0';
     }
 
@@ -180,5 +201,95 @@ class Tenant extends BaseTenant implements TenantWithDatabase
         }
 
         return (int) now()->diffInDays($this->trial_ends_at, false);
+    }
+
+    /**
+     * Get the next renewal date for an active paid subscription.
+     */
+    public function subscriptionRenewsAt(): ?Carbon
+    {
+        if (! $this->is_paid || ! $this->subscriptionPlan || $this->subscriptionPlan->isFree()) {
+            return null;
+        }
+
+        $paidSubscription = $this->latestPaidSubscriptionPayment();
+
+        if (! $paidSubscription?->paid_at) {
+            return null;
+        }
+
+        return match ($this->subscriptionPlan->billing_cycle) {
+            'yearly' => $paidSubscription->paid_at->copy()->addYear(),
+            default => $paidSubscription->paid_at->copy()->addMonth(),
+        };
+    }
+
+    /**
+     * Get the number of days remaining before the next paid renewal date.
+     */
+    public function paidDaysRemaining(): int
+    {
+        $subscriptionRenewsAt = $this->subscriptionRenewsAt();
+
+        if ($subscriptionRenewsAt === null || $subscriptionRenewsAt->isPast()) {
+            return 0;
+        }
+
+        return (int) now()->diffInDays($subscriptionRenewsAt, false);
+    }
+
+    /**
+     * Check if the subscription has expired (past expiration date).
+     */
+    public function isSubscriptionExpired(): bool
+    {
+        return $this->subscription_expires_at !== null && $this->subscription_expires_at->isPast();
+    }
+
+    /**
+     * Check if tenant is within grace period after subscription expiration.
+     */
+    public function isInGracePeriod(): bool
+    {
+        if (!$this->isSubscriptionExpired() || $this->is_paid) {
+            return false;
+        }
+
+        $graceEndsAt = $this->subscription_expires_at->copy()->addDays($this->grace_period_days ?? 7);
+        return now()->isBefore($graceEndsAt);
+    }
+
+    /**
+     * Get the date when grace period ends.
+     */
+    public function graceEndsAt(): ?Carbon
+    {
+        if (!$this->subscription_expires_at) {
+            return null;
+        }
+
+        return $this->subscription_expires_at->copy()->addDays($this->grace_period_days ?? 7);
+    }
+
+    /**
+     * Get days remaining in grace period.
+     */
+    public function graceDaysRemaining(): int
+    {
+        $graceEndsAt = $this->graceEndsAt();
+
+        if (!$graceEndsAt || $graceEndsAt->isPast()) {
+            return 0;
+        }
+
+        return (int) now()->diffInDays($graceEndsAt, false);
+    }
+
+    /**
+     * Check if tenant needs to renew subscription.
+     */
+    public function needsRenewal(): bool
+    {
+        return !$this->is_paid && ($this->isSubscriptionExpired() || $this->isInGracePeriod());
     }
 }

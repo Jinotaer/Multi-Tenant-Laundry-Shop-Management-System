@@ -1,13 +1,15 @@
 <?php
 
+use App\Http\Controllers\Admin\AdminNotificationController;
 use App\Http\Controllers\Admin\Auth\LoginController as AdminLoginController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\ProfileController as AdminProfileController;
 use App\Http\Controllers\Admin\RegistrationController;
+use App\Http\Controllers\Admin\ReleaseController;
 use App\Http\Controllers\Admin\SettingsController as AdminSettingsController;
 use App\Http\Controllers\Admin\SubscriptionPlanController;
+use App\Http\Controllers\Admin\SupportTicketController as AdminSupportTicketController;
 use App\Http\Controllers\Admin\TenantController;
-use App\Http\Controllers\Admin\ReleaseController;
 use App\Http\Controllers\PayMongoWebhookController;
 use App\Http\Controllers\TenantRegistrationController;
 use App\Http\Controllers\WelcomeController;
@@ -176,6 +178,26 @@ foreach (config('tenancy.central_domains') as $domain) {
                         SubscriptionPlanController::class,
                         'destroy',
                     ])->name('admin.subscription-plans.destroy');
+
+                    // Priority Support
+                    Route::get('/support-tickets', [
+                        AdminSupportTicketController::class,
+                        'index',
+                    ])->name('admin.support-tickets.index');
+                    Route::get('/support-tickets/{ticket}', [
+                        AdminSupportTicketController::class,
+                        'show',
+                    ])->name('admin.support-tickets.show');
+                    Route::patch('/support-tickets/{ticket}', [
+                        AdminSupportTicketController::class,
+                        'update',
+                    ])->name('admin.support-tickets.update');
+
+                    // Notifications
+                    Route::post('/notifications/mark-all-read', [
+                        AdminNotificationController::class,
+                        'markAllAsRead',
+                    ])->name('admin.notifications.markAllAsRead');
 
                     // Settings
                     Route::get('/settings', function () {

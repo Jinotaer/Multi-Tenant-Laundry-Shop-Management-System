@@ -4,13 +4,14 @@
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
                 {{ __('Subscription Plans') }}
             </h2>
-            <a href="{{ route('admin.subscription-plans.create') }}" class="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest transition ease-in-out duration-150">
-                <svg class="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-                {{ __('Create Plan') }}
-            </a>
         </div>
     </x-slot>
-
+    <div class="flex justify-end">
+        <a href="{{ route('admin.subscription-plans.create') }}" class="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest transition ease-in-out duration-150">
+            <svg class="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+            {{ __('Create Plan') }}
+        </a>
+    </div>
     @php $theme = app(\App\Services\ThemeService::class)->getAdminTheme(); @endphp
 
     @if (session('error'))
@@ -98,7 +99,8 @@
                         </div>
                     </div>
 
-                    <div class="bg-gray-50 px-6 py-3 flex items-center justify-between">
+                    <div class="h-16"></div> <!-- Spacer to prevent content overlapping with the fixed footer -->
+                    <div class="absolute bottom-0 left-0 right-0 bg-gray-50 border-t border-gray-100 px-6 py-3 flex items-center justify-between">
                         <a href="{{ route('admin.subscription-plans.edit', $plan) }}" class="text-sm font-medium text-indigo-600 hover:text-indigo-900">Edit</a>
 
                         @if ($plan->tenants()->count() === 0)

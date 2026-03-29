@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\SubscriptionPlanRequest;
 use App\Models\SubscriptionPlan;
+use App\Services\TenantFeatureService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 
@@ -37,12 +38,16 @@ class SubscriptionPlanController extends Controller
     /**
      * Store a newly created plan.
      */
-    public function store(SubscriptionPlanRequest $request): RedirectResponse
-    {
+    public function store(
+        SubscriptionPlanRequest $request,
+        TenantFeatureService $tenantFeatureService,
+    ): RedirectResponse {
         $data = $request->validated();
         $data['is_active'] = $request->boolean('is_active', true);
         $data['is_default'] = $request->boolean('is_default', false);
-        $data['features'] = $request->input('features', []);
+        $data['features'] = $tenantFeatureService->normalize(
+            $request->input('features', []),
+        );
 
         if ($data['is_default']) {
             SubscriptionPlan::where('is_default', true)->update(['is_default' => false]);
@@ -70,12 +75,17 @@ class SubscriptionPlanController extends Controller
     /**
      * Update the specified plan.
      */
-    public function update(SubscriptionPlanRequest $request, SubscriptionPlan $plan): RedirectResponse
-    {
+    public function update(
+        SubscriptionPlanRequest $request,
+        SubscriptionPlan $plan,
+        TenantFeatureService $tenantFeatureService,
+    ): RedirectResponse {
         $data = $request->validated();
         $data['is_active'] = $request->boolean('is_active', true);
         $data['is_default'] = $request->boolean('is_default', false);
-        $data['features'] = $request->input('features', []);
+        $data['features'] = $tenantFeatureService->normalize(
+            $request->input('features', []),
+        );
 
         if ($data['is_default'] && ! $plan->is_default) {
             SubscriptionPlan::where('is_default', true)

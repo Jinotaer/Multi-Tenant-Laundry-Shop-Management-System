@@ -27,8 +27,7 @@
                                     @foreach ($tenants as $tenant)
                                         <tr>
                                             <td class="px-6 py-4 whitespace-nowrap">
-                                                <div class="text-sm font-medium text-gray-900">{{ $tenant->data['shop_name'] ?? 'N/A' }}</div>
-                                                <div class="text-xs text-gray-400">ID: {{ $tenant->id }}</div>
+                                                <div class="text-sm font-medium text-gray-900">{{ $tenant->registration->shop_name ?? str($tenant->id)->replace('-', ' ')->title() }}</div>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap">
                                                 @if ($tenant->registration)
@@ -73,9 +72,6 @@
                                                             <button type="submit" class="text-green-600 hover:text-green-900" onclick="return confirm('Enable this shop?')">Enable</button>
                                                         @endif
                                                     </form>
-
-                                                    <button type="button" class="text-red-600 hover:text-red-900" x-data x-on:click="$dispatch('open-modal', 'delete-tenant-{{ $tenant->id }}')">Delete</button>
-
                                                     <x-modal name="delete-tenant-{{ $tenant->id }}" focusable>
                                                         <form method="POST" action="{{ route('admin.tenants.destroy', $tenant) }}" class="p-6">
                                                             @csrf

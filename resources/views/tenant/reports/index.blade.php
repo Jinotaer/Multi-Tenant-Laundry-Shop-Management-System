@@ -1,44 +1,70 @@
 <x-tenant-layout>
     <x-slot name="header">
         <div class="flex items-center justify-between">
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">Reports</h2>
-            <div class="flex items-center gap-2">
-                @foreach (['week' => 'This Week', 'month' => 'This Month', 'year' => 'This Year'] as $key => $label)
-                    <a href="{{ route('tenant.reports.index', ['period' => $key]) }}"
-                        class="px-3 py-1.5 text-sm rounded-md {{ $period === $key ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50' }}">
-                        {{ $label }}
-                    </a>
-                @endforeach
+            <div>
+                <h2 class="font-semibold text-xl text-gray-800 leading-tight">Reports</h2>
             </div>
+
         </div>
     </x-slot>
 
     @php $theme = tenant()->getThemePreset(); @endphp
-
+    <div class="flex justify-end p-4">
+        <div class="flex flex-wrap items-center justify-end gap-2">
+            <a href="{{ route('tenant.reports.export-excel', ['period' => $period]) }}"
+                class="px-3 py-1.5 text-sm rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">
+                Export Excel
+            </a>
+            <a href="{{ route('tenant.reports.export-pdf', ['period' => $period]) }}" target="_blank"
+                class="px-3 py-1.5 text-sm rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">
+                Print / Save PDF
+            </a>
+            @foreach (['week' => 'This Week', 'month' => 'This Month', 'year' => 'This Year'] as $key => $label)
+                <a href="{{ route('tenant.reports.index', ['period' => $key]) }}"
+                    class="px-3 py-1.5 text-sm rounded-md {{ $period === $key ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50' }}">
+                    {{ $label }}
+                </a>
+            @endforeach
+        </div>
+    </div>
     <div class="space-y-6">
-        {{-- Summary Cards --}}
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
             <div class="bg-white rounded-lg shadow-sm p-5">
                 <p class="text-xs font-medium text-gray-500 uppercase">Total Revenue</p>
-                <p class="mt-1 text-2xl font-bold text-gray-900">₱{{ number_format($totalRevenue, 2) }}</p>
+                <p class="mt-1 text-2xl font-bold text-gray-900">PHP {{ number_format($totalRevenue, 2) }}</p>
+                <p class="mt-1 text-xs text-gray-400">{{ $periodLabel }}</p>
+            </div>
+            <div class="bg-white rounded-lg shadow-sm p-5">
+                <p class="text-xs font-medium text-gray-500 uppercase">Total Expenses</p>
+                <p class="mt-1 text-2xl font-bold text-gray-900">PHP {{ number_format($totalExpenses, 2) }}</p>
+                <p class="mt-1 text-xs text-gray-400">
+                    {{ tenant()->hasFeature('expense_tracking') ? 'Tracked operational costs' : 'Expense tracking not enabled' }}
+                </p>
+            </div>
+            <div class="bg-white rounded-lg shadow-sm p-5">
+                <p class="text-xs font-medium text-gray-500 uppercase">Estimated Profit</p>
+                <p class="mt-1 text-2xl font-bold {{ $estimatedProfit >= 0 ? 'text-green-600' : 'text-red-500' }}">
+                    PHP {{ number_format($estimatedProfit, 2) }}
+                </p>
+                <p class="mt-1 text-xs text-gray-400">Revenue less tracked expenses</p>
             </div>
             <div class="bg-white rounded-lg shadow-sm p-5">
                 <p class="text-xs font-medium text-gray-500 uppercase">Total Orders</p>
                 <p class="mt-1 text-2xl font-bold text-gray-900">{{ $totalOrders }}</p>
-                <p class="text-xs text-gray-400 mt-1">{{ $paidOrders }} paid · {{ $unpaidOrders }} unpaid</p>
+                <p class="text-xs text-gray-400 mt-1">{{ $paidOrders }} paid / {{ $unpaidOrders }} unpaid</p>
             </div>
             <div class="bg-white rounded-lg shadow-sm p-5">
                 <p class="text-xs font-medium text-gray-500 uppercase">Avg. Order Value</p>
-                <p class="mt-1 text-2xl font-bold text-gray-900">₱{{ number_format($averageOrderValue, 2) }}</p>
+                <p class="mt-1 text-2xl font-bold text-gray-900">PHP {{ number_format($averageOrderValue, 2) }}</p>
             </div>
             <div class="bg-white rounded-lg shadow-sm p-5">
                 <p class="text-xs font-medium text-gray-500 uppercase">Total Customers</p>
                 <p class="mt-1 text-2xl font-bold text-gray-900">{{ $totalCustomers }}</p>
+                <p class="mt-1 text-xs text-gray-400">{{ $generatedAt->format('M d, Y h:i A') }}</p>
             </div>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {{-- Orders by Status --}}
             <div class="bg-white rounded-lg shadow-sm p-6">
                 <h3 class="text-sm font-semibold text-gray-700 mb-4">Orders by Status</h3>
                 @php
@@ -65,7 +91,6 @@
                 </div>
             </div>
 
-            {{-- Popular Services --}}
             <div class="bg-white rounded-lg shadow-sm p-6">
                 <h3 class="text-sm font-semibold text-gray-700 mb-4">Popular Services</h3>
                 @if ($popularServices->isEmpty())
@@ -86,7 +111,6 @@
             </div>
         </div>
 
-        {{-- Daily Revenue (simple table chart) --}}
         @if (!empty($dailyRevenue))
             <div class="bg-white rounded-lg shadow-sm p-6">
                 <h3 class="text-sm font-semibold text-gray-700 mb-4">Daily Revenue (Last 30 Days)</h3>
@@ -94,19 +118,20 @@
                 <div class="space-y-1.5">
                     @foreach ($dailyRevenue as $date => $revenue)
                         <div class="flex items-center gap-3">
-                            <span class="text-xs text-gray-500 w-20 flex-shrink-0">{{ \Carbon\Carbon::parse($date)->format('M d') }}</span>
+                            <span
+                                class="text-xs text-gray-500 w-20 flex-shrink-0">{{ \Carbon\Carbon::parse($date)->format('M d') }}</span>
                             <div class="flex-1 bg-gray-100 rounded-full h-4 relative">
                                 <div class="h-4 rounded-full {{ $theme['primary_bg'] }}"
                                     style="width: {{ $maxRevenue > 0 ? round(($revenue / $maxRevenue) * 100) : 0 }}%"></div>
                             </div>
-                            <span class="text-xs font-medium text-gray-700 w-24 text-right">₱{{ number_format($revenue, 2) }}</span>
+                            <span class="text-xs font-medium text-gray-700 w-24 text-right">PHP
+                                {{ number_format($revenue, 2) }}</span>
                         </div>
                     @endforeach
                 </div>
             </div>
         @endif
 
-        {{-- Recent Orders --}}
         <div class="bg-white rounded-lg shadow-sm overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-200">
                 <h3 class="text-sm font-semibold text-gray-700">Recent Orders</h3>
@@ -127,17 +152,23 @@
                         @foreach ($recentOrders as $order)
                             <tr class="hover:bg-gray-50">
                                 <td class="px-6 py-3 whitespace-nowrap">
-                                    <a href="{{ route('tenant.orders.show', $order) }}" class="text-sm font-medium text-gray-900 hover:{{ $theme['nav_active_text'] }}">
+                                    <a href="{{ route('tenant.orders.show', $order) }}"
+                                        class="text-sm font-medium text-gray-900 hover:{{ $theme['nav_active_text'] }}">
                                         {{ $order->order_number }}
                                     </a>
                                 </td>
-                                <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-600">{{ $order->customer?->name ?? '—' }}</td>
-                                <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-500">{{ $order->service?->name ?? '—' }}</td>
+                                <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-600">
+                                    {{ $order->customer?->name ?? 'N/A' }}</td>
+                                <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
+                                    {{ $order->service?->name ?? 'N/A' }}</td>
                                 <td class="px-6 py-3 whitespace-nowrap">
-                                    <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium {{ $order->status_color }}">{{ $order->status_label }}</span>
+                                    <span
+                                        class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium {{ $order->status_color }}">{{ $order->status_label }}</span>
                                 </td>
-                                <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-700">₱{{ number_format($order->total_amount, 2) }}</td>
-                                <td class="px-6 py-3 whitespace-nowrap text-sm {{ $order->isPaid() ? 'text-green-600' : 'text-red-500' }}">
+                                <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-700">PHP
+                                    {{ number_format($order->total_amount, 2) }}</td>
+                                <td
+                                    class="px-6 py-3 whitespace-nowrap text-sm {{ $order->isPaid() ? 'text-green-600' : 'text-red-500' }}">
                                     {{ $order->isPaid() ? 'Paid' : 'Unpaid' }}
                                 </td>
                             </tr>

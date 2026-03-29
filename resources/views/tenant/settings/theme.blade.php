@@ -42,8 +42,9 @@
             ],
         ];
         $currentUser = auth()->user();
+        $customBrandingEnabled = tenant()->hasFeature('custom_branding');
 
-        if ($currentUser && method_exists($currentUser, 'isCustomer') && $currentUser->isCustomer()) {
+        if (! $customBrandingEnabled || ($currentUser && method_exists($currentUser, 'isCustomer') && $currentUser->isCustomer())) {
             unset($settingSections['logo_visibility']);
         }
         $workspaceBagHasErrors = $errors->tenantLayoutDefaults->any();
@@ -475,57 +476,66 @@
                     </div>
                 </form>
 
-                <div class="tenant-panel overflow-hidden">
-                    <div class="border-b border-gray-200 px-6 py-5 dark:border-slate-800">
-                        <h4 class="text-base font-semibold text-gray-900 dark:text-slate-100">Workspace Logo</h4>
-                        <p class="mt-1 text-sm text-gray-500 dark:text-slate-400">Upload a logo for the sidebar brand area. Layout visibility is controlled separately above.</p>
-                    </div>
-                    <div class="p-6">
-                        <div class="flex flex-col gap-6 md:flex-row md:items-start">
-                            <div class="flex h-20 w-20 items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gray-50 dark:border-slate-700 dark:bg-slate-900">
-                                @if ($logoUrl)
-                                    <img src="{{ $logoUrl }}" alt="Shop Logo" class="h-16 w-16 object-contain">
-                                @else
-                                    <svg class="h-8 w-8 text-gray-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z" />
-                                    </svg>
-                                @endif
-                            </div>
+                @if ($customBrandingEnabled)
+                    <div class="tenant-panel overflow-hidden">
+                        <div class="border-b border-gray-200 px-6 py-5 dark:border-slate-800">
+                            <h4 class="text-base font-semibold text-gray-900 dark:text-slate-100">Workspace Logo</h4>
+                            <p class="mt-1 text-sm text-gray-500 dark:text-slate-400">Upload a logo for the sidebar brand area. Layout visibility is controlled separately above.</p>
+                        </div>
+                        <div class="p-6">
+                            <div class="flex flex-col gap-6 md:flex-row md:items-start">
+                                <div class="flex h-20 w-20 items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gray-50 dark:border-slate-700 dark:bg-slate-900">
+                                    @if ($logoUrl)
+                                        <img src="{{ $logoUrl }}" alt="Shop Logo" class="h-16 w-16 object-contain">
+                                    @else
+                                        <svg class="h-8 w-8 text-gray-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z" />
+                                        </svg>
+                                    @endif
+                                </div>
 
-                            <div class="flex-1 space-y-4">
-                                <form method="POST" action="{{ route('tenant.settings.logo') }}" enctype="multipart/form-data" class="space-y-4">
-                                    @csrf
-
-                                    <div>
-                                        <input type="file" name="logo" accept="image/jpeg,image/png,image/svg+xml" class="block w-full text-sm text-gray-500 file:mr-4 file:rounded-md file:border-0 file:bg-gray-100 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-gray-700 hover:file:bg-gray-200 dark:file:bg-slate-800 dark:file:text-slate-100 dark:hover:file:bg-slate-700">
-                                        <p class="mt-2 text-xs text-gray-400 dark:text-slate-500">JPG, PNG, or SVG up to 2MB.</p>
-                                    </div>
-
-                                    @error('logo')
-                                        <p class="text-sm text-red-600">{{ $message }}</p>
-                                    @enderror
-
-                                    <div class="flex flex-wrap items-center gap-3">
-                                        <button type="submit" class="tenant-button inline-flex items-center px-4 py-2 {{ $theme['primary_bg'] }} {{ $theme['primary_hover'] }} border border-transparent font-semibold text-xs uppercase tracking-widest text-white transition">
-                                            Upload Logo
-                                        </button>
-                                    </div>
-                                </form>
-
-                                @if ($logoUrl)
-                                    <form method="POST" action="{{ route('tenant.settings.logo.remove') }}">
+                                <div class="flex-1 space-y-4">
+                                    <form method="POST" action="{{ route('tenant.settings.logo') }}" enctype="multipart/form-data" class="space-y-4">
                                         @csrf
-                                        @method('DELETE')
 
-                                        <button type="submit" class="tenant-button inline-flex items-center border border-gray-300 bg-white px-4 py-2 font-semibold text-xs uppercase tracking-widest text-gray-700 transition hover:bg-gray-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800">
-                                            Remove Logo
-                                        </button>
+                                        <div>
+                                            <input type="file" name="logo" accept="image/jpeg,image/png,image/svg+xml" class="block w-full text-sm text-gray-500 file:mr-4 file:rounded-md file:border-0 file:bg-gray-100 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-gray-700 hover:file:bg-gray-200 dark:file:bg-slate-800 dark:file:text-slate-100 dark:hover:file:bg-slate-700">
+                                            <p class="mt-2 text-xs text-gray-400 dark:text-slate-500">JPG, PNG, or SVG up to 2MB.</p>
+                                        </div>
+
+                                        @error('logo')
+                                            <p class="text-sm text-red-600">{{ $message }}</p>
+                                        @enderror
+
+                                        <div class="flex flex-wrap items-center gap-3">
+                                            <button type="submit" class="tenant-button inline-flex items-center px-4 py-2 {{ $theme['primary_bg'] }} {{ $theme['primary_hover'] }} border border-transparent font-semibold text-xs uppercase tracking-widest text-white transition">
+                                                Upload Logo
+                                            </button>
+                                        </div>
                                     </form>
-                                @endif
+
+                                    @if ($logoUrl)
+                                        <form method="POST" action="{{ route('tenant.settings.logo.remove') }}">
+                                            @csrf
+                                            @method('DELETE')
+
+                                            <button type="submit" class="tenant-button inline-flex items-center border border-gray-300 bg-white px-4 py-2 font-semibold text-xs uppercase tracking-widest text-gray-700 transition hover:bg-gray-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800">
+                                                Remove Logo
+                                            </button>
+                                        </form>
+                                    @endif
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
+                @else
+                    <div class="tenant-panel overflow-hidden">
+                        <div class="p-6">
+                            <h4 class="text-base font-semibold text-gray-900 dark:text-slate-100">Workspace Logo</h4>
+                            <p class="mt-1 text-sm text-gray-500 dark:text-slate-400">Custom Branding is not included in the current plan. Enable that feature to upload a logo for receipts and the customer portal.</p>
+                        </div>
+                    </div>
+                @endif
             </section>
         @endif
 

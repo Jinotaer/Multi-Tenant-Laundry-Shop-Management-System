@@ -1,6 +1,6 @@
 @php $theme = app(\App\Services\ThemeService::class)->getAdminTheme(); @endphp
 
-<div class="space-y-6">
+<div class="space-y-6 mb-12">
     <!-- Plan Details -->
     <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
         <div class="p-6">
@@ -112,6 +112,12 @@
                         <div>
                             <div class="text-sm font-medium text-gray-900">{{ $featureDef['label'] }}</div>
                             <div class="text-xs text-gray-500">{{ $featureDef['description'] }}</div>
+                            @if (! empty($featureDef['requires']))
+                                <div class="mt-1 text-[11px] font-medium text-amber-600">
+                                    Requires:
+                                    {{ collect($featureDef['requires'])->map(fn (string $feature): string => config("themes.features.{$feature}.label", $feature))->implode(', ') }}
+                                </div>
+                            @endif
                         </div>
                     </label>
                 @endforeach
@@ -168,7 +174,7 @@
     </div>
 
     <!-- Actions -->
-    <div class="flex items-center justify-end gap-4">
+    <div class="flex items-center justify-end gap-4 ">
         <a href="{{ route('admin.subscription-plans.index') }}" class="text-sm text-gray-600 hover:text-gray-900">Cancel</a>
         <button type="submit" class="inline-flex items-center px-4 py-2 {{ $theme['primary_bg'] }} {{ $theme['primary_hover'] }} border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest transition ease-in-out duration-150">
             {{ $submitLabel ?? 'Save Plan' }}

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\SubscriptionPlan;
 use App\Models\Tenant;
+use App\Services\TenantFeatureService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -72,8 +73,11 @@ class TenantController extends Controller
     /**
      * Update feature flags for a tenant.
      */
-    public function updateFeatures(Request $request, Tenant $tenant): RedirectResponse
-    {
+    public function updateFeatures(
+        Request $request,
+        Tenant $tenant,
+        TenantFeatureService $tenantFeatureService,
+    ): RedirectResponse {
         $validFeatures = array_keys(config('themes.features', []));
 
         $request->validate([
@@ -81,7 +85,9 @@ class TenantController extends Controller
             'features.*' => ['string', 'in:'.implode(',', $validFeatures)],
         ]);
 
-        $tenant->features = $request->input('features', []);
+        $tenant->features = $tenantFeatureService->normalize(
+            $request->input('features', []),
+        );
         $tenant->save();
 
         $shopName = $tenant->data['shop_name'] ?? $tenant->id;
@@ -92,8 +98,11 @@ class TenantController extends Controller
     /**
      * Update the subscription plan for a tenant.
      */
-    public function updatePlan(Request $request, Tenant $tenant): RedirectResponse
-    {
+    public function updatePlan(
+        Request $request,
+        Tenant $tenant,
+        TenantFeatureService $tenantFeatureService,
+    ): RedirectResponse {
         $request->validate([
             'subscription_plan_id' => ['required', 'exists:subscription_plans,id'],
         ]);
@@ -101,7 +110,9 @@ class TenantController extends Controller
         $plan = SubscriptionPlan::findOrFail($request->subscription_plan_id);
 
         $tenant->subscription_plan_id = $plan->id;
-        $tenant->features = $plan->features ?? [];
+        $tenant->features = $tenantFeatureService->normalize(
+            $plan->features ?? [],
+        );
         $tenant->save();
 
         $shopName = $tenant->data['shop_name'] ?? $tenant->id;

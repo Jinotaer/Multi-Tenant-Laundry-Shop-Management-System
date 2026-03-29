@@ -576,6 +576,55 @@
                 </nav>
 
                 <div x-show="isTop" class="ml-2 hidden items-center gap-2 pr-2 sm:flex" x-cloak>
+                    <!-- Enhanced Notification Bell for 'isTop' Layout -->
+                    <div class="relative" x-data="{ open: false }">
+                        <button @click="open = !open" type="button" class="relative p-2 text-gray-400 transition-colors rounded-full hover:text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800 focus:outline-none">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                            </svg>
+                            @if($admin->unreadNotifications()->count() > 0)
+                                <span class="absolute top-1.5 right-1.5 flex h-2 w-2 rounded-full bg-red-500 ring-2 ring-white dark:ring-slate-900"></span>
+                            @endif
+                        </button>
+
+                        <div x-show="open" @click.away="open = false" style="display: none;" 
+                                x-transition:enter="transition ease-out duration-100" 
+                                x-transition:enter-start="transform opacity-0 scale-95" 
+                                x-transition:enter-end="transform opacity-100 scale-100" 
+                                x-transition:leave="transition ease-in duration-75" 
+                                x-transition:leave-start="transform opacity-100 scale-100" 
+                                x-transition:leave-end="transform opacity-0 scale-95" 
+                                class="absolute right-0 w-80 mt-2 origin-top-right bg-white dark:bg-slate-900 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
+                            
+                            <div class="px-4 py-3 border-b border-gray-100 dark:border-slate-800 flex justify-between items-center bg-gray-50 dark:bg-slate-800/50 rounded-t-md">
+                                <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100">Notifications</h3>
+                                @if($admin->unreadNotifications()->count() > 0)
+                                    <form action="{{ route('admin.notifications.markAllAsRead') }}" method="POST" class="m-0">
+                                        @csrf
+                                        <button type="submit" class="text-xs font-medium text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300">Mark all read</button>
+                                    </form>
+                                @endif
+                            </div>
+                            
+                            <div class="max-h-96 overflow-y-auto">
+                                @forelse($admin->unreadNotifications as $notification)
+                                    <div class="px-4 py-3 border-b border-gray-50 dark:border-slate-800/80 hover:bg-gray-50 dark:hover:bg-slate-800/30 transition-colors">
+                                        <p class="text-sm text-gray-800 dark:text-gray-200">
+                                            {{ $notification->data['message'] ?? 'New notification' }}
+                                        </p>
+                                        <p class="text-xs text-gray-500 mt-1">
+                                            {{ $notification->created_at->diffForHumans() }}
+                                        </p>
+                                    </div>
+                                @empty
+                                    <div class="px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                                        No new notifications.
+                                    </div>
+                                @endforelse
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="flex h-8 w-8 items-center justify-center rounded-full {{ $theme['avatar_bg'] }}">
                         <span class="text-sm font-medium {{ $theme['avatar_text'] }}">{{ substr($admin->name, 0, 1) }}</span>
                     </div>
@@ -599,6 +648,57 @@
                             <p class="truncate text-sm font-medium text-gray-900 dark:text-slate-100">{{ $admin->name }}</p>
                             <p class="text-xs text-gray-500 dark:text-slate-400">{{ ucfirst($admin->role) }}</p>
                         </div>
+                        
+                        <!-- Notification Bell for Sidebar Layout -->
+                        <div class="relative mr-2" x-data="{ open: false }">
+                            <button @click="open = !open" type="button" class="relative text-gray-400 hover:text-gray-600 dark:text-slate-400 dark:hover:text-slate-100 focus:outline-none">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                                </svg>
+                                @if($admin->unreadNotifications()->count() > 0)
+                                    <span class="absolute -top-0.5 -right-0.5 flex h-2 w-2 rounded-full bg-red-500 ring-2 ring-white dark:ring-slate-900"></span>
+                                @endif
+                            </button>
+
+                            <div x-show="open" @click.away="open = false" style="display: none;" 
+                                    x-transition:enter="transition ease-out duration-100" 
+                                    x-transition:enter-start="transform opacity-0 scale-95" 
+                                    x-transition:enter-end="transform opacity-100 scale-100" 
+                                    x-transition:leave="transition ease-in duration-75" 
+                                    x-transition:leave-start="transform opacity-100 scale-100" 
+                                    x-transition:leave-end="transform opacity-0 scale-95" 
+                                    :class="isRight ? '-right-4 origin-bottom-right' : 'left-0 origin-bottom-left'"
+                                    class="absolute bottom-full mb-2 w-72 md:w-80 bg-white dark:bg-slate-900 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
+                                
+                                <div class="px-4 py-3 border-b border-gray-100 dark:border-slate-800 flex justify-between items-center bg-gray-50 dark:bg-slate-800/50 rounded-t-md">
+                                    <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100">Notifications</h3>
+                                    @if($admin->unreadNotifications()->count() > 0)
+                                        <form action="{{ route('admin.notifications.markAllAsRead') }}" method="POST" class="m-0">
+                                            @csrf
+                                            <button type="submit" class="text-xs font-medium text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300">Mark all read</button>
+                                        </form>
+                                    @endif
+                                </div>
+                                
+                                <div class="max-h-80 overflow-y-auto">
+                                    @forelse($admin->unreadNotifications as $notification)
+                                        <div class="px-4 py-3 border-b border-gray-50 dark:border-slate-800/80 hover:bg-gray-50 dark:hover:bg-slate-800/30 transition-colors">
+                                            <p class="text-sm text-gray-800 dark:text-gray-200">
+                                                {{ $notification->data['message'] ?? 'New notification' }}
+                                            </p>
+                                            <p class="text-xs text-gray-500 mt-1">
+                                                {{ $notification->created_at->diffForHumans() }}
+                                            </p>
+                                        </div>
+                                    @empty
+                                        <div class="px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                                            No new notifications.
+                                        </div>
+                                    @endforelse
+                                </div>
+                            </div>
+                        </div>
+
                         <form method="POST" action="{{ route('admin.logout') }}">
                             @csrf
                             <button type="submit" class="text-gray-400 hover:text-gray-600 dark:text-slate-400 dark:hover:text-slate-100" title="Logout">
@@ -631,6 +731,57 @@
                             </div>
 
                             <div :class="topbarUserClass">
+                                <!-- Notification Bell Dropdown -->
+                                <div class="relative" x-data="{ open: false }" :class="isRight ? 'order-last' : ''">
+                                    <button @click="open = !open" type="button" class="relative p-2 text-gray-400 transition-colors rounded-full hover:text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800 focus:outline-none">
+                                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                                        </svg>
+                                        @if($admin->unreadNotifications()->count() > 0)
+                                            <span class="absolute top-1.5 right-1.5 flex h-2 w-2 rounded-full bg-red-500 ring-2 ring-white dark:ring-slate-900"></span>
+                                        @endif
+                                    </button>
+
+                                    <!-- Dropdown menu -->
+                                    <div x-show="open" @click.away="open = false" style="display: none;" 
+                                         x-transition:enter="transition ease-out duration-100" 
+                                         x-transition:enter-start="transform opacity-0 scale-95" 
+                                         x-transition:enter-end="transform opacity-100 scale-100" 
+                                         x-transition:leave="transition ease-in duration-75" 
+                                         x-transition:leave-start="transform opacity-100 scale-100" 
+                                         x-transition:leave-end="transform opacity-0 scale-95" 
+                                         :class="isRight ? 'left-0 origin-top-left' : 'right-0 origin-top-right'"
+                                         class="absolute w-80 mt-2 bg-white dark:bg-slate-900 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
+                                        
+                                        <div class="px-4 py-3 border-b border-gray-100 dark:border-slate-800 flex justify-between items-center bg-gray-50 dark:bg-slate-800/50 rounded-t-md">
+                                            <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100">Notifications</h3>
+                                            @if($admin->unreadNotifications()->count() > 0)
+                                                <form action="{{ route('admin.notifications.markAllAsRead') }}" method="POST" class="m-0">
+                                                    @csrf
+                                                    <button type="submit" class="text-xs font-medium text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300">Mark all read</button>
+                                                </form>
+                                            @endif
+                                        </div>
+                                        
+                                        <div class="max-h-96 overflow-y-auto">
+                                            @forelse($admin->unreadNotifications as $notification)
+                                                <div class="px-4 py-3 border-b border-gray-50 dark:border-slate-800/80 hover:bg-gray-50 dark:hover:bg-slate-800/30 transition-colors">
+                                                    <p class="text-sm text-gray-800 dark:text-gray-200">
+                                                        {{ $notification->data['message'] ?? 'New notification' }}
+                                                    </p>
+                                                    <p class="text-xs text-gray-500 mt-1">
+                                                        {{ $notification->created_at->diffForHumans() }}
+                                                    </p>
+                                                </div>
+                                            @empty
+                                                <div class="px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                                                    No new notifications.
+                                                </div>
+                                            @endforelse
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <div class="flex h-9 w-9 items-center justify-center rounded-full {{ $theme['avatar_bg'] }}">
                                     <span class="text-sm font-medium {{ $theme['avatar_text'] }}">{{ substr($admin->name, 0, 1) }}</span>
                                 </div>

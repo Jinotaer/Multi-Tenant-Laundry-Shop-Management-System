@@ -35,8 +35,10 @@ class SubscriptionController extends Controller
         $usage = $service->getUsageSummary($staffCount, $customerCount, $monthlyOrderCount);
 
         $allFeatures = config('themes.features', []);
+        $subscriptionRenewsAt = $tenant->subscriptionRenewsAt();
 
         return view('tenant.subscription', [
+            'tenant' => $tenant,
             'plan' => $tenant->subscriptionPlan,
             'usage' => $usage,
             'allFeatures' => $allFeatures,
@@ -45,6 +47,25 @@ class SubscriptionController extends Controller
             'isPaid' => $tenant->is_paid,
             'trialEndsAt' => $tenant->trial_ends_at,
             'trialDaysRemaining' => $tenant->trialDaysRemaining(),
+            'subscriptionRenewsAt' => $subscriptionRenewsAt,
+            'paidDaysRemaining' => $subscriptionRenewsAt ? $tenant->paidDaysRemaining() : null,
+        ]);
+    }
+
+    /**
+     * Show available subscription plans.
+     */
+    public function plans(): View
+    {
+        $tenant = tenant();
+        $tenant->load('subscriptionPlan');
+        $plans = \App\Models\SubscriptionPlan::active()->orderBy('sort_order')->get();
+        $allFeatures = config('themes.features', []);
+
+        return view('tenant.subscription-plans', [
+            'currentPlan' => $tenant->subscriptionPlan,
+            'plans' => $plans,
+            'allFeatures' => $allFeatures,
         ]);
     }
 }

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Tenant\CustomerRequest;
 use App\Models\Customer;
 use App\Models\User;
+use App\Services\PlanLimitService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -34,8 +35,15 @@ class CustomerController extends Controller
     /**
      * Show the form for creating a new customer.
      */
-    public function create(): View
+    public function create(): View|RedirectResponse
     {
+        $planLimitService = new PlanLimitService(tenant());
+
+        if (! $planLimitService->canAddCustomer(Customer::count())) {
+            return redirect()->route('tenant.customers.index')
+                ->with('error', 'Customer limit reached for your current plan. Please upgrade to add more customers.');
+        }
+
         $defaultPassword = Str::random(8);
 
         return view('tenant.customers.create', compact('defaultPassword'));
@@ -46,6 +54,13 @@ class CustomerController extends Controller
      */
     public function store(CustomerRequest $request): RedirectResponse
     {
+        $planLimitService = new PlanLimitService(tenant());
+
+        if (! $planLimitService->canAddCustomer(Customer::count())) {
+            return redirect()->route('tenant.customers.index')
+                ->with('error', 'Customer limit reached for your current plan. Please upgrade to add more customers.');
+        }
+
         $data = $request->validated();
 
         // Hash password if provided

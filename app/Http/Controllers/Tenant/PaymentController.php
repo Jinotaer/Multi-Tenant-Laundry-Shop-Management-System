@@ -86,9 +86,15 @@ class PaymentController extends Controller
                         'paid_at' => now(),
                     ]);
 
+                    $newExpirationDate = match ($plan->billing_cycle) {
+                        'yearly' => now()->addYear(),
+                        default => now()->addMonth(),
+                    };
+
                     $tenant->update([
                         'is_paid' => true,
                         'is_enabled' => true,
+                        'subscription_expires_at' => $newExpirationDate,
                     ]);
 
                     return redirect()->route('tenant.dashboard');
@@ -187,9 +193,16 @@ class PaymentController extends Controller
                         'paid_at' => now(),
                     ]);
 
+                    $plan = $tenant->subscriptionPlan;
+                    $newExpirationDate = match ($plan->billing_cycle) {
+                        'yearly' => now()->addYear(),
+                        default => now()->addMonth(),
+                    };
+
                     $tenant->update([
                         'is_paid' => true,
                         'is_enabled' => true,
+                        'subscription_expires_at' => $newExpirationDate,
                     ]);
                 }
             } catch (\Exception) {

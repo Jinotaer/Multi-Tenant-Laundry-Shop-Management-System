@@ -1,3 +1,12 @@
+@php
+    use Illuminate\Support\Facades\Storage;
+
+    $brandingEnabled = tenant()->hasFeature('custom_branding');
+    $logoUrl = $brandingEnabled && tenant()->logo_path && Storage::disk('public')->exists(tenant()->logo_path)
+        ? Storage::disk('public')->url(tenant()->logo_path)
+        : null;
+@endphp
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -14,6 +23,7 @@
         .row { display: flex; justify-content: space-between; margin: 2px 0; }
         .shop-name { font-size: 16px; font-weight: bold; margin-bottom: 4px; }
         .receipt-title { font-size: 14px; margin-bottom: 8px; }
+        .shop-logo { display: block; max-width: 64px; max-height: 64px; margin: 0 auto 8px; object-fit: contain; }
         table { width: 100%; border-collapse: collapse; }
         td { padding: 2px 0; vertical-align: top; }
         td.right { text-align: right; }
@@ -37,6 +47,9 @@
 
     {{-- Shop Header --}}
     <div class="center">
+        @if ($logoUrl)
+            <img src="{{ $logoUrl }}" alt="Shop Logo" class="shop-logo">
+        @endif
         <div class="shop-name">{{ tenant('data')['shop_name'] ?? 'LaundryTrack' }}</div>
         <div class="receipt-title">LAUNDRY RECEIPT</div>
     </div>

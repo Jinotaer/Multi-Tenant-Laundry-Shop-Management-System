@@ -26,6 +26,8 @@ class Order extends Model
         'payment_status',
         'loyalty_points_awarded',
         'loyalty_points_awarded_at',
+        'loyalty_points_redeemed',
+        'loyalty_discount_amount',
         'paid_at',
         'due_date',
         'notes',
@@ -45,6 +47,8 @@ class Order extends Model
             'due_date' => 'date',
             'loyalty_points_awarded' => 'integer',
             'loyalty_points_awarded_at' => 'datetime',
+            'loyalty_points_redeemed' => 'integer',
+            'loyalty_discount_amount' => 'decimal:2',
             'paid_at' => 'datetime',
         ];
     }
@@ -83,7 +87,15 @@ class Order extends Model
             return $all;
         }
 
-        // Starter basic workflow
+        if (! $tenant || $tenant->hasFeature('basic_tracking')) {
+            return [
+                'received' => 'Received',
+                'in_progress' => 'In Progress',
+                'ready' => 'Ready for Pickup',
+                'claimed' => 'Claimed',
+            ];
+        }
+
         return [
             'received' => 'Received',
             'in_progress' => 'In Progress',
@@ -198,6 +210,22 @@ class Order extends Model
     public function isPaid(): bool
     {
         return $this->payment_status === 'paid';
+    }
+
+    /**
+     * Determine whether the order can be paid online.
+     */
+    public function canBePaidOnline(): bool
+    {
+        return ! $this->isPaid() && (float) $this->total_amount > 0;
+    }
+
+    /**
+     * Get the current balance due for the order.
+     */
+    public function outstandingBalance(): float
+    {
+        return round((float) $this->total_amount, 2);
     }
 
     /**

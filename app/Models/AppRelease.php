@@ -6,6 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 
 class AppRelease extends Model
 {
+    public function getConnectionName()
+    {
+        return config('tenancy.database.central_connection');
+    }
+
     protected $guarded = [];
 
     protected function casts(): array
