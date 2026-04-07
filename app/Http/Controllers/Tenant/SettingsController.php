@@ -31,7 +31,7 @@ class SettingsController extends Controller
         $logoUrl =
             $tenant->logo_path &&
             Storage::disk('public')->exists($tenant->logo_path)
-                ? Storage::disk('public')->url($tenant->logo_path)
+                ? route('stancl.tenancy.asset', ['path' => $tenant->logo_path], false)
                 : null;
 
         return view('tenant.settings.theme', [

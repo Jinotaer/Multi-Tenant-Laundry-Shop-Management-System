@@ -9,12 +9,12 @@
     $theme = app(\App\Services\ThemeService::class)->getTenantTheme();
     $themePresets = app(\App\Services\ThemeService::class)->getAllPresets();
     $resolvedLayout = $layoutSettingsService->resolve(tenant(), $currentUser);
-    $shopName = tenant('data')['shop_name'] ?? config('app.name', 'LaundryTrack');
+    $shopName = tenant('data')['shop_name'] ?? tenant()->registration?->shop_name ?? tenant('id') ?? config('app.name', 'LaundryTrack');
     $saveRoute = route('tenant.settings.layout.save');
     $resetRoute = route('tenant.settings.layout.reset');
     $csrfToken = csrf_token();
     $logoUrl = $brandingEnabled && tenant()->logo_path && Storage::disk('public')->exists(tenant()->logo_path)
-        ? Storage::disk('public')->url(tenant()->logo_path)
+        ? route('stancl.tenancy.asset', ['path' => tenant()->logo_path], false)
         : null;
     $isSidebarTop = $resolvedLayout['sidebar_position'] === 'top';
     $isSidebarRight = $resolvedLayout['sidebar_position'] === 'right';
@@ -103,6 +103,13 @@
         <meta name="color-scheme" content="light dark">
 
         <title>{{ $shopName }}</title>
+
+        @if ($logoUrl)
+            <link rel="icon" type="image/png" href="{{ $logoUrl }}">
+            <link rel="apple-touch-icon" href="{{ $logoUrl }}">
+        @else
+            <link rel="icon" href="{{ asset('favicon.ico') }}">
+        @endif
 
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
@@ -644,10 +651,15 @@
                 <div class="flex min-h-[5.5rem] items-center justify-between border-b border-gray-200 px-6 pt-5 pb-6 dark:border-slate-800" :class="isTop ? 'h-16 flex-shrink-0 !border-b-0 border-r !px-3 !py-0 dark:border-slate-800' : ''">
                     <a href="{{ route('tenant.dashboard') }}" class="flex min-w-0 items-center gap-2">
                         @if ($logoUrl)
-                            <img x-show="showLogo" x-on:error="logoLoadFailed = true" src="{{ $logoUrl }}" alt="Tenant Logo" class="h-8 w-8 flex-shrink-0 rounded-xl object-contain" x-cloak>
+                            <img x-show="showLogo" x-on:error="logoLoadFailed = true" src="{{ $logoUrl }}" alt="Tenant Logo" class="h-12 w-12 flex-shrink-0 rounded-xl object-contain" x-cloak>
                         @endif
-                        <span class="tenant-wordmark tenant-wordmark-sidebar tenant-sidebar-brand-label truncate {{ $navLabelVisibilityClass }}">
-                            <span>Laundry</span><span class="tenant-wordmark-accent">Track</span>
+                        <span class="tenant-sidebar-brand-label {{ $navLabelVisibilityClass }}">
+                            <span class="tenant-wordmark tenant-wordmark-sidebar block truncate">
+                                <span>Laundry</span><span class="tenant-wordmark-accent">Track</span>
+                            </span>
+                            <span class="mt-0.5 block truncate text-[10px] font-medium uppercase tracking-[0.16em] text-gray-500 dark:text-slate-400">
+                                {{ $shopName }}
+                            </span>
                         </span>
                     </a>
                     <button x-show="!isTop" x-on:click="sidebarOpen = false" class="text-gray-400 hover:text-gray-600 dark:text-slate-400 dark:hover:text-slate-100 lg:hidden">
@@ -662,37 +674,52 @@
                     </a>
 
                     @auth
-                        @if ($currentUser->isOwner() || $currentUser->isStaff())
+                        @if ($currentUser->isOwner() || $currentUser->hasPermission('customers.view'))
                             <a href="{{ route('tenant.customers.index') }}" title="Customers" class="flex items-center px-3 py-2 text-sm font-medium rounded-md {{ $navAlignmentClass }} {{ request()->routeIs('tenant.customers*') ? $activeNavClass : $inactiveNavClass }}">
                                 <svg class="{{ $iconSpacingClass }}" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg>
                                 <span class="{{ $navLabelVisibilityClass }}">Customers</span>
                             </a>
+                        @endif
 
+                        @if ($currentUser->isOwner() || $currentUser->isStaff())
                             <a href="{{ route('tenant.orders.index') }}" title="Orders" class="flex items-center px-3 py-2 text-sm font-medium rounded-md {{ $navAlignmentClass }} {{ request()->routeIs('tenant.orders*') ? $activeNavClass : $inactiveNavClass }}">
                                 <svg class="{{ $iconSpacingClass }}" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
                                 <span class="{{ $navLabelVisibilityClass }}">Orders</span>
                             </a>
                         @endif
 
-                        @if ($currentUser->isOwner())
-                            <a href="{{ route('tenant.services.index') }}" title="Services & Pricing" class="flex items-center px-3 py-2 text-sm font-medium rounded-md {{ $navAlignmentClass }} {{ request()->routeIs('tenant.services*') ? $activeNavClass : $inactiveNavClass }}">
-                                <svg class="{{ $iconSpacingClass }}" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" /><path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" /></svg>
-                                <span class="{{ $navLabelVisibilityClass }}">Services & Pricing</span>
-                            </a>
-
+                        @if ($currentUser->isOwner() || $currentUser->hasPermission('staff.view'))
                             <a href="{{ route('tenant.staff.index') }}" title="Staff" class="flex items-center px-3 py-2 text-sm font-medium rounded-md {{ $navAlignmentClass }} {{ request()->routeIs('tenant.staff*') ? $activeNavClass : $inactiveNavClass }}">
                                 <svg class="{{ $iconSpacingClass }}" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" /></svg>
                                 <span class="{{ $navLabelVisibilityClass }}">Staff</span>
                             </a>
+                        @endif
 
-                            @if (tenant()->hasFeature('expense_tracking'))
+                        @php
+                            $canManageServices = $currentUser->isOwner() || $currentUser->hasPermission('services.manage');
+                            $canManageExpenses = tenant()->hasFeature('expense_tracking') && ($currentUser->isOwner() || $currentUser->hasPermission('expenses.manage'));
+                            $canViewReports = tenant()->hasFeature('reports') && ($currentUser->isOwner() || $currentUser->hasPermission('reports.view'));
+                            $canManageSubscription = $currentUser->isOwner() || $currentUser->hasPermission('subscription.manage');
+                            $canViewBilling = $currentUser->isOwner() || $currentUser->hasPermission('billing.view');
+                            $canViewManagementSection = $canManageServices || $canManageExpenses || $canViewReports || $canManageSubscription || $canViewBilling;
+                        @endphp
+
+                        @if ($canViewManagementSection)
+                            @if ($canManageServices)
+                                <a href="{{ route('tenant.services.index') }}" title="Services & Pricing" class="flex items-center px-3 py-2 text-sm font-medium rounded-md {{ $navAlignmentClass }} {{ request()->routeIs('tenant.services*') ? $activeNavClass : $inactiveNavClass }}">
+                                    <svg class="{{ $iconSpacingClass }}" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" /><path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" /></svg>
+                                    <span class="{{ $navLabelVisibilityClass }}">Services & Pricing</span>
+                                </a>
+                            @endif
+
+                            @if ($canManageExpenses)
                                 <a href="{{ route('tenant.expenses.index') }}" title="Expenses" class="flex items-center px-3 py-2 text-sm font-medium rounded-md {{ $navAlignmentClass }} {{ request()->routeIs('tenant.expenses*') ? $activeNavClass : $inactiveNavClass }}">
                                     <svg class="{{ $iconSpacingClass }}" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 3.071-.879 4.242 0M9.75 11.25c.386 0 .75.039 1.102.117m7.5-6.817A3.375 3.375 0 0015 2.25h-7.5A3.375 3.375 0 003.75 5.25m15 6V5.25A3.375 3.375 0 0015 1.5h-7.5A3.375 3.375 0 003.75 5.25v13.5A3.375 3.375 0 007.5 22.5h7.5a3.375 3.375 0 003.75-3.75V8.25m0 0H9" /></svg>
                                     <span class="{{ $navLabelVisibilityClass }}">Expenses</span>
                                 </a>
                             @endif
 
-                            @if (tenant()->hasFeature('reports'))
+                            @if ($canViewReports)
                                 <a href="{{ route('tenant.reports.index') }}" title="Reports" class="flex items-center px-3 py-2 text-sm font-medium rounded-md {{ $navAlignmentClass }} {{ request()->routeIs('tenant.reports*') ? $activeNavClass : $inactiveNavClass }}">
                                     <svg class="{{ $iconSpacingClass }}" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>
                                     <span class="{{ $navLabelVisibilityClass }}">Reports</span>
@@ -701,10 +728,19 @@
 
                             <div class="mt-2 border-t border-gray-200 pt-2 dark:border-slate-800"></div>
 
-                            <a href="{{ route('tenant.subscription') }}" title="Subscription" class="flex items-center px-3 py-2 text-sm font-medium rounded-md {{ $navAlignmentClass }} {{ request()->routeIs('tenant.subscription*') ? $activeNavClass : $inactiveNavClass }}">
-                                <svg class="{{ $iconSpacingClass }}" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" /></svg>
-                                <span class="{{ $navLabelVisibilityClass }}">Subscription</span>
-                            </a>
+                            @if ($canManageSubscription)
+                                <a href="{{ route('tenant.subscription') }}" title="Subscription" class="flex items-center px-3 py-2 text-sm font-medium rounded-md {{ $navAlignmentClass }} {{ request()->routeIs('tenant.subscription*') ? $activeNavClass : $inactiveNavClass }}">
+                                    <svg class="{{ $iconSpacingClass }}" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" /></svg>
+                                    <span class="{{ $navLabelVisibilityClass }}">Subscription</span>
+                                </a>
+                            @endif
+
+                            @if ($canViewBilling)
+                                <a href="{{ route('tenant.billing.index') }}" title="Billing & Invoices" class="flex items-center px-3 py-2 text-sm font-medium rounded-md {{ $navAlignmentClass }} {{ request()->routeIs('tenant.billing.*') ? $activeNavClass : $inactiveNavClass }}">
+                                    <svg class="{{ $iconSpacingClass }}" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>
+                                    <span class="{{ $navLabelVisibilityClass }}">Billing</span>
+                                </a>
+                            @endif
                         @endif
 
                         <a href="{{ route('tenant.settings.profile') }}" title="Settings" class="flex items-center px-3 py-2 text-sm font-medium rounded-md {{ $navAlignmentClass }} {{ request()->routeIs('tenant.settings.*') ? $activeNavClass : $inactiveNavClass }}">
@@ -778,9 +814,6 @@
                             </button>
 
                             <div :class="topbarTitleClass">
-                                <p class="tenant-wordmark tenant-wordmark-topbar">
-                                    <span>Laundry</span><span class="tenant-wordmark-accent">Track</span>
-                                </p>
                                 @isset($header)
                                     <div class="mt-1 min-w-0" :class="isRight ? 'text-right' : ''">
                                         {{ $header }}

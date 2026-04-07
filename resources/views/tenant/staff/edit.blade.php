@@ -39,6 +39,41 @@
                         </div>
                     </div>
 
+                    @if ($canManagePermissions)
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Privileges</label>
+                            <div class="space-y-4 rounded-md border border-gray-200 bg-gray-50 p-4">
+                                @php
+                                    $selectedPermissions = old('permissions', $assignedPermissionKeys);
+                                @endphp
+
+                                @forelse ($permissionsByModule as $module => $permissions)
+                                    <div>
+                                        <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">{{ str_replace('_', ' ', $module) }}</p>
+                                        <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                            @foreach ($permissions as $permission)
+                                                <label class="flex items-center gap-2 text-sm text-gray-700">
+                                                    <input
+                                                        type="checkbox"
+                                                        name="permissions[]"
+                                                        value="{{ $permission->key }}"
+                                                        @checked(collect($selectedPermissions)->contains($permission->key))
+                                                        class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                                    >
+                                                    <span>{{ $permission->label }}</span>
+                                                </label>
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                @empty
+                                    <p class="text-sm text-gray-500">No privileges configured yet.</p>
+                                @endforelse
+                            </div>
+                            @error('permissions') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                            @error('permissions.*') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+                    @endif
+
                     <div class="flex items-center gap-3 pt-2">
                         <button type="submit"
                             class="inline-flex items-center rounded-md {{ $theme['primary_bg'] }} {{ $theme['primary_hover'] }} px-5 py-2 text-sm font-medium text-white shadow-sm transition">

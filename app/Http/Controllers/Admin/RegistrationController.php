@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Mail\TenantApproved;
 use App\Mail\TenantRejected;
+use App\Models\Permission;
 use App\Models\SubscriptionPlan;
 use App\Models\Tenant;
 use App\Models\TenantRegistration;
@@ -30,7 +31,7 @@ class RegistrationController extends Controller
             return back()->with('error', 'Only pending registrations can be approved.');
         }
 
-        $domain = $registration->subdomain . '.localhost';
+        $domain = $registration->subdomain.'.localhost';
 
         // Clean up any orphaned tenant/database from a previous failed attempt.
         $existingTenant = Tenant::find($registration->subdomain);
@@ -65,6 +66,8 @@ class RegistrationController extends Controller
             $tenant->domains()->create(['domain' => $domain]);
 
             $tenant->run(function () use ($registration) {
+                Permission::ensureDefaultsExist();
+
                 User::create([
                     'name' => $registration->owner_name,
                     'email' => $registration->owner_email,

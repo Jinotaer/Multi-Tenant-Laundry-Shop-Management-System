@@ -34,6 +34,8 @@ class SubscriptionPlan extends Model
         'staff_limit',
         'customer_limit',
         'order_limit',
+        'storage_limit_mb',
+        'bandwidth_limit_mb',
         'features',
         'is_active',
         'is_default',

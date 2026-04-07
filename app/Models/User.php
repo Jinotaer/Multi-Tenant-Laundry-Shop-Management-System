@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -62,5 +63,61 @@ class User extends Authenticatable
     public function isCustomer(): bool
     {
         return $this->role === 'customer';
+    }
+
+    /**
+     * @return BelongsToMany<Permission, $this>
+     */
+    public function permissions(): BelongsToMany
+    {
+        return $this->belongsToMany(Permission::class, 'user_permissions')
+            ->withPivot('granted_by')
+            ->withTimestamps();
+    }
+
+    public function hasPermission(string $permissionKey): bool
+    {
+        if ($this->isOwner()) {
+            return true;
+        }
+
+        if (! $this->isStaff()) {
+            return false;
+        }
+
+        return $this->permissions()
+            ->where('key', $permissionKey)
+            ->exists();
+    }
+
+    /**
+     * @param  list<string>  $permissionKeys
+     */
+    public function hasAnyPermission(array $permissionKeys): bool
+    {
+        foreach ($permissionKeys as $permissionKey) {
+            if ($this->hasPermission($permissionKey)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public function canGrantPermission(string $permissionKey): bool
+    {
+        if ($this->isOwner()) {
+            return true;
+        }
+
+        if (! $this->hasPermission('permissions.manage')) {
+            return false;
+        }
+
+        if ($permissionKey === 'permissions.manage') {
+            return false;
+        }
+
+        return $this->hasPermission($permissionKey);
     }
 }

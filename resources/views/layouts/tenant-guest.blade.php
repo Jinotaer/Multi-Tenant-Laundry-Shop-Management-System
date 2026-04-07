@@ -1,9 +1,15 @@
 ﻿@php
+    use Illuminate\Support\Facades\Storage;
+
     $tenant = tenant();
     $layoutSettingsService = app(\App\Services\LayoutSettingsService::class);
     $workspaceDefaults = $layoutSettingsService->tenantDefaults($tenant);
     $theme = app(\App\Services\ThemeService::class)->getTenantTheme();
-    $shopName = $tenant?->data['shop_name'] ?? 'LaundryTrack';
+    $brandingEnabled = $tenant && $tenant->hasFeature('custom_branding');
+    $logoUrl = $brandingEnabled && $tenant?->logo_path && Storage::disk('public')->exists($tenant->logo_path)
+        ? route('stancl.tenancy.asset', ['path' => $tenant->logo_path], false)
+        : null;
+    $shopName = $tenant?->data['shop_name'] ?? $tenant?->registration?->shop_name ?? $tenant?->id ?? config('app.name', 'LaundryTrack');
     $fontSizeValue = $layoutSettingsService->fontSizeValue($workspaceDefaults['font_size']);
     $radiusValue = $layoutSettingsService->borderRadiusValue($workspaceDefaults['border_radius']);
     $colorModeLabel = data_get(
@@ -29,6 +35,13 @@
         <meta name="color-scheme" content="light dark">
 
         <title>{{ $shopName }}</title>
+
+        @if ($logoUrl)
+            <link rel="icon" type="image/png" href="{{ $logoUrl }}">
+            <link rel="apple-touch-icon" href="{{ $logoUrl }}">
+        @else
+            <link rel="icon" href="{{ asset('favicon.ico') }}">
+        @endif
 
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700,800&display=swap" rel="stylesheet" />

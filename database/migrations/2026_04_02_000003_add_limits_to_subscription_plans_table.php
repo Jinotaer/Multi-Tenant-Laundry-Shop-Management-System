@@ -1,0 +1,29 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::table('subscription_plans', function (Blueprint $table) {
+            $table->decimal('storage_limit_mb', 10, 2)->nullable()->after('order_limit');
+            $table->decimal('bandwidth_limit_mb', 10, 2)->nullable()->after('storage_limit_mb');
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::table('subscription_plans', function (Blueprint $table) {
+            $table->dropColumn(['storage_limit_mb', 'bandwidth_limit_mb']);
+        });
+    }
+};

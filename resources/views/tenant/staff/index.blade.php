@@ -26,13 +26,13 @@
                 <button type="submit" class="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50">Search</button>
             </form>
 
-            @if ($canAddStaff)
+            @if ($canAddStaff && $canCreateStaff)
                 <a href="{{ route('tenant.staff.create') }}"
                     class="inline-flex items-center gap-2 rounded-md {{ $theme['primary_bg'] }} {{ $theme['primary_hover'] }} px-4 py-2 text-sm font-medium text-white shadow-sm transition">
                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
                     Add Staff
                 </a>
-            @else
+            @elseif ($canCreateStaff)
                 <span class="inline-flex items-center gap-1 rounded-md bg-yellow-50 border border-yellow-200 px-4 py-2 text-sm text-yellow-700">
                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
                     Staff limit reached — <a href="{{ route('tenant.subscription') }}" class="font-medium underline">Upgrade Plan</a>
@@ -56,6 +56,7 @@
                             <tr>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Privileges</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Joined</th>
                                 <th class="relative px-6 py-3"><span class="sr-only">Actions</span></th>
                             </tr>
@@ -72,6 +73,17 @@
                                         </div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $member->email }}</td>
+                                    <td class="px-6 py-4 text-sm text-gray-500">
+                                        @if ($member->permissions->isEmpty())
+                                            <span class="text-xs text-gray-400">No privileges assigned</span>
+                                        @else
+                                            <div class="flex flex-wrap gap-1">
+                                                @foreach ($member->permissions as $permission)
+                                                    <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">{{ $permission->label }}</span>
+                                                @endforeach
+                                            </div>
+                                        @endif
+                                    </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-400">{{ $member->created_at->format('M d, Y') }}</td>
                                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
                                         <a href="{{ route('tenant.staff.edit', $member) }}" class="text-indigo-600 hover:text-indigo-900">Edit</a>

@@ -11,7 +11,20 @@ class CustomerRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return auth()->check() && (auth()->user()->isOwner() || auth()->user()->isStaff());
+        $user = $this->user();
+
+        if ($user === null) {
+            return false;
+        }
+
+        if ($user->isOwner()) {
+            return true;
+        }
+
+        return $user->hasAnyPermission([
+            'customers.create',
+            'customers.update',
+        ]);
     }
 
     /**

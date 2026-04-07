@@ -46,6 +46,12 @@ class Tenant extends BaseTenant implements TenantWithDatabase
             'grace_period_days',
             'last_renewal_reminder_sent_at',
             'is_paid',
+            'current_storage_mb',
+            'current_bandwidth_mb',
+            'current_api_requests',
+            'storage_limit_mb',
+            'bandwidth_limit_mb',
+            'usage_reset_at',
         ];
     }
 
@@ -64,6 +70,12 @@ class Tenant extends BaseTenant implements TenantWithDatabase
             'trial_ends_at' => 'datetime',
             'subscription_expires_at' => 'datetime',
             'last_renewal_reminder_sent_at' => 'datetime',
+            'current_storage_mb' => 'decimal:2',
+            'current_bandwidth_mb' => 'decimal:2',
+            'current_api_requests' => 'integer',
+            'storage_limit_mb' => 'decimal:2',
+            'bandwidth_limit_mb' => 'decimal:2',
+            'usage_reset_at' => 'datetime',
         ];
     }
 
@@ -124,6 +136,14 @@ class Tenant extends BaseTenant implements TenantWithDatabase
     public function payments(): HasMany
     {
         return $this->hasMany(Payment::class);
+    }
+
+    /**
+     * Get all invoices for this tenant.
+     */
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class);
     }
 
     /**
@@ -251,11 +271,12 @@ class Tenant extends BaseTenant implements TenantWithDatabase
      */
     public function isInGracePeriod(): bool
     {
-        if (!$this->isSubscriptionExpired() || $this->is_paid) {
+        if (! $this->isSubscriptionExpired() || $this->is_paid) {
             return false;
         }
 
         $graceEndsAt = $this->subscription_expires_at->copy()->addDays($this->grace_period_days ?? 7);
+
         return now()->isBefore($graceEndsAt);
     }
 
@@ -264,7 +285,7 @@ class Tenant extends BaseTenant implements TenantWithDatabase
      */
     public function graceEndsAt(): ?Carbon
     {
-        if (!$this->subscription_expires_at) {
+        if (! $this->subscription_expires_at) {
             return null;
         }
 
@@ -278,7 +299,7 @@ class Tenant extends BaseTenant implements TenantWithDatabase
     {
         $graceEndsAt = $this->graceEndsAt();
 
-        if (!$graceEndsAt || $graceEndsAt->isPast()) {
+        if (! $graceEndsAt || $graceEndsAt->isPast()) {
             return 0;
         }
 
@@ -290,6 +311,154 @@ class Tenant extends BaseTenant implements TenantWithDatabase
      */
     public function needsRenewal(): bool
     {
-        return !$this->is_paid && ($this->isSubscriptionExpired() || $this->isInGracePeriod());
+        return ! $this->is_paid && ($this->isSubscriptionExpired() || $this->isInGracePeriod());
+    }
+
+    /**
+     * Get the metrics history for this tenant.
+     */
+    public function metrics(): HasMany
+    {
+        return $this->hasMany(TenantMetric::class);
+    }
+
+    /**
+     * Get the latest metric record for this tenant.
+     */
+    public function latestMetric(): ?TenantMetric
+    {
+        return $this->metrics()->latest('recorded_at')->first();
+    }
+
+    /**
+     * Get the effective storage limit (from plan or tenant override).
+     */
+    public function getEffectiveStorageLimit(): ?float
+    {
+        if ($this->storage_limit_mb !== null) {
+            return (float) $this->storage_limit_mb;
+        }
+
+        return $this->subscriptionPlan?->storage_limit_mb;
+    }
+
+    /**
+     * Get the effective bandwidth limit (from plan or tenant override).
+     */
+    public function getEffectiveBandwidthLimit(): ?float
+    {
+        if ($this->bandwidth_limit_mb !== null) {
+            return (float) $this->bandwidth_limit_mb;
+        }
+
+        return $this->subscriptionPlan?->bandwidth_limit_mb;
+    }
+
+    /**
+     * Get storage usage percentage (0-100).
+     */
+    public function getStorageUsagePercentage(): ?float
+    {
+        $limit = $this->getEffectiveStorageLimit();
+        if ($limit === null || $limit <= 0) {
+            return null; // Unlimited
+        }
+
+        return min(100, ($this->current_storage_mb / $limit) * 100);
+    }
+
+    /**
+     * Get bandwidth usage percentage (0-100).
+     */
+    public function getBandwidthUsagePercentage(): ?float
+    {
+        $limit = $this->getEffectiveBandwidthLimit();
+        if ($limit === null || $limit <= 0) {
+            return null; // Unlimited
+        }
+
+        return min(100, ($this->current_bandwidth_mb / $limit) * 100);
+    }
+
+    /**
+     * Check if storage limit is exceeded.
+     */
+    public function isStorageLimitExceeded(): bool
+    {
+        $limit = $this->getEffectiveStorageLimit();
+        if ($limit === null) {
+            return false;
+        }
+
+        return $this->current_storage_mb >= $limit;
+    }
+
+    /**
+     * Check if bandwidth limit is exceeded.
+     */
+    public function isBandwidthLimitExceeded(): bool
+    {
+        $limit = $this->getEffectiveBandwidthLimit();
+        if ($limit === null) {
+            return false;
+        }
+
+        return $this->current_bandwidth_mb >= $limit;
+    }
+
+    /**
+     * Get formatted current storage.
+     */
+    public function getFormattedCurrentStorageAttribute(): string
+    {
+        if ($this->current_storage_mb >= 1024) {
+            return number_format($this->current_storage_mb / 1024, 2).' GB';
+        }
+
+        return number_format($this->current_storage_mb, 2).' MB';
+    }
+
+    /**
+     * Get formatted current bandwidth.
+     */
+    public function getFormattedCurrentBandwidthAttribute(): string
+    {
+        if ($this->current_bandwidth_mb >= 1024) {
+            return number_format($this->current_bandwidth_mb / 1024, 2).' GB';
+        }
+
+        return number_format($this->current_bandwidth_mb, 2).' MB';
+    }
+
+    /**
+     * Get formatted storage limit.
+     */
+    public function getFormattedStorageLimitAttribute(): string
+    {
+        $limit = $this->getEffectiveStorageLimit();
+        if ($limit === null) {
+            return 'Unlimited';
+        }
+        if ($limit >= 1024) {
+            return number_format($limit / 1024, 2).' GB';
+        }
+
+        return number_format($limit, 2).' MB';
+    }
+
+    /**
+     * Get formatted bandwidth limit.
+     */
+    public function getFormattedBandwidthLimitAttribute(): string
+    {
+        $limit = $this->getEffectiveBandwidthLimit();
+        if ($limit === null) {
+            return 'Unlimited';
+        }
+        if ($limit >= 1024) {
+            return number_format($limit / 1024, 2).' GB';
+        }
+
+        return number_format($limit, 2).' MB';
     }
 }

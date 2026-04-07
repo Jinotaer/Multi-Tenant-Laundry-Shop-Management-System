@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\AdminNotificationController;
 use App\Http\Controllers\Admin\Auth\LoginController as AdminLoginController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Admin\InvoiceController;
 use App\Http\Controllers\Admin\ProfileController as AdminProfileController;
 use App\Http\Controllers\Admin\RegistrationController;
 use App\Http\Controllers\Admin\ReleaseController;
@@ -10,6 +11,7 @@ use App\Http\Controllers\Admin\SettingsController as AdminSettingsController;
 use App\Http\Controllers\Admin\SubscriptionPlanController;
 use App\Http\Controllers\Admin\SupportTicketController as AdminSupportTicketController;
 use App\Http\Controllers\Admin\TenantController;
+use App\Http\Controllers\Admin\TenantMonitoringController;
 use App\Http\Controllers\PayMongoWebhookController;
 use App\Http\Controllers\TenantRegistrationController;
 use App\Http\Controllers\WelcomeController;
@@ -261,6 +263,38 @@ foreach (config('tenancy.central_domains') as $domain) {
                         ReleaseController::class,
                         'forceUpdateAll',
                     ])->name('admin.releases.force-all');
+
+                    // Tenant Resource Monitoring
+                    Route::get('/monitoring', [
+                        TenantMonitoringController::class,
+                        'index',
+                    ])->name('admin.monitoring.index');
+                    Route::get('/monitoring/export', [
+                        TenantMonitoringController::class,
+                        'export',
+                    ])->name('admin.monitoring.export');
+                    Route::get('/monitoring/{tenant}', [
+                        TenantMonitoringController::class,
+                        'show',
+                    ])->name('admin.monitoring.show');
+                    Route::post('/monitoring/{tenant}/refresh', [
+                        TenantMonitoringController::class,
+                        'refresh',
+                    ])->name('admin.monitoring.refresh');
+                    Route::patch('/monitoring/{tenant}/limits', [
+                        TenantMonitoringController::class,
+                        'updateLimits',
+                    ])->name('admin.monitoring.update-limits');
+
+                    // Invoice/Billing routes
+                    Route::get('/invoices', [InvoiceController::class, 'index'])->name('admin.invoices.index');
+                    Route::get('/invoices/export', [InvoiceController::class, 'export'])->name('admin.invoices.export');
+                    Route::post('/invoices/generate', [InvoiceController::class, 'generate'])->name('admin.invoices.generate');
+                    Route::post('/invoices/generate-all', [InvoiceController::class, 'generateAll'])->name('admin.invoices.generate-all');
+                    Route::get('/invoices/{invoice}', [InvoiceController::class, 'show'])->name('admin.invoices.show');
+                    Route::get('/invoices/{invoice}/download', [InvoiceController::class, 'download'])->name('admin.invoices.download');
+                    Route::post('/invoices/{invoice}/send', [InvoiceController::class, 'send'])->name('admin.invoices.send');
+                    Route::post('/invoices/{invoice}/mark-paid', [InvoiceController::class, 'markPaid'])->name('admin.invoices.mark-paid');
                 });
             });
         });

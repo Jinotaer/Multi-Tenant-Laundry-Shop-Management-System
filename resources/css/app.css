@@ -3,6 +3,13 @@
 @tailwind utilities;
 
 @layer base {
+    html,
+    body {
+        margin: 0;
+        padding: 0;
+        min-height: 100%;
+    }
+
     [x-cloak] {
         display: none !important;
     }
@@ -114,6 +121,15 @@
     }
 
     .tenant-auth-shell {
+        min-height: 100vh;
+        width: 100%;
+        background:
+            radial-gradient(circle at top left, var(--tenant-theme-accent-soft-strong) 0%, transparent 28%),
+            radial-gradient(circle at bottom right, var(--tenant-theme-accent-soft) 0%, transparent 26%),
+            linear-gradient(180deg, rgb(248 250 252 / 1) 0%, rgb(238 242 255 / 1) 100%);
+    }
+
+    body:has(.tenant-auth-shell) {
         background:
             radial-gradient(circle at top left, var(--tenant-theme-accent-soft-strong) 0%, transparent 28%),
             radial-gradient(circle at bottom right, var(--tenant-theme-accent-soft) 0%, transparent 26%),
@@ -121,6 +137,13 @@
     }
 
     .dark .tenant-auth-shell {
+        background:
+            radial-gradient(circle at top left, var(--tenant-theme-accent-soft-strong) 0%, transparent 24%),
+            radial-gradient(circle at bottom right, var(--tenant-theme-accent-soft) 0%, transparent 22%),
+            linear-gradient(180deg, rgb(2 6 23 / 1) 0%, rgb(15 23 42 / 1) 100%);
+    }
+
+    .dark body:has(.tenant-auth-shell) {
         background:
             radial-gradient(circle at top left, var(--tenant-theme-accent-soft-strong) 0%, transparent 24%),
             radial-gradient(circle at bottom right, var(--tenant-theme-accent-soft) 0%, transparent 22%),
