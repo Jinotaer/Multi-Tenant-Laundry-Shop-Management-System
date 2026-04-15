@@ -16,6 +16,14 @@ class TrackTenantUsage
     {
         $response = $next($request);
 
+        if ($request->routeIs([
+            'tenant.payment.success',
+            'tenant.subscription.renew.success',
+            'tenant.subscription.upgrade.success',
+        ])) {
+            return $response;
+        }
+
         // Only track for tenant requests
         $tenant = tenant();
         if (! $tenant) {

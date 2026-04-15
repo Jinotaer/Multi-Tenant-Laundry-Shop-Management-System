@@ -78,7 +78,7 @@
                             @endforeach
                         </select>
                         @error('customer_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-                        <a href="{{ route('tenant.customers.create') }}" class="mt-1 inline-block text-xs {{ $theme['nav_active_text'] }} hover:underline">+ Add new customer</a>
+                        <a href="{{ route('tenant.customers.index', ['create' => 1]) }}" class="mt-1 inline-block text-xs {{ $theme['nav_active_text'] }} hover:underline">+ Add new customer</a>
                     </div>
 
                     {{-- Service & Weight --}}

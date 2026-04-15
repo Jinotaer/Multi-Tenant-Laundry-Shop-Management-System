@@ -6,6 +6,7 @@ use App\Models\Payment;
 use App\Models\Tenant;
 use App\Services\PayMongoService;
 use App\Services\TenantFeatureService;
+use App\Services\TenantMetricService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -13,6 +14,7 @@ class PayMongoWebhookController extends Controller
 {
     public function __construct(
         protected PayMongoService $paymongo,
+        protected TenantMetricService $tenantMetricService,
         protected TenantFeatureService $featureService,
     ) {}
 
@@ -83,6 +85,8 @@ class PayMongoWebhookController extends Controller
                 'is_enabled' => true,
                 'subscription_expires_at' => $newExpirationDate,
             ]);
+
+            $this->tenantMetricService->resetMonthlyUsage($tenant);
         }
 
         if ($payment->payment_type === 'renewal' && $tenant) {
@@ -98,6 +102,8 @@ class PayMongoWebhookController extends Controller
                 'subscription_expires_at' => $newExpirationDate,
                 'last_renewal_reminder_sent_at' => null,
             ]);
+
+            $this->tenantMetricService->resetMonthlyUsage($tenant);
         }
 
         if ($payment->payment_type === 'upgrade' && $tenant) {
@@ -115,6 +121,8 @@ class PayMongoWebhookController extends Controller
                 'subscription_expires_at' => $newExpirationDate,
                 'last_renewal_reminder_sent_at' => null,
             ]);
+
+            $this->tenantMetricService->resetMonthlyUsage($tenant);
         }
 
         if ($payment->isOrderPayment() && $tenant && $payment->tenant_order_id) {

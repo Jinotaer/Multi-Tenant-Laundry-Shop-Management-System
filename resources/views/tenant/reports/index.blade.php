@@ -8,17 +8,23 @@
         </div>
     </x-slot>
 
-    @php $theme = tenant()->getThemePreset(); @endphp
+    @php
+        $theme = tenant()->getThemePreset();
+        $currentUser = auth()->user();
+        $canExportReports = $currentUser !== null && ($currentUser->isOwner() || $currentUser->hasPermission('reports.export'));
+    @endphp
     <div class="flex justify-end p-4">
         <div class="flex flex-wrap items-center justify-end gap-2">
-            <a href="{{ route('tenant.reports.export-excel', ['period' => $period]) }}"
-                class="px-3 py-1.5 text-sm rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">
-                Export Excel
-            </a>
-            <a href="{{ route('tenant.reports.export-pdf', ['period' => $period]) }}" target="_blank"
-                class="px-3 py-1.5 text-sm rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">
-                Print / Save PDF
-            </a>
+            @if ($canExportReports)
+                <a href="{{ route('tenant.reports.export-excel', ['period' => $period]) }}"
+                    class="px-3 py-1.5 text-sm rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">
+                    Export Excel
+                </a>
+                <a href="{{ route('tenant.reports.export-pdf', ['period' => $period]) }}" target="_blank"
+                    class="px-3 py-1.5 text-sm rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">
+                    Print / Save PDF
+                </a>
+            @endif
             @foreach (['week' => 'This Week', 'month' => 'This Month', 'year' => 'This Year'] as $key => $label)
                 <a href="{{ route('tenant.reports.index', ['period' => $key]) }}"
                     class="px-3 py-1.5 text-sm rounded-md {{ $period === $key ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50' }}">

@@ -7,17 +7,25 @@
         </div>
     </x-slot>
 
-    @php $theme = app(\App\Services\ThemeService::class)->getTenantTheme(); @endphp
+    @php
+        $theme = app(\App\Services\ThemeService::class)->getTenantTheme();
+        $currentUser = auth()->user();
+        $canCreateExpenses = $currentUser !== null && ($currentUser->isOwner() || $currentUser->hasPermission('expenses.create'));
+        $canUpdateExpenses = $currentUser !== null && ($currentUser->isOwner() || $currentUser->hasPermission('expenses.update'));
+        $canDeleteExpenses = $currentUser !== null && ($currentUser->isOwner() || $currentUser->hasPermission('expenses.delete'));
+    @endphp
 
-    <div class="flex justify-end p-4">
-        <a href="{{ route('tenant.expenses.create') }}"
-            class="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest transition ease-in-out duration-150">
-            <svg class="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-            Record Expense
-        </a>
-    </div>
+    @if ($canCreateExpenses)
+        <div class="flex justify-end p-4">
+            <a href="{{ route('tenant.expenses.create') }}"
+                class="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest transition ease-in-out duration-150">
+                <svg class="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+                Record Expense
+            </a>
+        </div>
+    @endif
     <!-- Summary Cards -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
@@ -74,12 +82,14 @@
                 </svg>
                 <h3 class="mt-2 text-sm font-semibold text-gray-900">No expenses recorded</h3>
                 <p class="mt-1 text-sm text-gray-500">Start tracking your operational expenses.</p>
-                <div class="mt-6">
-                    <a href="{{ route('tenant.expenses.create') }}"
-                        class="inline-flex items-center px-4 py-2 {{ $theme['primary_bg'] }} {{ $theme['primary_hover'] }} border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest transition ease-in-out duration-150">
-                        Record First Expense
-                    </a>
-                </div>
+                @if ($canCreateExpenses)
+                    <div class="mt-6">
+                        <a href="{{ route('tenant.expenses.create') }}"
+                            class="inline-flex items-center px-4 py-2 {{ $theme['primary_bg'] }} {{ $theme['primary_hover'] }} border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest transition ease-in-out duration-150">
+                            Record First Expense
+                        </a>
+                    </div>
+                @endif
             </div>
         @else
             <div class="overflow-x-auto">
@@ -95,8 +105,10 @@
                             <th
                                 class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider text-right">
                                 Amount</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Actions</th>
+                            @if ($canUpdateExpenses || $canDeleteExpenses)
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Actions</th>
+                            @endif
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200">
@@ -113,16 +125,22 @@
                                 <td class="px-6 py-4 text-sm text-gray-900">{{ $expense->description }}</td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-gray-900">
                                     ₱{{ number_format($expense->amount, 2) }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm space-x-3">
-                                    <a href="{{ route('tenant.expenses.edit', $expense) }}"
-                                        class="text-indigo-600 hover:text-indigo-900">Edit</a>
-                                    <form method="POST" action="{{ route('tenant.expenses.destroy', $expense) }}" class="inline"
-                                        onsubmit="return confirm('Delete this expense?')">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="text-red-600 hover:text-red-900">Delete</button>
-                                    </form>
-                                </td>
+                                @if ($canUpdateExpenses || $canDeleteExpenses)
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm space-x-3">
+                                        @if ($canUpdateExpenses)
+                                            <a href="{{ route('tenant.expenses.edit', $expense) }}"
+                                                class="text-indigo-600 hover:text-indigo-900">Edit</a>
+                                        @endif
+                                        @if ($canDeleteExpenses)
+                                            <form method="POST" action="{{ route('tenant.expenses.destroy', $expense) }}" class="inline"
+                                                onsubmit="return confirm('Delete this expense?')">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="text-red-600 hover:text-red-900">Delete</button>
+                                            </form>
+                                        @endif
+                                    </td>
+                                @endif
                             </tr>
                         @endforeach
                     </tbody>

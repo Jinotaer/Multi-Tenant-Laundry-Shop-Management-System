@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Tenant;
 use App\Http\Controllers\Controller;
 use App\Models\Payment;
 use App\Services\PayMongoService;
+use App\Services\TenantMetricService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -13,6 +14,7 @@ class SubscriptionRenewalController extends Controller
 {
     public function __construct(
         protected PayMongoService $paymongo,
+        protected TenantMetricService $tenantMetricService,
     ) {}
 
     /**
@@ -23,7 +25,7 @@ class SubscriptionRenewalController extends Controller
         $tenant = tenant();
         $tenant->load('subscriptionPlan');
 
-        if ($tenant->is_paid && !$tenant->needsRenewal()) {
+        if ($tenant->is_paid && ! $tenant->needsRenewal()) {
             return redirect()->route('tenant.subscription')
                 ->with('success', 'Your subscription is already active.');
         }
@@ -46,12 +48,12 @@ class SubscriptionRenewalController extends Controller
         $tenant->load('subscriptionPlan');
         $plan = $tenant->subscriptionPlan;
 
-        if (!$plan || $plan->isFree()) {
+        if (! $plan || $plan->isFree()) {
             return redirect()->route('tenant.subscription')
                 ->with('error', 'No payment required for free plans.');
         }
 
-        if ($tenant->is_paid && !$tenant->needsRenewal()) {
+        if ($tenant->is_paid && ! $tenant->needsRenewal()) {
             return redirect()->route('tenant.subscription');
         }
 
@@ -146,7 +148,7 @@ class SubscriptionRenewalController extends Controller
         $tenant = tenant();
         $paymentId = $request->query('payment_id');
 
-        if (!$paymentId) {
+        if (! $paymentId) {
             return redirect()->route('tenant.subscription.renew');
         }
 
@@ -155,7 +157,7 @@ class SubscriptionRenewalController extends Controller
             ->where('payment_type', 'renewal')
             ->first();
 
-        if (!$payment) {
+        if (! $payment) {
             return redirect()->route('tenant.subscription.renew');
         }
 
@@ -203,8 +205,8 @@ class SubscriptionRenewalController extends Controller
     protected function activateSubscription($tenant): void
     {
         $plan = $tenant->subscriptionPlan;
-        
-        if (!$plan) {
+
+        if (! $plan) {
             return;
         }
 
@@ -219,5 +221,7 @@ class SubscriptionRenewalController extends Controller
             'subscription_expires_at' => $newExpirationDate,
             'last_renewal_reminder_sent_at' => null,
         ]);
+
+        $this->tenantMetricService->resetMonthlyUsage($tenant);
     }
 }

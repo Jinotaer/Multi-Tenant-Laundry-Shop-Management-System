@@ -17,7 +17,7 @@ class ResetMonthlyUsage extends Command
     /**
      * The console command description.
      */
-    protected $description = 'Reset monthly bandwidth and API request counters for tenants';
+    protected $description = 'Reset bandwidth and API request counters for tenants';
 
     /**
      * Execute the console command.

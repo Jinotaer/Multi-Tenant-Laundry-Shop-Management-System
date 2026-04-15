@@ -5,12 +5,10 @@ namespace App\Http\Controllers\Tenant;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Tenant\CustomerRequest;
 use App\Models\Customer;
-use App\Models\User;
 use App\Services\PlanLimitService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Password;
 use Illuminate\View\View;
 
 class CustomerController extends Controller
@@ -29,13 +27,23 @@ class CustomerController extends Controller
             ->paginate(15)
             ->withQueryString();
 
-        return view('tenant.customers.index', compact('customers'));
+        $planLimitService = new PlanLimitService(tenant());
+        $user = $request->user();
+        $canCreateCustomer = $user !== null
+            && ($user->isOwner() || $user->hasAnyPermission(['customers.create']));
+        $canAddCustomer = $planLimitService->canAddCustomer(Customer::count());
+
+        return view('tenant.customers.index', compact(
+            'customers',
+            'canCreateCustomer',
+            'canAddCustomer',
+        ));
     }
 
     /**
      * Show the form for creating a new customer.
      */
-    public function create(): View|RedirectResponse
+    public function create(): RedirectResponse
     {
         $planLimitService = new PlanLimitService(tenant());
 
@@ -44,9 +52,7 @@ class CustomerController extends Controller
                 ->with('error', 'Customer limit reached for your current plan. Please upgrade to add more customers.');
         }
 
-        $defaultPassword = Str::random(8);
-
-        return view('tenant.customers.create', compact('defaultPassword'));
+        return redirect()->route('tenant.customers.index', ['create' => 1]);
     }
 
     /**
@@ -61,43 +67,24 @@ class CustomerController extends Controller
                 ->with('error', 'Customer limit reached for your current plan. Please upgrade to add more customers.');
         }
 
-        $data = $request->validated();
+        $customer = Customer::create([
+            ...$request->validated(),
+            'password' => null,
+            'role' => 'customer',
+        ]);
 
-        // Hash password if provided
-        if (! empty($data['password'])) {
-            $data['password'] = Hash::make($data['password']);
+        $successMessage = 'Customer added successfully.';
+
+        if (filled($customer->email)) {
+            $customer->sendPasswordResetNotification(
+                Password::broker('customers')->createToken($customer),
+            );
+
+            $successMessage = 'Customer added successfully. A password setup email was sent to the customer.';
         }
 
-        $customer = Customer::create($data);
-
-        $generated = null;
-
-        if (! empty($data['email'])) {
-            $email = $data['email'];
-
-            $existing = User::where('email', $email)->first();
-
-            if (! $existing) {
-                $passwordToUse = $request->input('password') ?? Str::random(8);
-                $generated = $request->input('password') ?? $passwordToUse;
-
-                User::create([
-                    'name' => $data['name'] ?? $customer->name,
-                    'email' => $email,
-                    'password' => Hash::make($passwordToUse),
-                    'role' => 'customer',
-                ]);
-            }
-        }
-
-        $redirect = redirect()->route('tenant.customers.index')
-            ->with('success', 'Customer added successfully.');
-
-        if ($generated) {
-            $redirect->with('generated_password', ['email' => $customer->email, 'password' => $generated]);
-        }
-
-        return $redirect;
+        return redirect()->route('tenant.customers.index')
+            ->with('success', $successMessage);
     }
 
     /**

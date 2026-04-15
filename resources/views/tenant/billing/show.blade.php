@@ -1,4 +1,8 @@
 <x-tenant-layout>
+    @php
+        $currentUser = auth()->user();
+        $canDownloadBilling = $currentUser !== null && ($currentUser->isOwner() || $currentUser->hasPermission('billing.download'));
+    @endphp
     <x-slot name="header">
         <div class="flex items-center justify-between gap-4">
             <div>
@@ -9,9 +13,11 @@
                     {{ __('Invoice') }} {{ $invoice->invoice_number }}
                 </h2>
             </div>
-            <a href="{{ route('tenant.billing.download', $invoice) }}" class="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800">
-                Download
-            </a>
+            @if ($canDownloadBilling)
+                <a href="{{ route('tenant.billing.download', $invoice) }}" class="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800">
+                    Download
+                </a>
+            @endif
         </div>
     </x-slot>
 

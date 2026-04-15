@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Tenant;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class CustomerRequest extends FormRequest
 {
@@ -34,12 +35,33 @@ class CustomerRequest extends FormRequest
      */
     public function rules(): array
     {
+        $customerId = $this->route('customer')?->id;
+
         return [
             'name' => ['required', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:50'],
-            'email' => ['nullable', 'string', 'email', 'max:255'],
-            'password' => ['nullable', 'string', 'min:6', 'max:72'],
+            'email' => [
+                'nullable',
+                'string',
+                'email',
+                'max:255',
+                Rule::unique('customers', 'email')->ignore($customerId),
+            ],
             'notes' => ['nullable', 'string', 'max:1000'],
+        ];
+    }
+
+    /**
+     * Get the validation messages that apply to the request.
+     *
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'name.required' => 'Customer name is required.',
+            'email.email' => 'Enter a valid email address for the customer.',
+            'email.unique' => 'That email address is already assigned to another customer.',
         ];
     }
 }

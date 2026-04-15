@@ -5,12 +5,14 @@ namespace App\Http\Controllers\Tenant;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Tenant\StaffRequest;
 use App\Models\Permission;
+use App\Models\Role;
 use App\Models\User;
 use App\Services\PlanLimitService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
 class StaffController extends Controller
@@ -22,12 +24,24 @@ class StaffController extends Controller
     {
         Permission::ensureDefaultsExist();
         $actor = $request->user();
+        $hasRoleTables = $this->hasRoleTables();
 
-        $staff = User::query()
+        $staffQuery = User::query()
             ->where('role', 'staff')
-            ->with('permissions')
-            ->when($request->search, fn ($q) => $q->where('name', 'like', "%{$request->search}%")
-                ->orWhere('email', 'like', "%{$request->search}%"))
+            ->when($request->filled('search'), function ($query) use ($request): void {
+                $search = $request->string('search')->toString();
+
+                $query->where(function ($query) use ($search): void {
+                    $query->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%");
+                });
+            });
+
+        if ($hasRoleTables) {
+            $staffQuery->with('roles');
+        }
+
+        $staff = $staffQuery
             ->latest()
             ->paginate(15)
             ->withQueryString();
@@ -35,8 +49,43 @@ class StaffController extends Controller
         $planLimitService = new PlanLimitService(tenant());
         $canAddStaff = $planLimitService->canAddStaff(User::where('role', 'staff')->count());
         $canCreateStaff = $actor !== null && ($actor->isOwner() || $actor->hasPermission('staff.create'));
+        $canUpdateStaff = $actor !== null && ($actor->isOwner() || $actor->hasPermission('staff.update'));
+        $canDeleteStaff = $actor !== null && ($actor->isOwner() || $actor->hasPermission('staff.delete'));
+        $canManageRoles = $hasRoleTables
+            && $actor !== null
+            && ($actor->isOwner() || $actor->hasPermission('staff.assign_roles'));
+        $assignableRoles = collect();
+        $editingStaff = null;
 
-        return view('tenant.staff.index', compact('staff', 'canAddStaff', 'canCreateStaff'));
+        if ($canManageRoles) {
+            $assignableRoles = $this->assignableRoles($actor);
+        }
+
+        $requestedStaffEditId = $request->integer('edit');
+
+        if ($requestedStaffEditId > 0 && $canUpdateStaff) {
+            $editingStaffQuery = User::query()
+                ->whereKey($requestedStaffEditId)
+                ->where('role', 'staff');
+
+            if ($hasRoleTables) {
+                $editingStaffQuery->with('roles');
+            }
+
+            $editingStaff = $editingStaffQuery->first();
+        }
+
+        return view('tenant.staff.index', compact(
+            'staff',
+            'canAddStaff',
+            'canCreateStaff',
+            'canUpdateStaff',
+            'canDeleteStaff',
+            'canManageRoles',
+            'assignableRoles',
+            'hasRoleTables',
+            'editingStaff',
+        ));
     }
 
     /**
@@ -46,8 +95,10 @@ class StaffController extends Controller
     {
         Permission::ensureDefaultsExist();
         $actor = request()->user();
-        $canManagePermissions = $actor !== null
-            && ($actor->isOwner() || $actor->hasPermission('permissions.manage'));
+        $hasRoleTables = $this->hasRoleTables();
+        $canManageRoles = $hasRoleTables
+            && $actor !== null
+            && ($actor->isOwner() || $actor->hasPermission('staff.assign_roles'));
 
         $planLimitService = new PlanLimitService(tenant());
         $canAddStaff = $planLimitService->canAddStaff(User::where('role', 'staff')->count());
@@ -56,15 +107,9 @@ class StaffController extends Controller
             return view('tenant.staff.limit-reached');
         }
 
-        $permissionsByModule = Permission::query()
-            ->orderBy('module')
-            ->orderBy('label')
-            ->get()
-            ->groupBy('module');
-
         return view('tenant.staff.create', [
-            'permissionsByModule' => $permissionsByModule,
-            'canManagePermissions' => $canManagePermissions,
+            'assignableRoles' => $this->assignableRoles($actor),
+            'canManageRoles' => $canManageRoles,
         ]);
     }
 
@@ -89,9 +134,9 @@ class StaffController extends Controller
             'role' => 'staff',
         ]);
 
-        $this->syncStaffPermissions(
+        $this->syncStaffRoles(
             $staff,
-            $request->validated('permissions', []),
+            $request->validated('roles', []),
             $request->user(),
         );
 
@@ -102,31 +147,13 @@ class StaffController extends Controller
     /**
      * Show the form for editing a staff member.
      */
-    public function edit(User $staff): View
+    public function edit(User $staff): RedirectResponse
     {
         abort_unless($staff->role === 'staff', 404);
 
-        Permission::ensureDefaultsExist();
-        $actor = request()->user();
-        $canManagePermissions = $actor !== null
-            && ($actor->isOwner() || $actor->hasPermission('permissions.manage'));
-
-        $permissionsByModule = Permission::query()
-            ->orderBy('module')
-            ->orderBy('label')
-            ->get()
-            ->groupBy('module');
-
-        $assignedPermissionKeys = $staff->permissions()
-            ->pluck('key')
-            ->all();
-
-        return view('tenant.staff.edit', compact(
-            'staff',
-            'permissionsByModule',
-            'assignedPermissionKeys',
-            'canManagePermissions',
-        ));
+        return redirect()->route('tenant.staff.index', [
+            'edit' => $staff->id,
+        ]);
     }
 
     /**
@@ -149,9 +176,9 @@ class StaffController extends Controller
 
         $staff->update($data);
 
-        $this->syncStaffPermissions(
+        $this->syncStaffRoles(
             $staff,
-            $request->validated('permissions', []),
+            $request->validated('roles', []),
             $request->user(),
         );
 
@@ -173,58 +200,92 @@ class StaffController extends Controller
     }
 
     /**
-     * @param  list<string>  $requestedPermissionKeys
+     * @return Collection<int, Role>
      */
-    private function syncStaffPermissions(
+    private function assignableRoles(?User $actor = null): Collection
+    {
+        if (! $this->hasRoleTables()) {
+            return collect();
+        }
+
+        Role::ensureDefaultsExist();
+
+        $roles = Role::query()
+            ->whereNotIn('slug', ['owner', 'customer', 'staff'])
+            ->with('permissions')
+            ->orderBy('name')
+            ->get();
+
+        if ($actor === null || $actor->isOwner()) {
+            return $roles;
+        }
+
+        return $roles
+            ->filter(fn (Role $role): bool => $actor->canAssignRole($role))
+            ->values();
+    }
+
+    /**
+     * @param  list<string>  $requestedRoleSlugs
+     */
+    private function syncStaffRoles(
         User $staff,
-        array $requestedPermissionKeys,
+        array $requestedRoleSlugs,
         ?User $actor,
     ): void {
         if (! $actor) {
             abort(403, 'Unauthorized.');
         }
 
-        if (! $actor->isOwner() && ! $actor->hasPermission('permissions.manage')) {
+        if (! $this->hasRoleTables()) {
             return;
         }
 
-        $allowedPermissionKeys = $this->allowedPermissionKeysForActor(
-            $actor,
-            $requestedPermissionKeys,
-        );
-
-        $permissionIds = Permission::query()
-            ->whereIn('key', $allowedPermissionKeys)
-            ->pluck('id')
-            ->all();
-
-        $syncPayload = [];
-
-        foreach ($permissionIds as $permissionId) {
-            $syncPayload[$permissionId] = ['granted_by' => $actor->id];
+        if (! $actor->isOwner() && ! $actor->hasPermission('staff.assign_roles')) {
+            return;
         }
 
-        $staff->permissions()->sync($syncPayload);
+        $roleSlugs = $this->allowedRoleSlugsForActor($actor, $requestedRoleSlugs)
+            ->unique()
+            ->prepend('staff')
+            ->values()
+            ->all();
+
+        $staff->syncRolesBySlug($roleSlugs, $actor);
+    }
+
+    private function hasRoleTables(): bool
+    {
+        return Schema::hasTable('roles')
+            && Schema::hasTable('role_user')
+            && Schema::hasTable('permission_role');
     }
 
     /**
-     * @param  list<string>  $requestedPermissionKeys
+     * @param  list<string>  $requestedRoleSlugs
      * @return Collection<int, string>
      */
-    private function allowedPermissionKeysForActor(
+    private function allowedRoleSlugsForActor(
         User $actor,
-        array $requestedPermissionKeys,
+        array $requestedRoleSlugs,
     ): Collection {
-        $requested = collect($requestedPermissionKeys)
-            ->filter(fn ($key): bool => is_string($key))
+        $requested = collect($requestedRoleSlugs)
+            ->filter(fn ($slug): bool => is_string($slug))
+            ->reject(fn (string $slug): bool => in_array($slug, ['owner', 'customer', 'staff'], true))
             ->values();
 
         if ($actor->isOwner()) {
             return $requested;
         }
 
+        $roles = Role::query()
+            ->whereIn('slug', $requested->all())
+            ->with('permissions')
+            ->get()
+            ->keyBy('slug');
+
         return $requested
-            ->filter(fn (string $key): bool => $actor->canGrantPermission($key))
+            ->filter(fn (string $slug): bool => $roles->has($slug) && $actor->canAssignRole($roles->get($slug)))
             ->values();
     }
 }

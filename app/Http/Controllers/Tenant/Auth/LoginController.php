@@ -51,7 +51,11 @@ class LoginController extends Controller
             ->where('email', $credentials['email'])
             ->first();
 
-        if ($customer && Hash::check($credentials['password'], $customer->password)) {
+        if (
+            $customer
+            && filled($customer->password)
+            && Hash::check($credentials['password'], $customer->password)
+        ) {
             Auth::guard('customer')->login($customer, $rememberMe);
             $request->session()->regenerate();
 

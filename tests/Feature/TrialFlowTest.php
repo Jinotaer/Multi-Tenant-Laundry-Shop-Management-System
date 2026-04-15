@@ -206,6 +206,9 @@ test('admin can mark tenant as paid', function () {
         'trial_ends_at' => now()->subDays(5),
         'is_paid' => false,
         'is_enabled' => false,
+        'current_bandwidth_mb' => 512.25,
+        'current_api_requests' => 1234,
+        'usage_reset_at' => now()->subMonth(),
         'data' => json_encode(['shop_name' => 'Mark Paid Shop']),
         'created_at' => now(),
         'updated_at' => now(),
@@ -220,6 +223,9 @@ test('admin can mark tenant as paid', function () {
     $tenant->refresh();
     expect($tenant->is_paid)->toBeTrue();
     expect($tenant->is_enabled)->toBeTrue();
+    expect((float) $tenant->current_bandwidth_mb)->toBe(0.0);
+    expect($tenant->current_api_requests)->toBe(0);
+    expect($tenant->usage_reset_at)->not->toBeNull();
 
     DB::table('tenants')->where('id', 'mark-paid-shop')->delete();
 });
@@ -459,6 +465,9 @@ test('paymongo webhook marks payment as paid and activates tenant', function () 
         'subscription_plan_id' => $plan->id,
         'is_paid' => false,
         'is_enabled' => true,
+        'current_bandwidth_mb' => 256.50,
+        'current_api_requests' => 789,
+        'usage_reset_at' => now()->subMonth(),
         'data' => json_encode(['shop_name' => 'Webhook Shop']),
         'created_at' => now(),
         'updated_at' => now(),
@@ -503,6 +512,9 @@ test('paymongo webhook marks payment as paid and activates tenant', function () 
 
     $tenant = Tenant::find('webhook-shop');
     expect($tenant->is_paid)->toBeTrue();
+    expect((float) $tenant->current_bandwidth_mb)->toBe(0.0);
+    expect($tenant->current_api_requests)->toBe(0);
+    expect($tenant->usage_reset_at)->not->toBeNull();
 
     DB::table('payments')->where('id', $payment->id)->delete();
     DB::table('tenants')->where('id', 'webhook-shop')->delete();

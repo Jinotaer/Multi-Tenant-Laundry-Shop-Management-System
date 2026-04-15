@@ -1,6 +1,8 @@
 <?php
 
+use App\Models\Invoice;
 use App\Models\Permission;
+use App\Models\Role;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Support\Str;
@@ -46,23 +48,54 @@ afterEach(function (): void {
     }
 });
 
-test('owner can assign privileges when creating staff', function (): void {
+test('owner can update staff through the staff modal flow and assign roles', function (): void {
+    $staffId = $this->tenant->run(function (): int {
+        $cashierRole = Role::query()->create([
+            'name' => 'Cashier',
+            'slug' => 'cashier',
+            'description' => 'Can view billing only.',
+        ]);
+
+        $cashierRole->permissions()->sync([
+            Permission::query()->where('key', 'billing.view')->value('id'),
+        ]);
+
+        return User::create([
+            'name' => 'Modal Staff',
+            'email' => 'modal-staff@rbac.test',
+            'password' => 'password',
+            'role' => 'staff',
+        ])->id;
+    });
+
     ($this->loginOwner)();
 
-    $this->post(($this->tenantUrl)('/staff'), [
-        'name' => 'Assigned Staff',
-        'email' => 'assigned-staff@rbac.test',
-        'password' => 'password123',
-        'password_confirmation' => 'password123',
-        'permissions' => ['staff.view', 'customers.view'],
-    ])->assertRedirect(route('tenant.staff.index', absolute: false));
+    $this->from(($this->tenantUrl)("/staff?edit={$staffId}"))
+        ->put(($this->tenantUrl)("/staff/{$staffId}"), [
+            'name' => 'Modal Staff Updated',
+            'email' => 'modal-staff@rbac.test',
+            'password' => '',
+            'password_confirmation' => '',
+            'roles' => ['cashier'],
+        ])->assertRedirect(route('tenant.staff.index', absolute: false));
 
     $this->tenant->run(function (): void {
-        $staff = User::query()->where('email', 'assigned-staff@rbac.test')->first();
+        $staff = User::query()->where('email', 'modal-staff@rbac.test')->firstOrFail();
 
-        expect($staff)->not->toBeNull();
-        expect($staff->hasPermission('staff.view'))->toBeTrue();
-        expect($staff->hasPermission('customers.view'))->toBeTrue();
+        expect($staff->name)->toBe('Modal Staff Updated');
+        expect($staff->hasRole('cashier'))->toBeTrue();
+        expect($staff->hasPermission('billing.view'))->toBeTrue();
+    });
+});
+
+test('users are attached to their matching role records when created', function (): void {
+    $this->tenant->run(function (): void {
+        $owner = User::query()->where('email', 'owner@rbac.test')->firstOrFail();
+
+        expect(Role::query()->pluck('slug')->all())
+            ->toContain('owner', 'staff', 'customer');
+        expect($owner->roles()->pluck('slug')->all())
+            ->toContain('owner');
     });
 });
 
@@ -85,58 +118,46 @@ test('staff without staff view privilege cannot access staff index', function ()
         ->assertForbidden();
 });
 
-test('staff manager cannot grant permissions manage privilege', function (): void {
+test('staff create and update ignore direct permission payloads', function (): void {
     $this->tenant->run(function (): void {
-        $manager = User::create([
-            'name' => 'Manager Staff',
-            'email' => 'manager-staff@rbac.test',
-            'password' => 'password',
-            'role' => 'staff',
-        ]);
-
         $target = User::create([
             'name' => 'Target Staff',
             'email' => 'target-staff@rbac.test',
             'password' => 'password',
             'role' => 'staff',
         ]);
-
-        $permissionIds = Permission::query()
-            ->whereIn('key', ['permissions.manage', 'staff.update', 'customers.view'])
-            ->pluck('id')
-            ->all();
-
-        $syncPayload = [];
-
-        foreach ($permissionIds as $permissionId) {
-            $syncPayload[$permissionId] = ['granted_by' => null];
-        }
-
-        $manager->permissions()->sync($syncPayload);
-
-        expect($target->hasPermission('permissions.manage'))->toBeFalse();
     });
 
-    $this->post(($this->tenantUrl)('/login'), [
-        'email' => 'manager-staff@rbac.test',
-        'password' => 'password',
-    ])->assertRedirect(route('tenant.dashboard', absolute: false));
+    ($this->loginOwner)();
+
+    $this->post(($this->tenantUrl)('/staff'), [
+        'name' => 'Created Without Direct Permissions',
+        'email' => 'created-no-direct@rbac.test',
+        'password' => 'password123',
+        'password_confirmation' => 'password123',
+        'permissions' => ['customers.view', 'billing.view'],
+    ])->assertRedirect(route('tenant.staff.index', absolute: false));
 
     $targetId = $this->tenant->run(fn (): int => User::query()->where('email', 'target-staff@rbac.test')->value('id'));
 
-    $this->put(($this->tenantUrl)("/staff/{$targetId}"), [
-        'name' => 'Target Staff Updated',
-        'email' => 'target-staff@rbac.test',
-        'password' => '',
-        'password_confirmation' => '',
-        'permissions' => ['permissions.manage', 'customers.view'],
-    ])->assertRedirect(route('tenant.staff.index', absolute: false));
+    $this->from(($this->tenantUrl)("/staff?edit={$targetId}"))
+        ->put(($this->tenantUrl)("/staff/{$targetId}"), [
+            'name' => 'Target Staff Updated',
+            'email' => 'target-staff@rbac.test',
+            'password' => '',
+            'password_confirmation' => '',
+            'permissions' => ['customers.view', 'billing.view'],
+        ])->assertRedirect(route('tenant.staff.index', absolute: false));
 
     $this->tenant->run(function (): void {
         $target = User::query()->where('email', 'target-staff@rbac.test')->firstOrFail();
+        $created = User::query()->where('email', 'created-no-direct@rbac.test')->firstOrFail();
 
-        expect($target->hasPermission('customers.view'))->toBeTrue();
-        expect($target->hasPermission('permissions.manage'))->toBeFalse();
+        expect($created->permissions()->exists())->toBeFalse();
+        expect($created->hasPermission('customers.view'))->toBeFalse();
+        expect($target->permissions()->exists())->toBeFalse();
+        expect($target->hasPermission('customers.view'))->toBeFalse();
+        expect($target->hasPermission('billing.view'))->toBeFalse();
     });
 });
 
@@ -150,7 +171,7 @@ test('staff with services and billing privileges can access management routes', 
         ]);
 
         $permissionIds = Permission::query()
-            ->whereIn('key', ['services.manage', 'billing.view'])
+            ->whereIn('key', ['services.view', 'billing.view'])
             ->pluck('id')
             ->all();
 
@@ -170,6 +191,136 @@ test('staff with services and billing privileges can access management routes', 
 
     $this->get(($this->tenantUrl)('/services'))
         ->assertOk();
+
+    $this->get(($this->tenantUrl)('/billing'))
+        ->assertOk();
+});
+
+test('staff with role assignment permissions can assign manageable custom roles', function (): void {
+    $this->tenant->run(function (): void {
+        $cashierRole = Role::query()->create([
+            'name' => 'Cashier',
+            'slug' => 'cashier',
+            'description' => 'Can view billing only.',
+        ]);
+
+        $cashierRole->permissions()->sync([
+            Permission::query()->where('key', 'billing.view')->value('id'),
+        ]);
+
+        $staff = User::create([
+            'name' => 'Role Assigner',
+            'email' => 'role-assigner@rbac.test',
+            'password' => 'password',
+            'role' => 'staff',
+        ]);
+
+        $permissionIds = Permission::query()
+            ->whereIn('key', ['staff.create', 'staff.assign_roles', 'staff.assign_permissions', 'billing.view'])
+            ->pluck('id')
+            ->all();
+
+        $syncPayload = [];
+
+        foreach ($permissionIds as $permissionId) {
+            $syncPayload[$permissionId] = ['granted_by' => null];
+        }
+
+        $staff->permissions()->sync($syncPayload);
+    });
+
+    $this->post(($this->tenantUrl)('/login'), [
+        'email' => 'role-assigner@rbac.test',
+        'password' => 'password',
+    ])->assertRedirect(route('tenant.dashboard', absolute: false));
+
+    $this->post(($this->tenantUrl)('/staff'), [
+        'name' => 'Assigned By Staff',
+        'email' => 'assigned-by-staff@rbac.test',
+        'password' => 'password123',
+        'password_confirmation' => 'password123',
+        'roles' => ['cashier'],
+    ])->assertRedirect(route('tenant.staff.index', absolute: false));
+
+    $this->tenant->run(function (): void {
+        $staff = User::query()->where('email', 'assigned-by-staff@rbac.test')->firstOrFail();
+
+        expect($staff->hasRole('cashier'))->toBeTrue();
+        expect($staff->hasPermission('billing.view'))->toBeTrue();
+    });
+});
+
+test('billing download requires billing download permission', function (): void {
+    $invoice = Invoice::create([
+        'invoice_number' => 'INV-RBAC-1001',
+        'tenant_id' => $this->tenant->id,
+        'billing_name' => 'RBAC Billing',
+        'billing_email' => 'billing@rbac.test',
+        'subtotal' => 999,
+        'tax_rate' => 0,
+        'tax_amount' => 0,
+        'total' => 999,
+        'currency' => 'PHP',
+        'issue_date' => now()->toDateString(),
+        'due_date' => now()->toDateString(),
+        'status' => Invoice::STATUS_PAID,
+    ]);
+
+    $this->tenant->run(function (): void {
+        $staff = User::create([
+            'name' => 'Billing Viewer',
+            'email' => 'billing-viewer@rbac.test',
+            'password' => 'password',
+            'role' => 'staff',
+        ]);
+
+        $billingViewPermissionId = Permission::query()
+            ->where('key', 'billing.view')
+            ->value('id');
+
+        $staff->permissions()->sync([
+            $billingViewPermissionId => ['granted_by' => null],
+        ]);
+    });
+
+    $this->post(($this->tenantUrl)('/login'), [
+        'email' => 'billing-viewer@rbac.test',
+        'password' => 'password',
+    ])->assertRedirect(route('tenant.dashboard', absolute: false));
+
+    $this->get(($this->tenantUrl)('/billing'))
+        ->assertOk();
+
+    $this->get(($this->tenantUrl)("/billing/{$invoice->id}/download"))
+        ->assertForbidden();
+});
+
+test('staff can inherit permissions from an assigned role', function (): void {
+    $this->tenant->run(function (): void {
+        $staff = User::create([
+            'name' => 'Role Based Staff',
+            'email' => 'role-staff@rbac.test',
+            'password' => 'password',
+            'role' => 'staff',
+        ]);
+
+        $staffRole = Role::query()
+            ->where('slug', 'staff')
+            ->firstOrFail();
+
+        $billingPermissionId = Permission::query()
+            ->where('key', 'billing.view')
+            ->value('id');
+
+        $staffRole->permissions()->syncWithoutDetaching([$billingPermissionId]);
+
+        expect($staff->fresh()->hasPermission('billing.view'))->toBeTrue();
+    });
+
+    $this->post(($this->tenantUrl)('/login'), [
+        'email' => 'role-staff@rbac.test',
+        'password' => 'password',
+    ])->assertRedirect(route('tenant.dashboard', absolute: false));
 
     $this->get(($this->tenantUrl)('/billing'))
         ->assertOk();

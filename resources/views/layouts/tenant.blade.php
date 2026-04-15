@@ -10,6 +10,10 @@
     $themePresets = app(\App\Services\ThemeService::class)->getAllPresets();
     $resolvedLayout = $layoutSettingsService->resolve(tenant(), $currentUser);
     $shopName = tenant('data')['shop_name'] ?? tenant()->registration?->shop_name ?? tenant('id') ?? config('app.name', 'LaundryTrack');
+    $showSupportShortcut = $currentUser !== null
+        && method_exists($currentUser, 'isOwner')
+        && $currentUser->isOwner()
+        && tenant()->hasFeature('priority_support');
     $saveRoute = route('tenant.settings.layout.save');
     $resetRoute = route('tenant.settings.layout.reset');
     $csrfToken = csrf_token();
@@ -473,15 +477,37 @@
             :data-preview-sidebar-position="prefs.sidebar_position"
             :data-preview-sidebar-style="prefs.sidebar_style"
         >
-            <button
-                type="button"
-                x-on:click="customizerOpen = ! customizerOpen"
-                class="tenant-primary-action fixed bottom-4 z-[80] inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold shadow-lg"
-                :class="customizerDockClass"
+            <div
+                class="tenant-floating-shortcuts fixed bottom-4 z-[80] flex flex-col gap-3"
+                :class="[customizerDockClass, isRight ? 'items-start' : 'items-end']"
             >
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M3.75 6h1.5m5.25 0a2.25 2.25 0 1 1-4.5 0m4.5 0a2.25 2.25 0 1 0-4.5 0m4.5 12h9.75m-9.75 0a2.25 2.25 0 1 1-4.5 0m4.5 0a2.25 2.25 0 1 0-4.5 0m4.5-6h9.75m-9.75 0a2.25 2.25 0 1 1-4.5 0m4.5 0a2.25 2.25 0 1 0-4.5 0" /></svg>
-                <span>Customize Layout</span>
-            </button>
+                @if ($showSupportShortcut)
+                    <a
+                        href="{{ route('tenant.support.index') }}"
+                        title="Priority Support"
+                        aria-label="Priority Support"
+                        x-show="! customizerOpen"
+                        x-transition:enter="transition ease-out duration-150"
+                        x-transition:enter-start="opacity-0 translate-y-2"
+                        x-transition:enter-end="opacity-100 translate-y-0"
+                        x-transition:leave="transition ease-in duration-100"
+                        x-transition:leave-start="opacity-100 translate-y-0"
+                        x-transition:leave-end="opacity-0 translate-y-2"
+                        class="tenant-support-shortcut tenant-primary-action inline-flex h-12 w-12 items-center justify-center rounded-full shadow-lg transition hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+                    >
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" /></svg>
+                    </a>
+                @endif
+
+                <button
+                    type="button"
+                    x-on:click="customizerOpen = ! customizerOpen"
+                    class="tenant-customizer-launcher tenant-primary-action inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold shadow-lg"
+                >
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M3.75 6h1.5m5.25 0a2.25 2.25 0 1 1-4.5 0m4.5 0a2.25 2.25 0 1 0-4.5 0m4.5 12h9.75m-9.75 0a2.25 2.25 0 1 1-4.5 0m4.5 0a2.25 2.25 0 1 0-4.5 0m4.5-6h9.75m-9.75 0a2.25 2.25 0 1 1-4.5 0m4.5 0a2.25 2.25 0 1 0-4.5 0" /></svg>
+                    <span>Customize Layout</span>
+                </button>
+            </div>
 
             <section
                 x-show="customizerOpen"
@@ -688,20 +714,28 @@
                             </a>
                         @endif
 
-                        @if ($currentUser->isOwner() || $currentUser->hasPermission('staff.view'))
+                        @if ($currentUser->isOwner() || $currentUser->hasAnyPermission(['staff.view', 'staff.create', 'staff.update', 'staff.delete', 'staff.assign_roles', 'staff.assign_permissions']))
                             <a href="{{ route('tenant.staff.index') }}" title="Staff" class="flex items-center px-3 py-2 text-sm font-medium rounded-md {{ $navAlignmentClass }} {{ request()->routeIs('tenant.staff*') ? $activeNavClass : $inactiveNavClass }}">
                                 <svg class="{{ $iconSpacingClass }}" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" /></svg>
                                 <span class="{{ $navLabelVisibilityClass }}">Staff</span>
                             </a>
                         @endif
 
+                        @if ($currentUser->isOwner() || $currentUser->hasAnyPermission(['roles.view', 'roles.create', 'roles.update', 'roles.delete']))
+                            <a href="{{ route('tenant.roles.index') }}" title="Roles & Permissions" class="flex items-center px-3 py-2 text-sm font-medium rounded-md {{ $navAlignmentClass }} {{ request()->routeIs('tenant.roles*') ? $activeNavClass : $inactiveNavClass }}">
+                                <svg class="{{ $iconSpacingClass }}" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" /></svg>
+                                <span class="{{ $navLabelVisibilityClass }}">Roles</span>
+                            </a>
+                        @endif
+
                         @php
-                            $canManageServices = $currentUser->isOwner() || $currentUser->hasPermission('services.manage');
-                            $canManageExpenses = tenant()->hasFeature('expense_tracking') && ($currentUser->isOwner() || $currentUser->hasPermission('expenses.manage'));
-                            $canViewReports = tenant()->hasFeature('reports') && ($currentUser->isOwner() || $currentUser->hasPermission('reports.view'));
+                            $canManageServices = $currentUser->isOwner() || $currentUser->hasAnyPermission(['services.view', 'services.create', 'services.update', 'services.delete']);
+                            $canManageExpenses = tenant()->hasFeature('expense_tracking') && ($currentUser->isOwner() || $currentUser->hasAnyPermission(['expenses.view', 'expenses.create', 'expenses.update', 'expenses.delete']));
+                            $canViewReports = tenant()->hasFeature('reports') && ($currentUser->isOwner() || $currentUser->hasAnyPermission(['reports.view', 'reports.export']));
+                            $canViewAnalytics = tenant()->hasFeature('analytics_dashboard') && ($currentUser->isOwner() || $currentUser->hasPermission('analytics.view'));
                             $canManageSubscription = $currentUser->isOwner() || $currentUser->hasPermission('subscription.manage');
                             $canViewBilling = $currentUser->isOwner() || $currentUser->hasPermission('billing.view');
-                            $canViewManagementSection = $canManageServices || $canManageExpenses || $canViewReports || $canManageSubscription || $canViewBilling;
+                            $canViewManagementSection = $canManageServices || $canManageExpenses || $canViewReports || $canViewAnalytics || $canManageSubscription || $canViewBilling;
                         @endphp
 
                         @if ($canViewManagementSection)
@@ -723,6 +757,13 @@
                                 <a href="{{ route('tenant.reports.index') }}" title="Reports" class="flex items-center px-3 py-2 text-sm font-medium rounded-md {{ $navAlignmentClass }} {{ request()->routeIs('tenant.reports*') ? $activeNavClass : $inactiveNavClass }}">
                                     <svg class="{{ $iconSpacingClass }}" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>
                                     <span class="{{ $navLabelVisibilityClass }}">Reports</span>
+                                </a>
+                            @endif
+
+                            @if ($canViewAnalytics)
+                                <a href="{{ route('tenant.analytics.index') }}" title="Analytics" class="flex items-center px-3 py-2 text-sm font-medium rounded-md {{ $navAlignmentClass }} {{ request()->routeIs('tenant.analytics*') ? $activeNavClass : $inactiveNavClass }}">
+                                    <svg class="{{ $iconSpacingClass }}" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3v18h18M7.5 15.75l3-3 2.25 2.25 4.5-6" /></svg>
+                                    <span class="{{ $navLabelVisibilityClass }}">Analytics</span>
                                 </a>
                             @endif
 

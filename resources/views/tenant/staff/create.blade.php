@@ -14,23 +14,23 @@
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Full Name <span class="text-red-500">*</span></label>
                         <input type="text" name="name" value="{{ old('name') }}" required
-                            class="block w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500 @error('name') border-red-300 @enderror">
-                        @error('name') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                            class="block w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500 @error('name', 'staff') border-red-300 @enderror">
+                        @error('name', 'staff') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
 
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Email Address <span class="text-red-500">*</span></label>
                         <input type="email" name="email" value="{{ old('email') }}" required
-                            class="block w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500 @error('email') border-red-300 @enderror">
-                        @error('email') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                            class="block w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500 @error('email', 'staff') border-red-300 @enderror">
+                        @error('email', 'staff') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Password <span class="text-red-500">*</span></label>
                             <input type="password" name="password" required
-                                class="block w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500 @error('password') border-red-300 @enderror">
-                            @error('password') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                class="block w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500 @error('password', 'staff') border-red-300 @enderror">
+                            @error('password', 'staff') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Confirm Password <span class="text-red-500">*</span></label>
@@ -39,34 +39,30 @@
                         </div>
                     </div>
 
-                    @if ($canManagePermissions)
+                    @if ($canManageRoles && $assignableRoles->isNotEmpty())
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Privileges</label>
-                            <div class="space-y-4 rounded-md border border-gray-200 bg-gray-50 p-4">
-                                @forelse ($permissionsByModule as $module => $permissions)
-                                    <div>
-                                        <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">{{ str_replace('_', ' ', $module) }}</p>
-                                        <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                            @foreach ($permissions as $permission)
-                                                <label class="flex items-center gap-2 text-sm text-gray-700">
-                                                    <input
-                                                        type="checkbox"
-                                                        name="permissions[]"
-                                                        value="{{ $permission->key }}"
-                                                        @checked(collect(old('permissions', []))->contains($permission->key))
-                                                        class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                                    >
-                                                    <span>{{ $permission->label }}</span>
-                                                </label>
-                                            @endforeach
-                                        </div>
-                                    </div>
-                                @empty
-                                    <p class="text-sm text-gray-500">No privileges configured yet.</p>
-                                @endforelse
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Roles</label>
+                            <div class="space-y-3 rounded-md border border-gray-200 bg-gray-50 p-4">
+                                @foreach ($assignableRoles as $role)
+                                    <label class="flex items-start gap-3 text-sm text-gray-700">
+                                        <input
+                                            type="checkbox"
+                                            name="roles[]"
+                                            value="{{ $role->slug }}"
+                                            @checked(collect(old('roles', []))->contains($role->slug))
+                                            class="mt-1 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                        >
+                                        <span>
+                                            <span class="block font-medium text-gray-800">{{ $role->name }}</span>
+                                            @if ($role->description)
+                                                <span class="block text-xs text-gray-500">{{ $role->description }}</span>
+                                            @endif
+                                        </span>
+                                    </label>
+                                @endforeach
                             </div>
-                            @error('permissions') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-                            @error('permissions.*') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                            @error('roles', 'staff') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                            @error('roles.*', 'staff') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                         </div>
                     @endif
 

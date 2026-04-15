@@ -18,6 +18,9 @@ it('allows admins to save their layout settings', function () {
         ->assertOk()
         ->assertSee('Admin Layout')
         ->assertSee('Save Layout')
+        ->assertSee('admin-customizer-launcher', false)
+        ->assertSee('bottom-20 z-[80] w-[24rem]', false)
+        ->assertSee('Support</span>', false)
         ->assertSee('tenant-choice-card', false);
 
     $this->actingAs($this->admin, 'admin')

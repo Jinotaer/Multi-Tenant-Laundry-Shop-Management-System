@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AppRelease;
-use App\Models\TenantUpdate;
 use App\Models\Tenant;
+use App\Models\TenantUpdate;
 use App\Services\GitHubReleaseService;
 use Illuminate\Http\Request;
 
@@ -24,6 +24,7 @@ class ReleaseController extends Controller
             $release->active_tenants_count = TenantUpdate::where('app_release_id', $release->id)
                 ->where('is_current', true)
                 ->count();
+
             return $release;
         });
 
@@ -35,13 +36,13 @@ class ReleaseController extends Controller
      */
     public function sync(GitHubReleaseService $service)
     {
-        $success = $service->syncReleases();
-        
+        $success = $service->syncReleases(true); // Force sync
+
         if ($success) {
-            return back()->with('success', 'GitHub releases synced successfully!');
+            return back()->with('success', 'GitHub releases synced successfully! Tenants have been notified of available updates.');
         }
 
-        return back()->with('error', 'Failed to sync releases. Check the GitHub service configuration.');
+        return back()->with('error', 'Failed to sync releases. Check the GitHub service configuration or rate limits.');
     }
 
     /**
@@ -74,14 +75,14 @@ class ReleaseController extends Controller
                 [
                     'status' => 'updated',
                     'is_current' => true,
-                    'action_taken_at' => now()
+                    'action_taken_at' => now(),
                 ]
             );
         }
-        
+
         // Mark the release as required globally
         $release->update(['is_required' => true]);
 
-        return back()->with('success', 'Forced ' . $release->version_tag . ' to all tenants.');
+        return back()->with('success', 'Forced '.$release->version_tag.' to all tenants.');
     }
 }

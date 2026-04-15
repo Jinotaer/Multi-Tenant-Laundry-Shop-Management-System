@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Schema;
 
 class Permission extends Model
 {
@@ -31,6 +32,15 @@ class Permission extends Model
     }
 
     /**
+     * @return BelongsToMany<Role, $this>
+     */
+    public function roles(): BelongsToMany
+    {
+        return $this->belongsToMany(Role::class)
+            ->withTimestamps();
+    }
+
+    /**
      * @return Collection<int, array{key: string, label: string, module: string}>
      */
     public static function definitions(): Collection
@@ -52,5 +62,59 @@ class Permission extends Model
                 ],
             );
         });
+
+        static::migrateLegacyPermissions();
+        Role::ensureDefaultsExist();
+    }
+
+    private static function migrateLegacyPermissions(): void
+    {
+        $legacyMappings = [
+            'permissions.manage' => ['staff.assign_permissions'],
+            'services.manage' => ['services.view', 'services.create', 'services.update', 'services.delete'],
+            'expenses.manage' => ['expenses.view', 'expenses.create', 'expenses.update', 'expenses.delete'],
+            'inventory.manage' => ['inventory.view', 'inventory.create', 'inventory.update', 'inventory.delete', 'inventory.adjust'],
+        ];
+
+        foreach ($legacyMappings as $legacyKey => $replacementKeys) {
+            $legacyPermission = static::query()->where('key', $legacyKey)->first();
+
+            if ($legacyPermission === null) {
+                continue;
+            }
+
+            $replacementIds = static::query()
+                ->whereIn('key', $replacementKeys)
+                ->pluck('id')
+                ->all();
+
+            if (Schema::hasTable('user_permissions')) {
+                $legacyPermission->users()->get()->each(function (User $user) use ($replacementIds): void {
+                    $syncPayload = [];
+
+                    foreach ($replacementIds as $permissionId) {
+                        $syncPayload[$permissionId] = ['granted_by' => $user->pivot->granted_by];
+                    }
+
+                    if ($syncPayload !== []) {
+                        $user->permissions()->syncWithoutDetaching($syncPayload);
+                    }
+                });
+
+                $legacyPermission->users()->detach();
+            }
+
+            if (Schema::hasTable('permission_role')) {
+                $legacyPermission->roles()->get()->each(function (Role $role) use ($replacementIds): void {
+                    if ($replacementIds !== []) {
+                        $role->permissions()->syncWithoutDetaching($replacementIds);
+                    }
+                });
+
+                $legacyPermission->roles()->detach();
+            }
+
+            $legacyPermission->delete();
+        }
     }
 }

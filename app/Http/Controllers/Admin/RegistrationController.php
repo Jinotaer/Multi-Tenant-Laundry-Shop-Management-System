@@ -10,6 +10,7 @@ use App\Models\SubscriptionPlan;
 use App\Models\Tenant;
 use App\Models\TenantRegistration;
 use App\Models\User;
+use App\Services\GitHubReleaseService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -25,7 +26,7 @@ class RegistrationController extends Controller
         return view('admin.registrations.index', compact('registrations'));
     }
 
-    public function approve(TenantRegistration $registration): RedirectResponse
+    public function approve(TenantRegistration $registration, GitHubReleaseService $releaseService): RedirectResponse
     {
         if (! $registration->isPending()) {
             return back()->with('error', 'Only pending registrations can be approved.');
@@ -75,6 +76,9 @@ class RegistrationController extends Controller
                     'role' => 'owner',
                 ]);
             });
+
+            // Assign the latest stable version to the new tenant
+            $releaseService->assignLatestVersionToTenant($tenant);
         } catch (\Exception $e) {
             if (isset($tenant)) {
                 $tenant->delete();

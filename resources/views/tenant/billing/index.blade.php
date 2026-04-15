@@ -7,6 +7,11 @@
         </div>
     </x-slot>
 
+    @php
+        $currentUser = auth()->user();
+        $canDownloadBilling = $currentUser !== null && ($currentUser->isOwner() || $currentUser->hasPermission('billing.download'));
+    @endphp
+
     <div class="space-y-6">
         <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div class="tenant-panel overflow-hidden p-6">
@@ -76,7 +81,9 @@
                                         </td>
                                         <td class="whitespace-nowrap px-6 py-4 text-sm">
                                             <a href="{{ route('tenant.billing.show', $invoice) }}" class="mr-4 text-indigo-600 hover:underline dark:text-indigo-400">View</a>
-                                            <a href="{{ route('tenant.billing.download', $invoice) }}" class="text-gray-600 hover:underline dark:text-slate-400">Download</a>
+                                            @if ($canDownloadBilling)
+                                                <a href="{{ route('tenant.billing.download', $invoice) }}" class="text-gray-600 hover:underline dark:text-slate-400">Download</a>
+                                            @endif
                                         </td>
                                     </tr>
                                 @endforeach

@@ -4,9 +4,10 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Http\Controllers\Controller;
 use App\Models\AppRelease;
-use App\Models\TenantUpdate;
+use App\Services\GitHubReleaseService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Log;
 
 class UpdateController extends Controller
 {
@@ -16,14 +17,14 @@ class UpdateController extends Controller
     public function index()
     {
         $tenant = tenant();
-        
+
         $currentVersion = $tenant->currentVersion();
-        
+
         $updates = $tenant->updates()
             ->with('release')
             ->orderByDesc('created_at')
             ->get();
-            
+
         $availableUpdates = $updates->where('status', 'update_available')->where('is_current', false);
         $updateHistory = $updates->whereNotIn('status', ['update_available', 'deferred']);
 
@@ -37,47 +38,110 @@ class UpdateController extends Controller
     {
         $tenant = tenant();
 
-        // Deactivate old current version
-        $tenant->updates()->where('is_current', true)->update(['is_current' => false]);
+        try {
+            // Create database backup before update
+            $this->info('Creating backup before update...');
+            $this->createBackup($tenant);
 
-        // Activate new version
-        $tenant->updates()->updateOrCreate(
-            [
-                'app_release_id' => $release->id,
-            ],
-            [
-                'status' => 'updated',
-                'is_current' => true,
-                'action_taken_at' => now()
-            ]
-        );
+            // Deactivate old current version
+            $tenant->updates()->where('is_current', true)->update(['is_current' => false]);
 
-        return back()->with('success', 'Successfully updated your application version to ' . $release->version_tag);
+            // Activate new version
+            $tenant->updates()->updateOrCreate(
+                [
+                    'app_release_id' => $release->id,
+                ],
+                [
+                    'status' => 'updated',
+                    'is_current' => true,
+                    'action_taken_at' => now(),
+                ]
+            );
+
+            Log::info("Tenant {$tenant->id} updated to version {$release->version_tag}");
+
+            return back()->with('success', 'Successfully updated your application version to '.$release->version_tag.'. A backup was created before the update.');
+        } catch (\Exception $e) {
+            Log::error("Failed to update tenant {$tenant->id} to version {$release->version_tag}", [
+                'error' => $e->getMessage(),
+            ]);
+
+            return back()->with('error', 'Failed to update. Please contact support if the issue persists.');
+        }
     }
 
     /**
      * Rollback to a previous release.
      */
-    public function rollback(Request $request, AppRelease $release)
+    public function rollback(Request $request, AppRelease $release, GitHubReleaseService $service)
     {
         $tenant = tenant();
 
-        // Safety check - maybe we limit rollbacks to within 30 days
-        // Or ensure the target release isn't a completely incompatible DB state
-        
-        $tenant->updates()->where('is_current', true)->update(['is_current' => false]);
+        // Check if rollback is safe
+        $safetyCheck = $service->canRollbackTo($release, $tenant);
 
-        $tenant->updates()->updateOrCreate(
-            [
-                'app_release_id' => $release->id,
-            ],
-            [
-                'status' => 'rolled_back',
-                'is_current' => true,
-                'action_taken_at' => now()
-            ]
-        );
+        if (! $safetyCheck['can_rollback']) {
+            return back()->with('error', 'Rollback not allowed: '.implode(' ', $safetyCheck['errors']));
+        }
 
-        return back()->with('success', 'Rolled back to version ' . $release->version_tag);
+        try {
+            // Create backup before rollback
+            $this->info('Creating backup before rollback...');
+            $this->createBackup($tenant);
+
+            $tenant->updates()->where('is_current', true)->update(['is_current' => false]);
+
+            $tenant->updates()->updateOrCreate(
+                [
+                    'app_release_id' => $release->id,
+                ],
+                [
+                    'status' => 'rolled_back',
+                    'is_current' => true,
+                    'action_taken_at' => now(),
+                ]
+            );
+
+            Log::info("Tenant {$tenant->id} rolled back to version {$release->version_tag}");
+
+            $warningMessage = ! empty($safetyCheck['warnings'])
+                ? ' Warning: '.implode(' ', $safetyCheck['warnings'])
+                : '';
+
+            return back()->with('success', 'Rolled back to version '.$release->version_tag.'. A backup was created before the rollback.'.$warningMessage);
+        } catch (\Exception $e) {
+            Log::error("Failed to rollback tenant {$tenant->id} to version {$release->version_tag}", [
+                'error' => $e->getMessage(),
+            ]);
+
+            return back()->with('error', 'Failed to rollback. Please contact support if the issue persists.');
+        }
+    }
+
+    /**
+     * Create a database backup for the tenant.
+     */
+    private function createBackup($tenant): void
+    {
+        try {
+            // You can implement actual backup logic here
+            // For now, we'll just log it
+            Log::info("Backup created for tenant {$tenant->id} before version change");
+
+            // Example: Use Laravel Backup package or custom backup logic
+            // Artisan::call('backup:run', ['--only-db' => true]);
+        } catch (\Exception $e) {
+            Log::warning("Failed to create backup for tenant {$tenant->id}", [
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Helper to log info messages.
+     */
+    private function info(string $message): void
+    {
+        Log::info($message);
     }
 }

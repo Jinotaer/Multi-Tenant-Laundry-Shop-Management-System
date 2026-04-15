@@ -7,6 +7,7 @@ use App\Models\Payment;
 use App\Models\SubscriptionPlan;
 use App\Services\PayMongoService;
 use App\Services\TenantFeatureService;
+use App\Services\TenantMetricService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -15,20 +16,21 @@ class SubscriptionUpgradeController extends Controller
 {
     public function __construct(
         protected PayMongoService $paymongo,
+        protected TenantMetricService $tenantMetricService,
         protected TenantFeatureService $featureService,
     ) {}
 
     public function show(Request $request): View|RedirectResponse
     {
         $planId = $request->query('plan');
-        
-        if (!$planId) {
+
+        if (! $planId) {
             return redirect()->route('tenant.subscription.plans');
         }
 
         $plan = SubscriptionPlan::find($planId);
-        
-        if (!$plan || $plan->isFree()) {
+
+        if (! $plan || $plan->isFree()) {
             return redirect()->route('tenant.subscription.plans')
                 ->with('error', 'Invalid plan selected.');
         }
@@ -52,10 +54,10 @@ class SubscriptionUpgradeController extends Controller
     public function checkout(Request $request): RedirectResponse
     {
         $planId = $request->input('plan_id');
-        
+
         $plan = SubscriptionPlan::find($planId);
-        
-        if (!$plan || $plan->isFree()) {
+
+        if (! $plan || $plan->isFree()) {
             return redirect()->route('tenant.subscription.plans')
                 ->with('error', 'Invalid plan selected.');
         }
@@ -156,7 +158,7 @@ class SubscriptionUpgradeController extends Controller
         $tenant = tenant();
         $paymentId = $request->query('payment_id');
 
-        if (!$paymentId) {
+        if (! $paymentId) {
             return redirect()->route('tenant.subscription.plans');
         }
 
@@ -165,7 +167,7 @@ class SubscriptionUpgradeController extends Controller
             ->where('payment_type', 'upgrade')
             ->first();
 
-        if (!$payment) {
+        if (! $payment) {
             return redirect()->route('tenant.subscription.plans');
         }
 
@@ -195,7 +197,7 @@ class SubscriptionUpgradeController extends Controller
         if ($payment->isPaid()) {
             $tenant->refresh();
             $tenant->load('subscriptionPlan');
-            
+
             return view('tenant.subscription-upgrade-success', [
                 'tenant' => $tenant,
                 'payment' => $payment,
@@ -212,8 +214,8 @@ class SubscriptionUpgradeController extends Controller
     protected function upgradePlan($tenant, $planId): void
     {
         $plan = SubscriptionPlan::find($planId);
-        
-        if (!$plan) {
+
+        if (! $plan) {
             return;
         }
 
@@ -223,7 +225,7 @@ class SubscriptionUpgradeController extends Controller
         };
 
         $normalizedFeatures = $this->featureService->normalize($plan->features ?? []);
-        
+
         // Direct assignment and save
         $tenant->subscription_plan_id = $plan->id;
         $tenant->features = $normalizedFeatures;
@@ -232,7 +234,7 @@ class SubscriptionUpgradeController extends Controller
         $tenant->subscription_expires_at = $newExpirationDate;
         $tenant->last_renewal_reminder_sent_at = null;
         $saved = $tenant->save();
-        
+
         \Log::info('Tenant upgrade attempt', [
             'tenant_id' => $tenant->id,
             'new_plan_id' => $plan->id,
@@ -243,5 +245,7 @@ class SubscriptionUpgradeController extends Controller
             'tenant_features_after' => $tenant->features,
             'tenant_plan_id_after' => $tenant->subscription_plan_id,
         ]);
+
+        $this->tenantMetricService->resetMonthlyUsage($tenant);
     }
 }

@@ -194,6 +194,10 @@ foreach (config('tenancy.central_domains') as $domain) {
                         AdminSupportTicketController::class,
                         'update',
                     ])->name('admin.support-tickets.update');
+                    Route::post('/support-tickets/{ticket}/message', [
+                        AdminSupportTicketController::class,
+                        'sendMessage',
+                    ])->name('admin.support-tickets.message');
 
                     // Notifications
                     Route::post('/notifications/mark-all-read', [

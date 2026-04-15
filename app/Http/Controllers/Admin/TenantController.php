@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\SubscriptionPlan;
 use App\Models\Tenant;
 use App\Services\TenantFeatureService;
+use App\Services\TenantMetricService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -123,12 +124,14 @@ class TenantController extends Controller
     /**
      * Mark a tenant as paid (removes trial restrictions).
      */
-    public function markPaid(Tenant $tenant): RedirectResponse
+    public function markPaid(Tenant $tenant, TenantMetricService $tenantMetricService): RedirectResponse
     {
         $tenant->update([
             'is_paid' => true,
             'is_enabled' => true,
         ]);
+
+        $tenantMetricService->resetMonthlyUsage($tenant);
 
         $shopName = $tenant->data['shop_name'] ?? $tenant->id;
 

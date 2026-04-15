@@ -4,11 +4,14 @@ namespace App\Http\Requests\Tenant;
 
 use App\Models\Permission;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 
 class StaffRequest extends FormRequest
 {
+    protected $errorBag = 'staff';
+
     protected function prepareForValidation(): void
     {
         Permission::ensureDefaultsExist();
@@ -62,8 +65,14 @@ class StaffRequest extends FormRequest
             $rules['password'] = ['nullable', 'string', Password::min(8), 'confirmed'];
         }
 
-        $rules['permissions'] = ['sometimes', 'array'];
-        $rules['permissions.*'] = ['string', Rule::exists('permissions', 'key')];
+        if (Schema::hasTable('roles') && Schema::hasTable('role_user')) {
+            $rules['roles'] = ['sometimes', 'array'];
+            $rules['roles.*'] = [
+                'string',
+                Rule::exists('roles', 'slug'),
+                Rule::notIn(['owner', 'customer', 'staff']),
+            ];
+        }
 
         return $rules;
     }

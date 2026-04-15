@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Notifications\CustomerSetPasswordNotification;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -47,7 +48,23 @@ class Customer extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'layout_preferences' => 'array',
+            'password' => 'hashed',
         ];
+    }
+
+    /**
+     * Send the customer-specific password setup notification.
+     */
+    public function sendPasswordResetNotification($token): void
+    {
+        $url = route('tenant.password.reset', [
+            'token' => $token,
+            'email' => $this->getEmailForPasswordReset(),
+        ]);
+
+        $shopName = tenant()?->data['shop_name'] ?? config('app.name');
+
+        $this->notify(new CustomerSetPasswordNotification($url, $token, $shopName));
     }
 
     public function isOwner(): bool

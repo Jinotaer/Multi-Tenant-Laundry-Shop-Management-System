@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Tenant;
 use App\Http\Controllers\Controller;
 use App\Models\Payment;
 use App\Services\PayMongoService;
+use App\Services\TenantMetricService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -13,6 +14,7 @@ class PaymentController extends Controller
 {
     public function __construct(
         protected PayMongoService $paymongo,
+        protected TenantMetricService $tenantMetricService,
     ) {}
 
     /**
@@ -96,6 +98,8 @@ class PaymentController extends Controller
                         'is_enabled' => true,
                         'subscription_expires_at' => $newExpirationDate,
                     ]);
+
+                    $this->tenantMetricService->resetMonthlyUsage($tenant);
 
                     return redirect()->route('tenant.dashboard');
                 }
@@ -204,6 +208,8 @@ class PaymentController extends Controller
                         'is_enabled' => true,
                         'subscription_expires_at' => $newExpirationDate,
                     ]);
+
+                    $this->tenantMetricService->resetMonthlyUsage($tenant);
                 }
             } catch (\Exception) {
                 // Verification failed — webhook will handle it

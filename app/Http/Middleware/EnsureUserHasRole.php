@@ -15,7 +15,21 @@ class EnsureUserHasRole
      */
     public function handle(Request $request, Closure $next, string ...$roles): Response
     {
-        if (! $request->user() || ! in_array($request->user()->role, $roles)) {
+        $user = $request->user();
+
+        if (! $user) {
+            abort(403, 'Unauthorized.');
+        }
+
+        if (method_exists($user, 'hasRole')) {
+            if (! $user->hasRole($roles)) {
+                abort(403, 'Unauthorized.');
+            }
+
+            return $next($request);
+        }
+
+        if (! in_array($user->role, $roles, true)) {
             abort(403, 'Unauthorized.');
         }
 

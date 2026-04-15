@@ -10,10 +10,9 @@ Artisan::command('inspire', function () {
 
 Schedule::command('tenants:expire-trials')->daily();
 Schedule::command('subscriptions:expire')->daily();
-Schedule::command('app:sync-github-releases')->daily();
+
+// Auto-sync GitHub releases every hour
+Schedule::command('releases:sync')->hourly();
 
 // Tenant metrics collection - runs daily at midnight
 Schedule::command('tenants:collect-metrics')->daily();
-
-// Reset monthly usage counters - runs on the first day of each month
-Schedule::command('tenants:reset-usage')->monthlyOn(1, '00:00');

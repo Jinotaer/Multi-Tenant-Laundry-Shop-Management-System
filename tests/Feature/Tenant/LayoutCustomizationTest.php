@@ -19,7 +19,7 @@ beforeEach(function () {
         'is_enabled' => true,
         'is_paid' => true,
         'theme' => 'indigo',
-        'features' => ['customer_portal', 'expense_tracking', 'reports', 'custom_branding'],
+        'features' => ['customer_portal', 'expense_tracking', 'reports', 'custom_branding', 'priority_support'],
         'data' => ['shop_name' => 'Layout Shop'],
     ]);
 
@@ -56,6 +56,12 @@ test('owner can view the layout page and save workspace defaults', function () {
         ->assertSee('Workspace Defaults')
         ->assertDontSee('My Preferences')
         ->assertSee('Selected')
+        ->assertSee('tenant-floating-shortcuts', false)
+        ->assertSee('tenant-support-shortcut', false)
+        ->assertSee('aria-label="Priority Support"', false)
+        ->assertSee('x-show="! customizerOpen"', false)
+        ->assertSee('bottom-20 z-[80] w-[24rem]', false)
+        ->assertDontSee('Support</span>', false)
         ->assertSee('tenant-choice-card', false)
         ->assertSee('tenant-selection-check', false)
         ->assertDontSee(":style=\"'--selection-accent: ' + (themeColors[selectedTheme] || '#6366f1')\"", false)

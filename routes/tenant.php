@@ -3,8 +3,10 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Tenant\AnalyticsController;
+use App\Http\Controllers\Tenant\Auth\ForgotPasswordController;
 use App\Http\Controllers\Tenant\Auth\LoginController;
 use App\Http\Controllers\Tenant\Auth\RegisterController;
+use App\Http\Controllers\Tenant\Auth\ResetPasswordController;
 use App\Http\Controllers\Tenant\BillingController;
 use App\Http\Controllers\Tenant\CustomerController;
 use App\Http\Controllers\Tenant\CustomerPortalController;
@@ -17,11 +19,13 @@ use App\Http\Controllers\Tenant\OrderPaymentController;
 use App\Http\Controllers\Tenant\PaymentController;
 use App\Http\Controllers\Tenant\ProfileController;
 use App\Http\Controllers\Tenant\ReportController;
+use App\Http\Controllers\Tenant\RoleController;
 use App\Http\Controllers\Tenant\ServiceController;
 use App\Http\Controllers\Tenant\SettingsController;
 use App\Http\Controllers\Tenant\StaffController;
 use App\Http\Controllers\Tenant\SubscriptionController;
 use App\Http\Controllers\Tenant\SupportTicketController;
+use App\Http\Controllers\Tenant\UpdateController;
 use App\Http\Middleware\CheckTenantEnabled;
 use App\Http\Middleware\CheckTrialStatus;
 use App\Http\Middleware\TrackTenantUsage;
@@ -56,6 +60,22 @@ Route::middleware([
             'tenant.register',
         );
         Route::post('/register', [RegisterController::class, 'store']);
+        Route::get('/forgot-password', [
+            ForgotPasswordController::class,
+            'create',
+        ])->name('tenant.password.request');
+        Route::post('/forgot-password', [
+            ForgotPasswordController::class,
+            'store',
+        ])->name('tenant.password.email');
+        Route::get('/reset-password/{token}', [
+            ResetPasswordController::class,
+            'create',
+        ])->name('tenant.password.reset');
+        Route::post('/reset-password', [
+            ResetPasswordController::class,
+            'store',
+        ])->name('tenant.password.update');
     });
 
     // Authenticated routes
@@ -178,7 +198,7 @@ Route::middleware([
 
                 // Staff Management (RBAC)
                 Route::get('/staff', [StaffController::class, 'index'])
-                    ->middleware('permission:staff.view')
+                    ->middleware('permission:staff.view,staff.create,staff.update,staff.delete,staff.assign_roles')
                     ->name('tenant.staff.index');
                 Route::get('/staff/create', [StaffController::class, 'create'])
                     ->middleware('permission:staff.create')
@@ -195,63 +215,90 @@ Route::middleware([
                 Route::delete('/staff/{staff}', [StaffController::class, 'destroy'])
                     ->middleware('permission:staff.delete')
                     ->name('tenant.staff.destroy');
+                Route::get('/roles', [RoleController::class, 'index'])
+                    ->middleware('permission:roles.view,roles.create,roles.update,roles.delete')
+                    ->name('tenant.roles.index');
+                Route::post('/roles', [RoleController::class, 'store'])
+                    ->middleware('permission:roles.create')
+                    ->name('tenant.roles.store');
+                Route::patch('/roles/{role}', [RoleController::class, 'update'])
+                    ->middleware('permission:roles.update')
+                    ->name('tenant.roles.update');
+                Route::delete('/roles/{role}', [RoleController::class, 'destroy'])
+                    ->middleware('permission:roles.delete')
+                    ->name('tenant.roles.destroy');
 
             });
 
             // === Owner & staff permission-gated management routes ===
             Route::middleware('role:owner,staff')->group(function () {
                 // Services & Pricing
-                Route::resource('services', ServiceController::class)
-                    ->middleware('permission:services.manage')
-                    ->except(['show'])
-                    ->names([
-                        'index' => 'tenant.services.index',
-                        'create' => 'tenant.services.create',
-                        'store' => 'tenant.services.store',
-                        'edit' => 'tenant.services.edit',
-                        'update' => 'tenant.services.update',
-                        'destroy' => 'tenant.services.destroy',
-                    ]);
+                Route::get('/services', [ServiceController::class, 'index'])
+                    ->middleware('permission:services.view,services.create,services.update,services.delete')
+                    ->name('tenant.services.index');
+                Route::get('/services/create', [ServiceController::class, 'create'])
+                    ->middleware('permission:services.create')
+                    ->name('tenant.services.create');
+                Route::post('/services', [ServiceController::class, 'store'])
+                    ->middleware('permission:services.create')
+                    ->name('tenant.services.store');
+                Route::get('/services/{service}/edit', [ServiceController::class, 'edit'])
+                    ->middleware('permission:services.update')
+                    ->name('tenant.services.edit');
+                Route::put('/services/{service}', [ServiceController::class, 'update'])
+                    ->middleware('permission:services.update')
+                    ->name('tenant.services.update');
+                Route::delete('/services/{service}', [ServiceController::class, 'destroy'])
+                    ->middleware('permission:services.delete')
+                    ->name('tenant.services.destroy');
 
                 // Expense Tracking (Premium only)
-                Route::middleware('feature:expense_tracking')
-                    ->resource('expenses', ExpenseController::class)
-                    ->middleware('permission:expenses.manage')
-                    ->except(['show'])
-                    ->names([
-                        'index' => 'tenant.expenses.index',
-                        'create' => 'tenant.expenses.create',
-                        'store' => 'tenant.expenses.store',
-                        'edit' => 'tenant.expenses.edit',
-                        'update' => 'tenant.expenses.update',
-                        'destroy' => 'tenant.expenses.destroy',
-                    ]);
+                Route::middleware('feature:expense_tracking')->group(function () {
+                    Route::get('/expenses', [ExpenseController::class, 'index'])
+                        ->middleware('permission:expenses.view,expenses.create,expenses.update,expenses.delete')
+                        ->name('tenant.expenses.index');
+                    Route::get('/expenses/create', [ExpenseController::class, 'create'])
+                        ->middleware('permission:expenses.create')
+                        ->name('tenant.expenses.create');
+                    Route::post('/expenses', [ExpenseController::class, 'store'])
+                        ->middleware('permission:expenses.create')
+                        ->name('tenant.expenses.store');
+                    Route::get('/expenses/{expense}/edit', [ExpenseController::class, 'edit'])
+                        ->middleware('permission:expenses.update')
+                        ->name('tenant.expenses.edit');
+                    Route::put('/expenses/{expense}', [ExpenseController::class, 'update'])
+                        ->middleware('permission:expenses.update')
+                        ->name('tenant.expenses.update');
+                    Route::delete('/expenses/{expense}', [ExpenseController::class, 'destroy'])
+                        ->middleware('permission:expenses.delete')
+                        ->name('tenant.expenses.destroy');
+                });
 
                 // Reports (Premium only)
                 Route::middleware('feature:reports')
                     ->get('/reports', [ReportController::class, 'index'])
-                    ->middleware('permission:reports.view')
+                    ->middleware('permission:reports.view,reports.export')
                     ->name('tenant.reports.index');
                 Route::middleware('feature:reports')
                     ->get('/reports/export/excel', [ReportController::class, 'exportExcel'])
-                    ->middleware('permission:reports.view')
+                    ->middleware('permission:reports.export')
                     ->name('tenant.reports.export-excel');
                 Route::middleware('feature:reports')
                     ->get('/reports/export/pdf', [ReportController::class, 'exportPdf'])
-                    ->middleware('permission:reports.view')
+                    ->middleware('permission:reports.export')
                     ->name('tenant.reports.export-pdf');
                 Route::middleware('feature:analytics_dashboard')
                     ->get('/analytics', [AnalyticsController::class, 'index'])
-                    ->middleware('permission:reports.view')
+                    ->middleware('permission:analytics.view')
                     ->name('tenant.analytics.index');
                 Route::middleware('feature:inventory_management')->group(function () {
-                    Route::get('/inventory', [InventoryController::class, 'index'])->middleware('permission:inventory.manage')->name('tenant.inventory.index');
-                    Route::get('/inventory/create', [InventoryController::class, 'create'])->middleware('permission:inventory.manage')->name('tenant.inventory.create');
-                    Route::post('/inventory', [InventoryController::class, 'store'])->middleware('permission:inventory.manage')->name('tenant.inventory.store');
-                    Route::get('/inventory/{inventory}/edit', [InventoryController::class, 'edit'])->middleware('permission:inventory.manage')->name('tenant.inventory.edit');
-                    Route::put('/inventory/{inventory}', [InventoryController::class, 'update'])->middleware('permission:inventory.manage')->name('tenant.inventory.update');
-                    Route::delete('/inventory/{inventory}', [InventoryController::class, 'destroy'])->middleware('permission:inventory.manage')->name('tenant.inventory.destroy');
-                    Route::post('/inventory/{inventory}/adjust', [InventoryController::class, 'adjust'])->middleware('permission:inventory.manage')->name('tenant.inventory.adjust');
+                    Route::get('/inventory', [InventoryController::class, 'index'])->middleware('permission:inventory.view,inventory.create,inventory.update,inventory.delete,inventory.adjust')->name('tenant.inventory.index');
+                    Route::get('/inventory/create', [InventoryController::class, 'create'])->middleware('permission:inventory.create')->name('tenant.inventory.create');
+                    Route::post('/inventory', [InventoryController::class, 'store'])->middleware('permission:inventory.create')->name('tenant.inventory.store');
+                    Route::get('/inventory/{inventory}/edit', [InventoryController::class, 'edit'])->middleware('permission:inventory.update')->name('tenant.inventory.edit');
+                    Route::put('/inventory/{inventory}', [InventoryController::class, 'update'])->middleware('permission:inventory.update')->name('tenant.inventory.update');
+                    Route::delete('/inventory/{inventory}', [InventoryController::class, 'destroy'])->middleware('permission:inventory.delete')->name('tenant.inventory.destroy');
+                    Route::post('/inventory/{inventory}/adjust', [InventoryController::class, 'adjust'])->middleware('permission:inventory.adjust')->name('tenant.inventory.adjust');
                 });
 
                 // Subscription
@@ -299,12 +346,14 @@ Route::middleware([
                 // Billing & Invoices
                 Route::get('/billing', [BillingController::class, 'index'])->middleware('permission:billing.view')->name('tenant.billing.index');
                 Route::get('/billing/{invoice}', [BillingController::class, 'show'])->middleware('permission:billing.view')->name('tenant.billing.show');
-                Route::get('/billing/{invoice}/download', [BillingController::class, 'download'])->middleware('permission:billing.view')->name('tenant.billing.download');
+                Route::get('/billing/{invoice}/download', [BillingController::class, 'download'])->middleware('permission:billing.download')->name('tenant.billing.download');
 
                 // Owner-only premium support
                 Route::middleware(['role:owner', 'feature:priority_support'])->group(function () {
                     Route::get('/support', [SupportTicketController::class, 'index'])->name('tenant.support.index');
                     Route::post('/support', [SupportTicketController::class, 'store'])->name('tenant.support.store');
+                    Route::get('/support/{ticket}', [SupportTicketController::class, 'show'])->name('tenant.support.show');
+                    Route::post('/support/{ticket}/message', [SupportTicketController::class, 'sendMessage'])->name('tenant.support.message');
                 });
             });
 
@@ -331,6 +380,10 @@ Route::middleware([
                         'removeLogo',
                     ])->name('tenant.settings.logo.remove');
                 });
+
+                Route::get('/updates', [UpdateController::class, 'index'])->name('tenant.updates.index');
+                Route::post('/updates/{release}/apply', [UpdateController::class, 'update'])->name('tenant.updates.apply');
+                Route::post('/updates/{release}/rollback', [UpdateController::class, 'rollback'])->name('tenant.updates.rollback');
             });
 
             // === Customer portal routes (Premium only) ===
@@ -411,18 +464,4 @@ Route::middleware([
 
         return redirect()->route('tenant.login');
     })->name('tenant.home');
-});
-
-use App\Http\Controllers\Tenant\UpdateController;
-
-// To be placed in the appropriate middleware group where settings are
-Route::middleware([
-    'web',
-    \Stancl\Tenancy\Middleware\InitializeTenancyByDomain::class,
-    \Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains::class,
-    'auth:web',
-])->group(function () {
-    Route::get('updates', [UpdateController::class, 'index'])->name('tenant.updates.index');
-    Route::post('updates/{release}/apply', [UpdateController::class, 'update'])->name('tenant.updates.apply');
-    Route::post('updates/{release}/rollback', [UpdateController::class, 'rollback'])->name('tenant.updates.rollback');
 });

@@ -428,7 +428,7 @@
             <button
                 type="button"
                 x-on:click="customizerOpen = ! customizerOpen"
-                class="tenant-primary-action fixed bottom-4 z-[80] inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold shadow-lg"
+                class="admin-customizer-launcher tenant-primary-action fixed bottom-4 z-[80] inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold shadow-lg"
                 :class="customizerDockClass"
             >
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M3.75 6h1.5m5.25 0a2.25 2.25 0 1 1-4.5 0m4.5 0a2.25 2.25 0 1 0-4.5 0m4.5 12h9.75m-9.75 0a2.25 2.25 0 1 1-4.5 0m4.5 0a2.25 2.25 0 1 0-4.5 0m4.5-6h9.75m-9.75 0a2.25 2.25 0 1 1-4.5 0m4.5 0a2.25 2.25 0 1 0-4.5 0" /></svg>
@@ -581,6 +581,11 @@
                     <a href="{{ route('admin.releases.index') }}" title="App Releases" class="flex items-center px-3 py-2 text-sm font-medium rounded-md {{ $navAlignmentClass }} {{ request()->routeIs('admin.releases.*') ? $activeNavClass : $inactiveNavClass }}">
                         <svg class="admin-nav-item-icon {{ $iconSpacingClass }}" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
                         <span class="admin-nav-label {{ $navLabelVisibilityClass }}">App Releases</span>
+                    </a>
+
+                    <a href="{{ route('admin.support-tickets.index') }}" title="Support Tickets" class="flex items-center px-3 py-2 text-sm font-medium rounded-md {{ $navAlignmentClass }} {{ request()->routeIs('admin.support-tickets.*') ? $activeNavClass : $inactiveNavClass }}">
+                        <svg class="admin-nav-item-icon {{ $iconSpacingClass }}" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" /></svg>
+                        <span class="admin-nav-label {{ $navLabelVisibilityClass }}">Support</span>
                     </a>
 
                     <a href="{{ route('admin.settings.index') }}" title="Settings" class="flex items-center px-3 py-2 text-sm font-medium rounded-md {{ $navAlignmentClass }} {{ request()->routeIs('admin.settings.*') ? $activeNavClass : $inactiveNavClass }}">
