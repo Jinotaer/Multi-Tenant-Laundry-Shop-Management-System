@@ -82,6 +82,16 @@ class Customer extends Authenticatable
         return $this->role === 'customer';
     }
 
+    public function hasPermission(string $permissionKey): bool
+    {
+        return false;
+    }
+
+    public function hasAnyPermission(array $permissionKeys): bool
+    {
+        return false;
+    }
+
     /**
      * Get all orders for this customer.
      */

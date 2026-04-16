@@ -51,7 +51,20 @@
         {{-- Order Details --}}
         <div class="bg-white shadow-sm sm:rounded-lg">
             <div class="px-6 py-4 border-b border-gray-200">
-                <h3 class="text-sm font-semibold text-gray-700">Order Details</h3>
+                <div class="flex items-center justify-between">
+                    <h3 class="text-sm font-semibold text-gray-700">Order Details</h3>
+                    @if (!$order->isPaid() && tenant()->hasFeature('online_payments') && tenant()->paymongo_secret_key && $order->canBePaidOnline())
+                        <form method="POST" action="{{ route('tenant.order-payments.checkout', $order) }}">
+                            @csrf
+                            <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:bg-indigo-500 dark:hover:bg-indigo-600">
+                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
+                                </svg>
+                                Pay Online
+                            </button>
+                        </form>
+                    @endif
+                </div>
             </div>
             <div class="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                 @if ($order->service)

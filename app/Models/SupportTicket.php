@@ -30,9 +30,16 @@ class SupportTicket extends Model
         'subject',
         'message',
         'priority',
+        'category',
         'status',
+        'assigned_to',
         'admin_notes',
         'resolved_at',
+        'first_response_at',
+        'sla_due_at',
+        'sla_breached',
+        'unread_tenant_count',
+        'unread_admin_count',
     ];
 
     /**
@@ -44,6 +51,11 @@ class SupportTicket extends Model
     {
         return [
             'resolved_at' => 'datetime',
+            'first_response_at' => 'datetime',
+            'sla_due_at' => 'datetime',
+            'sla_breached' => 'boolean',
+            'unread_tenant_count' => 'integer',
+            'unread_admin_count' => 'integer',
         ];
     }
 
@@ -69,5 +81,54 @@ class SupportTicket extends Model
     public function isResolved(): bool
     {
         return $this->resolved_at !== null || $this->status === 'resolved';
+    }
+
+    public function calculateSLA(): void
+    {
+        if ($this->sla_due_at) {
+            return;
+        }
+
+        $hours = match($this->priority) {
+            'urgent' => 1,
+            'priority' => 4,
+            default => 24,
+        };
+
+        $this->update(['sla_due_at' => now()->addHours($hours)]);
+    }
+
+    public function markFirstResponse(): void
+    {
+        if (!$this->first_response_at) {
+            $this->update(['first_response_at' => now()]);
+        }
+    }
+
+    public function checkSLABreach(): void
+    {
+        if ($this->sla_due_at && now()->isAfter($this->sla_due_at) && !$this->first_response_at) {
+            $this->update(['sla_breached' => true]);
+        }
+    }
+
+    public function incrementUnreadTenant(): void
+    {
+        $this->increment('unread_tenant_count');
+    }
+
+    public function incrementUnreadAdmin(): void
+    {
+        $this->increment('unread_admin_count');
+    }
+
+    public function markReadByTenant(): void
+    {
+        $this->update(['unread_tenant_count' => 0]);
+    }
+
+    public function markReadByAdmin(): void
+    {
+        $this->update(['unread_admin_count' => 0]);
     }
 }

@@ -10,10 +10,10 @@ class PayMongoService
 
     protected string $secretKey;
 
-    public function __construct()
+    public function __construct(?string $secretKey = null)
     {
         $this->baseUrl = config('services.paymongo.base_url');
-        $this->secretKey = config('services.paymongo.secret_key');
+        $this->secretKey = $secretKey ?? config('services.paymongo.secret_key');
     }
 
     /**

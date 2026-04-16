@@ -17,16 +17,26 @@ class UpdateController extends Controller
     public function index()
     {
         $tenant = tenant();
-
         $currentVersion = $tenant->currentVersion();
+        $currentUpdate = $tenant->updates()->where('is_current', true)->with('release')->first();
+        $currentVersionTag = $currentUpdate?->release?->version_tag ?? 'v0.0.0';
 
-        $updates = $tenant->updates()
+        // Get all releases
+        $allReleases = AppRelease::orderByDesc('published_at')->get();
+        
+        // Filter newer versions for updates
+        $availableUpdates = $allReleases->filter(function ($release) use ($currentVersionTag) {
+            $releaseVersion = ltrim($release->version_tag, 'v');
+            $currentVer = ltrim($currentVersionTag, 'v');
+            return version_compare($releaseVersion, $currentVer, '>');
+        });
+
+        // Get update history from tenant_updates table
+        $updateHistory = $tenant->updates()
             ->with('release')
+            ->whereNotIn('status', ['update_available', 'deferred'])
             ->orderByDesc('created_at')
             ->get();
-
-        $availableUpdates = $updates->where('status', 'update_available')->where('is_current', false);
-        $updateHistory = $updates->whereNotIn('status', ['update_available', 'deferred']);
 
         return view('tenant.updates.index', compact('currentVersion', 'availableUpdates', 'updateHistory'));
     }

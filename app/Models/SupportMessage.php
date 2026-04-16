@@ -18,6 +18,7 @@ class SupportMessage extends Model
         'sender_id',
         'message',
         'attachments',
+        'attachment_paths',
         'read_at',
     ];
 
@@ -25,6 +26,7 @@ class SupportMessage extends Model
     {
         return [
             'attachments' => 'array',
+            'attachment_paths' => 'array',
             'read_at' => 'datetime',
         ];
     }

@@ -18,10 +18,48 @@ class DashboardController extends Controller
      */
     public function index(Request $request, LayoutSettingsService $layoutSettingsService): View|RedirectResponse
     {
-        $user = $request->user();
+        $user = auth()->guard('web')->user() ?? auth()->guard('customer')->user();
 
-        if ($user->isCustomer() && tenant()->hasFeature('customer_portal')) {
-            return redirect()->route('tenant.portal.index');
+        // Customer dashboard
+        if ($user && $user->isCustomer()) {
+            $customer = $user instanceof Customer ? $user : Customer::query()->where('email', $user->email)->first();
+            $completedStatuses = array_values(array_unique([Order::terminalStatusForPlan(), 'delivered']));
+            $activeOrders = collect();
+            $orderHistory = collect();
+            $totalOrders = 0;
+            $totalSpent = 0;
+            $loyalty = null;
+
+            if ($customer) {
+                if (tenant()->hasFeature('customer_loyalty')) {
+                    $loyalty = $customer->loyalty()->firstOrCreate([], [
+                        'points' => 0,
+                        'stamps' => 0,
+                        'tier' => 'bronze',
+                        'lifetime_spent' => 0,
+                    ]);
+                }
+
+                $activeOrders = Order::where('customer_id', $customer->id)
+                    ->with('service')
+                    ->whereNotIn('status', $completedStatuses)
+                    ->latest()
+                    ->get();
+
+                $orderHistory = Order::where('customer_id', $customer->id)
+                    ->with('service')
+                    ->when($request->search, fn ($q) => $q->where('order_number', 'like', "%{$request->search}%"))
+                    ->latest()
+                    ->paginate(10)
+                    ->withQueryString();
+
+                $totalOrders = Order::where('customer_id', $customer->id)->count();
+                $totalSpent = Order::where('customer_id', $customer->id)
+                    ->where('payment_status', 'paid')
+                    ->sum('total_amount');
+            }
+
+            return view('tenant.portal.dashboard', compact('user', 'customer', 'activeOrders', 'orderHistory', 'totalOrders', 'totalSpent', 'loyalty'));
         }
 
         $totalCustomers = Customer::count();

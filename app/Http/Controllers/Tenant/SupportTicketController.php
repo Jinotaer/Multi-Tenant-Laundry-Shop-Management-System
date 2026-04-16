@@ -4,19 +4,19 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Tenant\SupportTicketRequest;
+use App\Mail\TenantRepliedToTicket;
 use App\Models\Admin;
 use App\Models\SupportMessage;
 use App\Models\SupportTicket;
 use App\Notifications\AdminGenericNotification;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 
 class SupportTicketController extends Controller
 {
-    /**
-     * Display the tenant's support ticket inbox.
-     */
     public function index(): View
     {
         $tickets = SupportTicket::query()
@@ -28,9 +28,6 @@ class SupportTicketController extends Controller
         return view('tenant.support.index', compact('tickets'));
     }
 
-    /**
-     * Submit a new priority support ticket.
-     */
     public function store(SupportTicketRequest $request): RedirectResponse
     {
         $ticket = SupportTicket::create([
@@ -40,21 +37,29 @@ class SupportTicketController extends Controller
             'subject' => $request->validated('subject'),
             'message' => $request->validated('message'),
             'priority' => $request->validated('priority', 'normal'),
+            'category' => $request->validated('category', 'general'),
             'status' => 'open',
         ]);
 
+        // Calculate SLA
+        $ticket->calculateSLA();
+
         // Create initial message
-        SupportMessage::create([
+        $message = SupportMessage::create([
             'support_ticket_id' => $ticket->id,
             'sender_type' => 'tenant',
             'sender_id' => $request->user()->id,
             'message' => $request->validated('message'),
         ]);
 
-        // Notify admins on central database
-        Admin::on('mysql')->get()->each(function (Admin $admin) use ($ticket): void {
+        // Increment unread for admins
+        $ticket->incrementUnreadAdmin();
+
+        // Notify admins
+        $shopName = tenant()->data['shop_name'] ?? tenant()->id;
+        Admin::on('mysql')->get()->each(function (Admin $admin) use ($ticket, $shopName): void {
             $admin->notify(new AdminGenericNotification(
-                'New support ticket from '.tenant('data')['shop_name'].' - '.$ticket->subject
+                'New support ticket from '.$shopName.' - '.$ticket->subject
             ));
         });
 
@@ -62,34 +67,41 @@ class SupportTicketController extends Controller
             ->with('success', 'Support ticket created successfully.');
     }
 
-    /**
-     * Show a specific ticket with chat messages.
-     */
     public function show(SupportTicket $ticket): View
     {
         abort_unless($ticket->tenant_id === tenant()->id, 404);
 
         $ticket->load(['messages' => fn ($q) => $q->orderBy('created_at')]);
+        
+        // Mark as read by tenant
+        $ticket->markReadByTenant();
 
         return view('tenant.support.show', compact('ticket'));
     }
 
-    /**
-     * Send a message in a ticket.
-     */
     public function sendMessage(Request $request, SupportTicket $ticket): RedirectResponse
     {
         abort_unless($ticket->tenant_id === tenant()->id, 404);
 
         $request->validate([
             'message' => 'required|string|max:5000',
+            'attachments.*' => 'nullable|file|max:5120|mimes:jpg,jpeg,png,pdf,doc,docx',
         ]);
 
-        SupportMessage::create([
+        $attachmentPaths = [];
+        if ($request->hasFile('attachments')) {
+            foreach ($request->file('attachments') as $file) {
+                $path = $file->store('support-attachments/'.tenant()->id, 'public');
+                $attachmentPaths[] = $path;
+            }
+        }
+
+        $message = SupportMessage::create([
             'support_ticket_id' => $ticket->id,
             'sender_type' => 'tenant',
             'sender_id' => $request->user()->id,
             'message' => $request->input('message'),
+            'attachment_paths' => $attachmentPaths,
         ]);
 
         // Reopen ticket if it was closed
@@ -97,10 +109,16 @@ class SupportTicketController extends Controller
             $ticket->update(['status' => 'open']);
         }
 
-        Admin::on('mysql')->get()->each(function (Admin $admin) use ($ticket): void {
+        // Increment unread for admins
+        $ticket->incrementUnreadAdmin();
+
+        // Send email to admins
+        $shopName = tenant()->data['shop_name'] ?? tenant()->id;
+        Admin::on('mysql')->get()->each(function (Admin $admin) use ($ticket, $message, $shopName): void {
             $admin->notify(new AdminGenericNotification(
-                'New message on ticket #'.$ticket->id.' from '.tenant('data')['shop_name']
+                'New message on ticket #'.$ticket->id.' from '.$shopName
             ));
+            Mail::to($admin->email)->send(new TenantRepliedToTicket($ticket, $message));
         });
 
         return back()->with('success', 'Message sent successfully.');

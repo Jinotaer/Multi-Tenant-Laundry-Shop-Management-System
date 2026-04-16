@@ -58,7 +58,7 @@
                                     </div>
                                     <p class="text-sm text-gray-600 dark:text-slate-400 line-clamp-2">{{ $ticket->message }}</p>
                                     <div class="flex items-center gap-4 mt-2 text-xs text-gray-500 dark:text-slate-500">
-                                        <span class="font-medium">{{ $ticket->tenant->data['shop_name'] ?? 'Unknown Shop' }}</span>
+                                        <span class="font-medium">{{ $ticket->tenant->data['shop_name'] ?? $ticket->tenant_id }}</span>
                                         <span>{{ $ticket->created_at->diffForHumans() }}</span>
                                         @if ($ticket->messages_count > 0)
                                             <span class="flex items-center gap-1">

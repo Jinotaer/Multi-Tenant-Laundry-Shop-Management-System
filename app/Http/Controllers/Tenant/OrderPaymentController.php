@@ -14,7 +14,12 @@ class OrderPaymentController extends Controller
 {
     public function __construct(
         protected PayMongoService $paymongo,
-    ) {}
+    ) {
+        // Use tenant's PayMongo credentials if available
+        if (tenant() && tenant()->paymongo_secret_key) {
+            $this->paymongo = new PayMongoService(tenant()->paymongo_secret_key);
+        }
+    }
 
     /**
      * Create or reuse a PayMongo checkout session for an order payment.
@@ -22,6 +27,11 @@ class OrderPaymentController extends Controller
     public function checkout(Request $request, Order $order): RedirectResponse
     {
         abort_unless(tenant()->hasFeature('online_payments'), 403);
+        
+        // Check if tenant has configured PayMongo
+        if (!tenant()->paymongo_secret_key) {
+            return $this->redirectToOrder($order, 'error', 'Online payments are not available. Please contact the shop.');
+        }
 
         $this->authorizeOrderAccess($order);
 

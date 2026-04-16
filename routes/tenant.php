@@ -381,9 +381,24 @@ Route::middleware([
                     ])->name('tenant.settings.logo.remove');
                 });
 
+                // PayMongo Settings
+                Route::middleware('feature:online_payments')->group(function () {
+                    Route::get('/settings/paymongo', [
+                        SettingsController::class,
+                        'paymongo',
+                    ])->name('tenant.settings.paymongo');
+                    Route::patch('/settings/paymongo', [
+                        SettingsController::class,
+                        'updatePaymongo',
+                    ])->name('tenant.settings.paymongo.update');
+                    Route::delete('/settings/paymongo', [
+                        SettingsController::class,
+                        'removePaymongo',
+                    ])->name('tenant.settings.paymongo.remove');
+                });
+
                 Route::get('/updates', [UpdateController::class, 'index'])->name('tenant.updates.index');
                 Route::post('/updates/{release}/apply', [UpdateController::class, 'update'])->name('tenant.updates.apply');
-                Route::post('/updates/{release}/rollback', [UpdateController::class, 'rollback'])->name('tenant.updates.rollback');
             });
 
             // === Customer portal routes (Premium only) ===

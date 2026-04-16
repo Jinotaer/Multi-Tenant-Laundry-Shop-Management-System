@@ -309,4 +309,43 @@ class SettingsController extends Controller
 
         return response()->json(['saved' => true]);
     }
+
+    /**
+     * Display PayMongo settings page.
+     */
+    public function paymongo(): View
+    {
+        return view('tenant.settings.paymongo');
+    }
+
+    /**
+     * Update PayMongo credentials.
+     */
+    public function updatePaymongo(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'paymongo_secret_key' => ['required', 'string', 'regex:/^sk_(test|live)_/'],
+            'paymongo_public_key' => ['required', 'string', 'regex:/^pk_(test|live)_/'],
+        ]);
+
+        $tenant = tenant();
+        $tenant->paymongo_secret_key = $validated['paymongo_secret_key'];
+        $tenant->paymongo_public_key = $validated['paymongo_public_key'];
+        $tenant->save();
+
+        return back()->with('success', 'PayMongo configuration saved successfully.');
+    }
+
+    /**
+     * Remove PayMongo credentials.
+     */
+    public function removePaymongo(): RedirectResponse
+    {
+        $tenant = tenant();
+        $tenant->paymongo_secret_key = null;
+        $tenant->paymongo_public_key = null;
+        $tenant->save();
+
+        return back()->with('success', 'PayMongo configuration removed successfully.');
+    }
 }

@@ -43,6 +43,11 @@
                                         <h3 class="text-sm font-semibold text-gray-900 dark:text-slate-100 truncate">
                                             {{ $ticket->subject }}
                                         </h3>
+                                        @if ($ticket->unread_tenant_count > 0)
+                                            <span class="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-500 rounded-full">
+                                                {{ $ticket->unread_tenant_count }}
+                                            </span>
+                                        @endif
                                         @if ($ticket->status === 'open')
                                             <span class="inline-flex items-center rounded-full bg-green-100 dark:bg-green-900/30 px-2 py-0.5 text-xs font-medium text-green-700 dark:text-green-400">
                                                 Open
@@ -54,6 +59,11 @@
                                         @else
                                             <span class="inline-flex items-center rounded-full bg-gray-100 dark:bg-slate-700 px-2 py-0.5 text-xs font-medium text-gray-700 dark:text-slate-300">
                                                 Closed
+                                            </span>
+                                        @endif
+                                        @if ($ticket->sla_breached)
+                                            <span class="inline-flex items-center rounded-full bg-red-100 dark:bg-red-900/30 px-2 py-0.5 text-xs font-medium text-red-700 dark:text-red-400">
+                                                SLA Breached
                                             </span>
                                         @endif
                                     </div>
@@ -106,10 +116,22 @@
                             </div>
 
                             <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Category</label>
+                                <select name="category" class="block w-full rounded-md border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                    <option value="general">General</option>
+                                    <option value="technical">Technical Issue</option>
+                                    <option value="billing">Billing</option>
+                                    <option value="feature">Feature Request</option>
+                                    <option value="account">Account</option>
+                                </select>
+                            </div>
+
+                            <div>
                                 <label class="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Priority</label>
                                 <select name="priority" class="block w-full rounded-md border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">
                                     <option value="normal">Normal</option>
                                     <option value="priority">High Priority</option>
+                                    <option value="urgent">Urgent</option>
                                 </select>
                             </div>
 

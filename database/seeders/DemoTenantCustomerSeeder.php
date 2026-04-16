@@ -82,113 +82,132 @@ class DemoTenantCustomerSeeder extends Seeder
      */
     private function seedTenant(array $tenantDefinition): void
     {
-        $plan = SubscriptionPlan::query()
-            ->where('slug', $tenantDefinition['plan_slug'])
-            ->first();
+        try {
+            $plan = SubscriptionPlan::query()
+                ->where('slug', $tenantDefinition['plan_slug'])
+                ->first();
 
-        $tenant = Tenant::query()->find($tenantDefinition['id']);
+            if (!$plan) {
+                $this->command?->warn("Plan '{$tenantDefinition['plan_slug']}' not found. Skipping tenant.");
+                return;
+            }
 
-        if ($tenant !== null && ! $this->tenantDatabaseExists($tenant)) {
-            Tenant::withoutEvents(function () use ($tenant): void {
-                $tenant->delete();
-            });
+            $tenant = Tenant::query()->find($tenantDefinition['id']);
 
-            $tenant = null;
-        }
+            if ($tenant !== null && ! $this->tenantDatabaseExists($tenant)) {
+                $this->command?->warn("Tenant database missing. Recreating tenant: {$tenantDefinition['id']}");
+                Tenant::withoutEvents(function () use ($tenant): void {
+                    $tenant->domains()->delete();
+                    $tenant->delete();
+                });
+                $tenant = null;
+            }
 
-        if ($tenant === null) {
-            $this->dropOrphanedTenantDatabase($tenantDefinition['id']);
-        }
+            if ($tenant === null) {
+                $this->dropOrphanedTenantDatabase($tenantDefinition['id']);
+            }
 
-        if ($tenant === null) {
-            $tenant = Tenant::create([
-                'id' => $tenantDefinition['id'],
-                'theme' => $tenantDefinition['theme'],
-                'subscription_plan_id' => $plan?->id,
-                'features' => $plan?->features ?? [],
-                'trial_ends_at' => $tenantDefinition['trial_days'] !== null
-                    ? now()->addDays($tenantDefinition['trial_days'])
-                    : null,
-                'is_paid' => $tenantDefinition['is_paid'],
-                'data' => [
-                    'shop_name' => $tenantDefinition['shop_name'],
-                ],
+            if ($tenant === null) {
+                $tenant = Tenant::create([
+                    'id' => $tenantDefinition['id'],
+                    'theme' => $tenantDefinition['theme'],
+                    'subscription_plan_id' => $plan->id,
+                    'features' => $plan->features ?? [],
+                    'trial_ends_at' => $tenantDefinition['trial_days'] !== null
+                        ? now()->addDays($tenantDefinition['trial_days'])
+                        : null,
+                    'is_paid' => $tenantDefinition['is_paid'],
+                    'data' => [
+                        'shop_name' => $tenantDefinition['shop_name'],
+                    ],
+                ]);
+            } else {
+                $tenant->update([
+                    'theme' => $tenantDefinition['theme'],
+                    'subscription_plan_id' => $plan->id,
+                    'features' => $plan->features ?? [],
+                    'trial_ends_at' => $tenantDefinition['trial_days'] !== null
+                        ? now()->addDays($tenantDefinition['trial_days'])
+                        : null,
+                    'is_paid' => $tenantDefinition['is_paid'],
+                    'data' => [
+                        'shop_name' => $tenantDefinition['shop_name'],
+                    ],
+                ]);
+            }
+
+            $tenant->domains()->firstOrCreate([
+                'domain' => $tenantDefinition['domain'],
             ]);
-        } else {
-            $tenant->update([
-                'theme' => $tenantDefinition['theme'],
-                'subscription_plan_id' => $plan?->id,
-                'features' => $plan?->features ?? [],
-                'trial_ends_at' => $tenantDefinition['trial_days'] !== null
-                    ? now()->addDays($tenantDefinition['trial_days'])
-                    : null,
-                'is_paid' => $tenantDefinition['is_paid'],
-                'data' => [
-                    'shop_name' => $tenantDefinition['shop_name'],
-                ],
-            ]);
-        }
 
-        $tenant->domains()->firstOrCreate([
-            'domain' => $tenantDefinition['domain'],
-        ]);
-
-        TenantRegistration::query()->updateOrCreate(
-            ['subdomain' => $tenantDefinition['id']],
-            [
-                'shop_name' => $tenantDefinition['shop_name'],
-                'owner_name' => $tenantDefinition['owner_name'],
-                'owner_email' => $tenantDefinition['owner_email'],
-                'owner_password' => $tenantDefinition['owner_password'],
-                'subscription_plan_id' => $plan?->id,
-                'status' => 'approved',
-                'rejection_reason' => null,
-                'approved_at' => now(),
-                'rejected_at' => null,
-            ],
-        );
-
-        $tenant->run(function () use ($tenantDefinition): void {
-            User::query()->updateOrCreate(
-                ['email' => $tenantDefinition['owner_email']],
+            TenantRegistration::query()->updateOrCreate(
+                ['subdomain' => $tenantDefinition['id']],
                 [
-                    'name' => $tenantDefinition['owner_name'],
-                    'password' => Hash::make($tenantDefinition['owner_password']),
-                    'role' => 'owner',
+                    'shop_name' => $tenantDefinition['shop_name'],
+                    'owner_name' => $tenantDefinition['owner_name'],
+                    'owner_email' => $tenantDefinition['owner_email'],
+                    'owner_password' => $tenantDefinition['owner_password'],
+                    'subscription_plan_id' => $plan->id,
+                    'status' => 'approved',
+                    'rejection_reason' => null,
+                    'approved_at' => now(),
+                    'rejected_at' => null,
                 ],
             );
 
-            for ($index = 1; $index <= 10; $index++) {
-                $suffix = str_pad((string) $index, 2, '0', STR_PAD_LEFT);
-
-                Customer::query()->updateOrCreate(
-                    ['email' => "{$tenantDefinition['customer_prefix']}{$suffix}@example.com"],
+            $tenant->run(function () use ($tenantDefinition): void {
+                User::query()->updateOrCreate(
+                    ['email' => $tenantDefinition['owner_email']],
                     [
-                        'name' => "{$tenantDefinition['customer_name_prefix']} {$suffix}",
-                        'phone' => "{$tenantDefinition['customer_phone_prefix']}{$suffix}",
-                        'password' => Hash::make($tenantDefinition['customer_password']),
-                        'role' => 'customer',
+                        'name' => $tenantDefinition['owner_name'],
+                        'password' => Hash::make($tenantDefinition['owner_password']),
+                        'role' => 'owner',
                     ],
                 );
-            }
-        });
 
-        $this->command?->info(
-            "Seeded {$tenantDefinition['shop_name']} ({$tenantDefinition['domain']}) with owner {$tenantDefinition['owner_email']} and 10 customers.",
-        );
+                for ($index = 1; $index <= 10; $index++) {
+                    $suffix = str_pad((string) $index, 2, '0', STR_PAD_LEFT);
+
+                    Customer::query()->updateOrCreate(
+                        ['email' => "{$tenantDefinition['customer_prefix']}{$suffix}@example.com"],
+                        [
+                            'name' => "{$tenantDefinition['customer_name_prefix']} {$suffix}",
+                            'phone' => "{$tenantDefinition['customer_phone_prefix']}{$suffix}",
+                            'password' => Hash::make($tenantDefinition['customer_password']),
+                            'role' => 'customer',
+                        ],
+                    );
+                }
+            });
+
+            $this->command?->info(
+                "✓ Seeded {$tenantDefinition['shop_name']} ({$tenantDefinition['domain']}) with owner and 10 customers.",
+            );
+        } catch (\Exception $e) {
+            $this->command?->error(
+                "Failed to seed tenant {$tenantDefinition['id']}: {$e->getMessage()}"
+            );
+        }
     }
 
     private function dropOrphanedTenantDatabase(string $tenantId): void
     {
-        $databaseName = config('tenancy.database.prefix').$tenantId.config('tenancy.database.suffix');
-
-        DB::statement("DROP DATABASE IF EXISTS `{$databaseName}`");
+        try {
+            $databaseName = config('tenancy.database.prefix').$tenantId.config('tenancy.database.suffix');
+            DB::statement("DROP DATABASE IF EXISTS `{$databaseName}`");
+        } catch (\Exception $e) {
+            $this->command?->warn("Could not drop database: {$e->getMessage()}");
+        }
     }
 
     private function tenantDatabaseExists(Tenant $tenant): bool
     {
-        return $tenant->database()->manager()->databaseExists(
-            $tenant->database()->getName(),
-        );
+        try {
+            return $tenant->database()->manager()->databaseExists(
+                $tenant->database()->getName(),
+            );
+        } catch (\Exception $e) {
+            return false;
+        }
     }
 }
