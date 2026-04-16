@@ -136,7 +136,7 @@ class StaffController extends Controller
 
         $this->syncStaffRoles(
             $staff,
-            $request->validated('roles', []),
+            $request->filled('role') ? [$request->validated('role')] : [],
             $request->user(),
         );
 
@@ -178,7 +178,7 @@ class StaffController extends Controller
 
         $this->syncStaffRoles(
             $staff,
-            $request->validated('roles', []),
+            $request->filled('role') ? [$request->validated('role')] : [],
             $request->user(),
         );
 
@@ -245,11 +245,12 @@ class StaffController extends Controller
             return;
         }
 
-        $roleSlugs = $this->allowedRoleSlugsForActor($actor, $requestedRoleSlugs)
-            ->unique()
-            ->prepend('staff')
-            ->values()
-            ->all();
+        // Get the first allowed role slug (single role assignment)
+        $allowedRoleSlugs = $this->allowedRoleSlugsForActor($actor, $requestedRoleSlugs);
+        $roleSlug = $allowedRoleSlugs->first();
+
+        // Always include 'staff' as the primary role
+        $roleSlugs = $roleSlug ? [$roleSlug] : ['staff'];
 
         $staff->syncRolesBySlug($roleSlugs, $actor);
     }

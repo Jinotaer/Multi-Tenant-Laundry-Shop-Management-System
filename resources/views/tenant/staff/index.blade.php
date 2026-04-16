@@ -86,7 +86,7 @@
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
                                 @if ($hasRoleTables)
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Roles</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
                                 @endif
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Joined</th>
                                 @if ($canUpdateStaff || $canDeleteStaff)
@@ -109,17 +109,13 @@
                                     @if ($hasRoleTables)
                                         <td class="px-6 py-4 text-sm text-gray-500">
                                             @php
-                                                $displayRoles = $member->roles->whereNotIn('slug', ['owner', 'customer', 'staff']);
+                                                $displayRole = $member->roles->whereNotIn('slug', ['owner', 'customer', 'staff'])->first();
                                             @endphp
 
-                                            @if ($displayRoles->isEmpty())
-                                                <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">Staff</span>
+                                            @if ($displayRole)
+                                                <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">{{ $displayRole->name }}</span>
                                             @else
-                                                <div class="flex flex-wrap gap-1">
-                                                    @foreach ($displayRoles as $role)
-                                                        <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">{{ $role->name }}</span>
-                                                    @endforeach
-                                                </div>
+                                                <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">Staff</span>
                                             @endif
                                         </td>
                                     @endif

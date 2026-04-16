@@ -220,6 +220,7 @@ class SubscriptionRenewalController extends Controller
             'is_enabled' => true,
             'subscription_expires_at' => $newExpirationDate,
             'last_renewal_reminder_sent_at' => null,
+            'features' => $plan->features, // Update features to match plan
         ]);
 
         $this->tenantMetricService->resetMonthlyUsage($tenant);

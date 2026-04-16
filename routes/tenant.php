@@ -342,6 +342,26 @@ Route::middleware([
                     'success',
                 ])->middleware('permission:subscription.manage')
                     ->name('tenant.subscription.upgrade.success');
+                Route::get('/subscription/change-plan', [
+                    \App\Http\Controllers\Tenant\SubscriptionDowngradeController::class,
+                    'show',
+                ])->middleware('permission:subscription.manage')
+                    ->name('tenant.subscription.change-plan');
+                Route::get('/subscription/change-plan/confirm/{plan}', [
+                    \App\Http\Controllers\Tenant\SubscriptionDowngradeController::class,
+                    'confirm',
+                ])->middleware('permission:subscription.manage')
+                    ->name('tenant.subscription.change-plan.confirm');
+                Route::post('/subscription/change-plan/checkout', [
+                    \App\Http\Controllers\Tenant\SubscriptionDowngradeController::class,
+                    'checkout',
+                ])->middleware('permission:subscription.manage')
+                    ->name('tenant.subscription.change-plan.checkout');
+                Route::get('/subscription/change-plan/success', [
+                    \App\Http\Controllers\Tenant\SubscriptionDowngradeController::class,
+                    'success',
+                ])->middleware('permission:subscription.manage')
+                    ->name('tenant.subscription.change-plan.success');
 
                 // Billing & Invoices
                 Route::get('/billing', [BillingController::class, 'index'])->middleware('permission:billing.view')->name('tenant.billing.index');

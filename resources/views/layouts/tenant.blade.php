@@ -112,7 +112,7 @@
             <link rel="icon" type="image/png" href="{{ $logoUrl }}">
             <link rel="apple-touch-icon" href="{{ $logoUrl }}">
         @else
-            <link rel="icon" href="{{ asset('favicon.ico') }}">
+            <link rel="icon" type="image/svg+xml" href="{{ asset('logo.svg') }}">
         @endif
 
         <link rel="preconnect" href="https://fonts.bunny.net">
@@ -677,7 +677,14 @@
                 <div class="flex min-h-[5.5rem] items-center justify-between border-b border-gray-200 px-6 pt-5 pb-6 dark:border-slate-800" :class="isTop ? 'h-16 flex-shrink-0 !border-b-0 border-r !px-3 !py-0 dark:border-slate-800' : ''">
                     <a href="{{ route('tenant.dashboard') }}" class="flex min-w-0 items-center gap-2">
                         @if ($logoUrl)
-                            <img x-show="showLogo" x-on:error="logoLoadFailed = true" src="{{ $logoUrl }}" alt="Tenant Logo" class="h-12 w-12 flex-shrink-0 rounded-xl object-contain" x-cloak>
+                            <img x-show="showLogo" x-on:error="logoLoadFailed = true" src="{{ $logoUrl }}" alt="Tenant Logo" class="h-14 w-14 flex-shrink-0 rounded-xl object-contain" x-cloak>
+                        @else
+                            <svg class="h-14 w-14 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="color: var(--tenant-theme-accent);">
+                                <rect x="5" y="3" width="14" height="18" rx="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 8h14"/>
+                                <circle cx="12" cy="14" r="4" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5.5h.01M12 5.5h.01M15 5.5h.01"/>
+                            </svg>
                         @endif
                         <span class="tenant-sidebar-brand-label {{ $navLabelVisibilityClass }}">
                             <span class="tenant-wordmark tenant-wordmark-sidebar block truncate">

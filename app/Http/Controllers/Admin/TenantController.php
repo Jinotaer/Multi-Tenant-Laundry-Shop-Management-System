@@ -143,6 +143,10 @@ class TenantController extends Controller
      */
     public function markUnpaid(Tenant $tenant): RedirectResponse
     {
+        if ($tenant->subscriptionPlan && $tenant->subscriptionPlan->isFree()) {
+            return back()->with('error', 'Cannot revoke paid status for free plans.');
+        }
+
         $tenant->update(['is_paid' => false]);
 
         $shopName = $tenant->data['shop_name'] ?? $tenant->id;

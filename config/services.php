@@ -50,7 +50,6 @@ return [
         'timeout' => (int) env('SMS_API_TIMEOUT', 45),
         'retry_times' => (int) env('SMS_API_RETRY_TIMES', 2),
         'retry_sleep_ms' => (int) env('SMS_API_RETRY_SLEEP_MS', 2000),
-        'sender' => env('SMS_SENDER'),
     ],
 
     'github' => [

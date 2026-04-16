@@ -17,6 +17,7 @@ class DatabaseSeeder extends Seeder
             SubscriptionPlanSeeder::class,
             DemoTenantCustomerSeeder::class,
             RoleSeeder::class,
+            SimpleBillingTestSeeder::class,
         ]);
     }
 }

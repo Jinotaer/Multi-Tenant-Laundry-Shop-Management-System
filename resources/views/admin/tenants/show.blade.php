@@ -151,7 +151,7 @@
                                         Mark as Paid
                                     </button>
                                 </form>
-                            @else
+                            @elseif($tenant->subscriptionPlan && !$tenant->subscriptionPlan->isFree())
                                 <form method="POST" action="{{ route('admin.tenants.mark-unpaid', $tenant) }}" class="mt-3">
                                     @csrf
                                     @method('PATCH')

@@ -11,7 +11,7 @@
     $logoUrl = $admin?->logo_path && Storage::disk('public')->exists($admin->logo_path)
         ? asset('storage/' . $admin->logo_path)
         : null;
-    $browserIconUrl = $logoUrl ?? asset('favicon.ico');
+    $browserIconUrl = $logoUrl ?? asset('logo.svg');
     $pendingCount = TenantRegistration::where('status', 'pending')->count();
     $isSidebarRight = $resolvedLayout['sidebar_position'] === 'right';
     $isCompactSidebar = $resolvedLayout['sidebar_style'] === 'compact';
@@ -527,9 +527,16 @@
 
             <aside :class="[asideLayoutClass, asideTranslateClass]" class="transform transition-transform duration-300 ease-in-out">
                 <div class="flex min-h-[5.5rem] items-center justify-between border-b border-gray-200 px-6 pt-5 pb-6 dark:border-slate-800" :class="isTop ? '!h-16 !border-b-0 !border-r !px-3 !py-0' : ''">
-                    <a href="{{ route('admin.dashboard') }}" class="flex min-w-0 items-center gap-2">
+                    <a href="{{ route('admin.dashboard') }}" class="flex min-w-0 items-center gap-3">
                         @if ($logoUrl)
-                            <img x-show="showLogo" x-on:error="logoLoadFailed = true" src="{{ $logoUrl }}" alt="Admin Logo" class="h-8 w-8 flex-shrink-0 rounded-xl object-contain" x-cloak>
+                            <img x-show="showLogo" x-on:error="logoLoadFailed = true" src="{{ $logoUrl }}" alt="Admin Logo" class="h-20 w-20 flex-shrink-0 rounded-xl object-contain" x-cloak>
+                        @else
+                            <svg class="h-20 w-20 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="color: var(--tenant-theme-accent);">
+                                <rect x="5" y="3" width="14" height="18" rx="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 8h14"/>
+                                <circle cx="12" cy="14" r="4" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5.5h.01M12 5.5h.01M15 5.5h.01"/>
+                            </svg>
                         @endif
                         <span class="tenant-wordmark tenant-wordmark-sidebar admin-sidebar-brand-label truncate {{ $navLabelVisibilityClass }}">
                             <span>Laundry</span><span class="tenant-wordmark-accent">Track</span>

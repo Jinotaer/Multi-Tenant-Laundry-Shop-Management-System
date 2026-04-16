@@ -1,13 +1,20 @@
-<x-tenant-layout>
-    <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('Renew Subscription') }}
-        </h2>
-    </x-slot>
+<!DOCTYPE html>
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    @php $theme = tenant()->getThemePreset(); @endphp
+        <title>Renew Subscription</title>
 
-    <div class="max-w-3xl mx-auto space-y-6">
+        <!-- Fonts -->
+        <link rel="preconnect" href="https://fonts.bunny.net">
+        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700&display=swap" rel="stylesheet" />
+
+        @vite(['resources/css/app.css', 'resources/js/app.js'])
+    </head>
+    <body class="font-sans antialiased bg-gray-50">
+        <div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+            <div class="max-w-3xl w-full space-y-6">
         
         {{-- Grace Period Warning --}}
         @if($isInGracePeriod)
@@ -127,12 +134,18 @@
                     You will be redirected to our secure payment gateway (PayMongo) to complete your renewal. We accept GCash, GrabPay, Credit/Debit Cards, and PayMaya.
                 </p>
 
-                <form method="POST" action="{{ route('tenant.subscription.renew.checkout') }}">
-                    @csrf
-                    <button type="submit" class="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-lg font-bold rounded-lg hover:opacity-90 transition shadow-lg">
-                        Renew for {{ $plan->formatted_price }}
-                    </button>
-                </form>
+                <div class="flex flex-col sm:flex-row gap-4">
+                    <form method="POST" action="{{ route('tenant.subscription.renew.checkout') }}" class="flex-1">
+                        @csrf
+                        <button type="submit" class="w-full px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-lg font-bold rounded-lg hover:opacity-90 transition shadow-lg">
+                            Renew for {{ $plan->formatted_price }}
+                        </button>
+                    </form>
+
+                    <a href="{{ route('tenant.subscription.change-plan') }}" class="flex-1 inline-flex items-center justify-center px-8 py-4 bg-gray-100 text-gray-700 text-lg font-semibold rounded-lg hover:bg-gray-200 transition border border-gray-300">
+                        Upgrade or Change Plan
+                    </a>
+                </div>
 
                 <p class="mt-4 text-xs text-gray-500">
                     By proceeding, you agree to renew your subscription for {{ $plan->billing_cycle === 'yearly' ? '12 months' : '30 days' }} at {{ $plan->formatted_price }}.
@@ -150,5 +163,7 @@
             </p>
         </div>
 
-    </div>
-</x-tenant-layout>
+            </div>
+        </div>
+    </body>
+</html>

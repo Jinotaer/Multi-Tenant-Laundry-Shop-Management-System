@@ -44,10 +44,10 @@
                 </div>
 
                 <div class="space-y-3">
-                    <a href="{{ route('tenant.dashboard') }}" class="block w-full sm:inline-block sm:w-auto px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition">
+                    <!-- <a href="{{ route('tenant.dashboard') }}" class="block w-full sm:inline-block sm:w-auto px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition">
                         Go to Dashboard
-                    </a>
-                    <a href="{{ route('tenant.subscription') }}" class="block w-full sm:inline-block sm:w-auto px-6 py-3 bg-gray-100 text-gray-700 font-semibold rounded-lg hover:bg-gray-200 transition sm:ml-3">
+                    </a> -->
+                    <a href="{{ route('tenant.subscription') }}" class="block w-full sm:inline-block sm:w-auto px-6 py-3 bg-blue-600 text-gray-700 font-semibold rounded-lg hover:bg-blue-700 transition sm:ml-3">
                         View Subscription
                     </a>
                 </div>

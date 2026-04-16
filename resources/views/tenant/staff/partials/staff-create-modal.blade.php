@@ -73,16 +73,16 @@
 
             @if ($canManageRoles)
                 <div>
-                    <label class="mb-2 block text-sm font-medium text-gray-700">Select Roles</label>
+                    <label class="mb-2 block text-sm font-medium text-gray-700">Select Role</label>
                     <div class="space-y-3 rounded-2xl border border-gray-200 bg-gray-50 p-4">
                         @forelse ($assignableRoles as $role)
-                            <label class="flex items-start gap-3 rounded-xl border border-transparent px-1 py-1 text-sm text-gray-700">
+                            <label class="flex items-start gap-3 rounded-xl border border-transparent px-1 py-1 text-sm text-gray-700 cursor-pointer hover:bg-white transition">
                                 <input
-                                    type="checkbox"
-                                    name="roles[]"
+                                    type="radio"
+                                    name="role"
                                     value="{{ $role->slug }}"
-                                    @checked(collect(old('roles', []))->contains($role->slug))
-                                    class="mt-1 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                    @checked(old('role') === $role->slug)
+                                    class="mt-1 border-gray-300 text-indigo-600 focus:ring-indigo-500"
                                 >
                                 <span>
                                     <span class="block font-medium text-gray-900">{{ $role->name }}</span>
@@ -95,10 +95,7 @@
                             <p class="text-sm text-gray-500">No assignable roles yet. Create a role on the roles page first.</p>
                         @endforelse
                     </div>
-                    @error('roles', 'staff')
-                        <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                    @enderror
-                    @error('roles.*', 'staff')
+                    @error('role', 'staff')
                         <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
                     @enderror
                 </div>

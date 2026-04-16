@@ -41,8 +41,8 @@
                 </svg>
             </div>
 
-            <h1>Your Free Trial Has Expired</h1>
-            <p class="subtitle">Your 30-day free trial for <strong>{{ tenant()->data['shop_name'] ?? tenant()->id }}</strong> has ended. Upgrade to a paid plan to continue using your shop.</p>
+            <h1>Subscription Expired</h1>
+            <p class="subtitle">Your subscription for <strong>{{ tenant()->data['shop_name'] ?? tenant()->id }}</strong> has expired. Renew your subscription to continue using your shop.</p>
 
             @if(tenant()->subscriptionPlan)
                 <div class="plan-info">
@@ -52,7 +52,7 @@
             @endif
 
             <div class="benefits">
-                <h3>Upgrading unlocks</h3>
+                <h3>Renewing restores</h3>
                 <ul>
                     <li>
                         <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>

@@ -36,7 +36,7 @@
         </div>
 
         {{-- Plan Cards --}}
-        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
             <div class="grid grid-cols-1 md:grid-cols-{{ count($plans) }} gap-6 items-start">
                 @foreach($plans as $plan)
                     @php
@@ -45,7 +45,7 @@
                         $planFeatures = $plan->features ?? [];
                     @endphp
 
-                    <div class="relative bg-white rounded-2xl shadow-sm border-2 transition-all hover:shadow-lg {{ $isPremium ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-gray-200 hover:border-gray-300' }}">
+                    <div class="relative bg-white rounded-2xl shadow-sm border-2 transition-all hover:shadow-lg h-full {{ $isPremium ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-gray-200 hover:border-gray-300' }}">
 
                         {{-- Popular badge --}}
                         @if($isPremium)

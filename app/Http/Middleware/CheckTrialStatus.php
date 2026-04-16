@@ -37,7 +37,17 @@ class CheckTrialStatus
 
         // If trial has expired and not paid, block access (except allowed routes).
         if ($tenant->isTrialExpired()) {
-            $allowedRoutes = ['tenant.trial-expired', 'tenant.logout', 'tenant.subscription.renew', 'tenant.subscription.renew.checkout', 'tenant.subscription.renew.success'];
+            $allowedRoutes = [
+                'tenant.trial-expired', 
+                'tenant.logout', 
+                'tenant.subscription.renew', 
+                'tenant.subscription.renew.checkout', 
+                'tenant.subscription.renew.success',
+                'tenant.subscription.change-plan',
+                'tenant.subscription.change-plan.confirm',
+                'tenant.subscription.change-plan.checkout',
+                'tenant.subscription.change-plan.success',
+            ];
 
             if (in_array($request->route()?->getName(), $allowedRoutes)) {
                 return $next($request);
@@ -48,7 +58,17 @@ class CheckTrialStatus
 
         // If subscription expired and grace period ended, block access
         if ($tenant->isSubscriptionExpired() && !$tenant->isInGracePeriod()) {
-            $allowedRoutes = ['tenant.trial-expired', 'tenant.logout', 'tenant.subscription.renew', 'tenant.subscription.renew.checkout', 'tenant.subscription.renew.success'];
+            $allowedRoutes = [
+                'tenant.trial-expired', 
+                'tenant.logout', 
+                'tenant.subscription.renew', 
+                'tenant.subscription.renew.checkout', 
+                'tenant.subscription.renew.success',
+                'tenant.subscription.change-plan',
+                'tenant.subscription.change-plan.confirm',
+                'tenant.subscription.change-plan.checkout',
+                'tenant.subscription.change-plan.success',
+            ];
 
             if (in_array($request->route()?->getName(), $allowedRoutes)) {
                 return $next($request);

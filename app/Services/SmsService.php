@@ -2,139 +2,139 @@
 
 namespace App\Services;
 
-use App\Models\Customer;
-use App\Models\Order;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 
 class SmsService
 {
-    /**
-     * Send a direct SMS message using the configured gateway.
-     *
-     * @param  array<string, mixed>  $context
-     * @return array{success: bool, recipient: string|null, response: mixed, error: string|null}
-     */
-    public function sendMessage(string $phone, string $message, array $context = []): array
+    protected string $baseUrl;
+    protected string $endpoint;
+    protected ?string $token;
+    protected int $connectTimeout;
+    protected int $timeout;
+    protected int $retryTimes;
+    protected int $retrySleepMs;
+
+    public function __construct()
     {
-        $recipient = $this->normalizePhilippinePhone($phone);
+        $this->baseUrl = config('services.sms.base_url');
+        $this->endpoint = config('services.sms.endpoint');
+        $this->token = config('services.sms.token');
+        $this->connectTimeout = config('services.sms.connect_timeout', 10);
+        $this->timeout = config('services.sms.timeout', 45);
+        $this->retryTimes = config('services.sms.retry_times', 2);
+        $this->retrySleepMs = config('services.sms.retry_sleep_ms', 2000);
+    }
 
-        if ($recipient === null) {
-            return [
-                'success' => false,
-                'recipient' => null,
-                'response' => null,
-                'error' => 'Invalid Philippine mobile number format.',
-            ];
+    /**
+     * Send SMS message.
+     */
+    public function send(string $phoneNumber, string $message): bool
+    {
+        if (!$this->token) {
+            Log::warning('SMS API token not configured');
+            return false;
         }
 
-        if (! $this->isConfigured()) {
-            return [
-                'success' => false,
-                'recipient' => $recipient,
-                'response' => null,
-                'error' => 'SMS API is not configured.',
-            ];
-        }
-
-        $baseUrl = rtrim((string) config('services.sms.base_url'), '/');
-        $endpoint = (string) config('services.sms.endpoint', '/send/sms');
-        $payload = [
-            'recipient' => $recipient,
-            'message' => $message,
-        ];
+        // Format phone number (remove spaces, dashes, ensure +63 prefix)
+        $phoneNumber = $this->formatPhoneNumber($phoneNumber);
 
         try {
-            $response = Http::acceptJson()
-                ->connectTimeout((int) config('services.sms.connect_timeout', 10))
-                ->timeout((int) config('services.sms.timeout', 45))
-                ->retry(
-                    (int) config('services.sms.retry_times', 2),
-                    (int) config('services.sms.retry_sleep_ms', 2000),
-                )
-                ->withHeaders([
-                    'x-api-key' => (string) config('services.sms.token'),
+            // SMS API PH format based on their API structure
+            $response = Http::withHeaders([
+                    'x-api-key' => $this->token,
+                    'Content-Type' => 'application/json',
                 ])
-                ->post("{$baseUrl}{$endpoint}", $payload);
+                ->timeout($this->timeout)
+                ->connectTimeout($this->connectTimeout)
+                ->retry($this->retryTimes, $this->retrySleepMs)
+                ->post($this->baseUrl . $this->endpoint, [
+                    'recipient' => $phoneNumber,
+                    'message' => $message,
+                ]);
 
-            $response->throw();
+            if ($response->successful()) {
+                Log::info('SMS sent successfully', [
+                    'phone' => $phoneNumber,
+                    'message' => substr($message, 0, 50),
+                    'response' => $response->json(),
+                ]);
+                return true;
+            }
 
-            return [
-                'success' => true,
-                'recipient' => $recipient,
-                'response' => $response->json() ?? $response->body(),
-                'error' => null,
-            ];
-        } catch (\Throwable $exception) {
-            Log::warning('SMS delivery failed.', array_merge($context, [
-                'phone' => $phone,
-                'normalized_phone' => $recipient,
-                'message' => $exception->getMessage(),
-            ]));
+            Log::error('SMS sending failed', [
+                'phone' => $phoneNumber,
+                'status' => $response->status(),
+                'response' => $response->body(),
+            ]);
+            return false;
 
-            return [
-                'success' => false,
-                'recipient' => $recipient,
-                'response' => null,
-                'error' => $exception->getMessage(),
-            ];
+        } catch (\Exception $e) {
+            Log::error('SMS sending exception', [
+                'phone' => $phoneNumber,
+                'error' => $e->getMessage(),
+            ]);
+            return false;
         }
     }
 
     /**
-     * Send an order update SMS using the configured gateway.
+     * Format phone number to international format.
      */
-    /**
-     * Send an order update SMS using the configured gateway.
-     *
-     * @return array{success: bool, recipient: string|null, response: mixed, error: string|null}
-     */
-    public function sendOrderStatusUpdate(Customer $customer, Order $order, string $statusLabel): array
+    protected function formatPhoneNumber(string $phoneNumber): string
     {
-        return $this->sendMessage(
-            (string) $customer->phone,
-            "LaundryTrack: Order {$order->order_number} is now {$statusLabel}.",
-            [
-                'customer_id' => $customer->id,
-                'order_id' => $order->id,
-            ],
+        // Remove all non-numeric characters
+        $phoneNumber = preg_replace('/[^0-9]/', '', $phoneNumber);
+
+        // If starts with 0, replace with +63
+        if (str_starts_with($phoneNumber, '0')) {
+            $phoneNumber = '+63' . substr($phoneNumber, 1);
+        }
+
+        // If doesn't start with +, add +63
+        if (!str_starts_with($phoneNumber, '+')) {
+            $phoneNumber = '+63' . $phoneNumber;
+        }
+
+        return $phoneNumber;
+    }
+
+    /**
+     * Send order status notification SMS.
+     */
+    public function sendOrderStatusNotification(
+        string $phoneNumber,
+        string $customerName,
+        string $orderNumber,
+        string $status
+    ): bool {
+        $message = "Hi {$customerName}! Your order #{$orderNumber} is now {$status}. ";
+        
+        $message .= match($status) {
+            'received' => 'We have received your laundry.',
+            'processing' => 'Your laundry is being processed.',
+            'ready' => 'Your laundry is ready for pickup!',
+            'completed' => 'Thank you for choosing our service!',
+            default => 'Status updated.',
+        };
+
+        return $this->send($phoneNumber, $message);
+    }
+
+    /**
+     * Send order status update (for existing listener compatibility).
+     */
+    public function sendOrderStatusUpdate($customer, $order, string $statusLabel): bool
+    {
+        if (!$customer->phone) {
+            return false;
+        }
+
+        return $this->sendOrderStatusNotification(
+            $customer->phone,
+            $customer->name,
+            $order->order_number,
+            $statusLabel
         );
-    }
-
-    /**
-     * Determine whether the SMS gateway is configured.
-     */
-    public function isConfigured(): bool
-    {
-        return filled(config('services.sms.base_url'))
-            && filled(config('services.sms.token'));
-    }
-
-    private function normalizePhilippinePhone(?string $phone): ?string
-    {
-        if (! filled($phone)) {
-            return null;
-        }
-
-        $value = preg_replace('/[^\d+]/', '', (string) $phone) ?? '';
-
-        if (Str::startsWith($value, '+639') && strlen($value) === 13) {
-            return $value;
-        }
-
-        if (Str::startsWith($value, '639') && strlen($value) === 12) {
-            return '+'.$value;
-        }
-
-        if (Str::startsWith($value, '09') && strlen($value) === 11) {
-            return '+63'.substr($value, 1);
-        }
-
-        if (Str::startsWith($value, '9') && strlen($value) === 10) {
-            return '+63'.$value;
-        }
-
-        return null;
     }
 }
