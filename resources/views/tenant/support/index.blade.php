@@ -3,6 +3,10 @@
         <h2 class="font-semibold text-xl text-gray-800 dark:text-slate-100 leading-tight">Customer Support</h2>
     </x-slot>
 
+    @php
+        $showCreateTicketModal = $errors->isNotEmpty() && old('form_context') === 'support-ticket-create';
+    @endphp
+
     <div class="space-y-4">
         @if (session('success'))
             <div class="rounded-lg bg-green-50 p-4 text-sm text-green-700 border border-green-200 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400">
@@ -14,7 +18,8 @@
             <p class="text-sm text-gray-600 dark:text-slate-400">Get help from our support team</p>
             <button
                 type="button"
-                onclick="document.getElementById('createTicketModal').classList.remove('hidden')"
+                x-data
+                x-on:click="$dispatch('open-modal', 'support-ticket-create-modal')"
                 class="tenant-primary-action inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium text-white shadow-sm"
             >
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -97,63 +102,68 @@
         </div>
     </div>
 
-    <!-- Create Ticket Modal -->
-    <div id="createTicketModal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-            <div class="fixed inset-0 bg-gray-500 dark:bg-slate-950 bg-opacity-75 dark:bg-opacity-75 transition-opacity" onclick="document.getElementById('createTicketModal').classList.add('hidden')"></div>
+    <x-modal name="support-ticket-create-modal" :show="$showCreateTicketModal" maxWidth="2xl" focusable>
+        <form method="POST" action="{{ route('tenant.support.store') }}" class="p-6">
+            @csrf
+            <input type="hidden" name="form_context" value="support-ticket-create">
 
-            <div class="inline-block align-bottom bg-white dark:bg-slate-900 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-                <form method="POST" action="{{ route('tenant.support.store') }}">
-                    @csrf
-                    <div class="bg-white dark:bg-slate-900 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                        <h3 class="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-4">Create Support Ticket</h3>
-
-                        <div class="space-y-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Subject <span class="text-red-500">*</span></label>
-                                <input type="text" name="subject" required
-                                    class="block w-full rounded-md border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">
-                            </div>
-
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Category</label>
-                                <select name="category" class="block w-full rounded-md border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                    <option value="general">General</option>
-                                    <option value="technical">Technical Issue</option>
-                                    <option value="billing">Billing</option>
-                                    <option value="feature">Feature Request</option>
-                                    <option value="account">Account</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Priority</label>
-                                <select name="priority" class="block w-full rounded-md border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                    <option value="normal">Normal</option>
-                                    <option value="priority">High Priority</option>
-                                    <option value="urgent">Urgent</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Message <span class="text-red-500">*</span></label>
-                                <textarea name="message" rows="5" required
-                                    class="block w-full rounded-md border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="bg-gray-50 dark:bg-slate-800 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse gap-2">
-                        <button type="submit" class="tenant-primary-action w-full inline-flex justify-center rounded-md px-4 py-2 text-sm font-medium text-white shadow-sm sm:w-auto">
-                            Create Ticket
-                        </button>
-                        <button type="button" onclick="document.getElementById('createTicketModal').classList.add('hidden')"
-                            class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-4 py-2 text-sm font-medium text-gray-700 dark:text-slate-300 shadow-sm hover:bg-gray-50 dark:hover:bg-slate-800 sm:mt-0 sm:w-auto">
-                            Cancel
-                        </button>
-                    </div>
-                </form>
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-slate-100">Create Support Ticket</h3>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-slate-400">Send a message to the support team and track replies.</p>
+                </div>
+                <button type="button" x-on:click="$dispatch('close')" class="rounded-full p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-slate-800">
+                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
             </div>
-        </div>
-    </div>
+
+            <div class="mt-6 space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Subject <span class="text-red-500">*</span></label>
+                    <input type="text" name="subject" value="{{ old('subject') }}" required
+                        class="block w-full rounded-xl {{ $errors->has('subject') ? 'border-red-300' : 'border-gray-300 dark:border-slate-700' }} dark:bg-slate-800 dark:text-slate-100 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                    @error('subject') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Category</label>
+                    <select name="category" class="block w-full rounded-xl border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        <option value="general" {{ old('category', 'general') === 'general' ? 'selected' : '' }}>General</option>
+                        <option value="technical" {{ old('category') === 'technical' ? 'selected' : '' }}>Technical Issue</option>
+                        <option value="billing" {{ old('category') === 'billing' ? 'selected' : '' }}>Billing</option>
+                        <option value="feature" {{ old('category') === 'feature' ? 'selected' : '' }}>Feature Request</option>
+                        <option value="account" {{ old('category') === 'account' ? 'selected' : '' }}>Account</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Priority</label>
+                    <select name="priority" class="block w-full rounded-xl border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        <option value="normal" {{ old('priority', 'normal') === 'normal' ? 'selected' : '' }}>Normal</option>
+                        <option value="priority" {{ old('priority') === 'priority' ? 'selected' : '' }}>High Priority</option>
+                        <option value="urgent" {{ old('priority') === 'urgent' ? 'selected' : '' }}>Urgent</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Message <span class="text-red-500">*</span></label>
+                    <textarea name="message" rows="6" required
+                        class="block w-full rounded-xl {{ $errors->has('message') ? 'border-red-300' : 'border-gray-300 dark:border-slate-700' }} dark:bg-slate-800 dark:text-slate-100 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">{{ old('message') }}</textarea>
+                    @error('message') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                </div>
+            </div>
+
+            <div class="mt-6 flex flex-col-reverse gap-3 border-t border-gray-200 dark:border-slate-800 pt-5 sm:flex-row sm:justify-end">
+                <button type="button" x-on:click="$dispatch('close')"
+                    class="inline-flex items-center justify-center rounded-xl border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-slate-300 shadow-sm hover:bg-gray-50 dark:hover:bg-slate-800">
+                    Cancel
+                </button>
+                <button type="submit" class="tenant-primary-action inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-medium text-white shadow-sm">
+                    Create Ticket
+                </button>
+            </div>
+        </form>
+    </x-modal>
 </x-tenant-layout>
