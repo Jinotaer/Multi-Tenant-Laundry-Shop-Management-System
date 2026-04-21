@@ -443,6 +443,18 @@ Route::middleware([
                 Route::post('/updates/{release}/apply', [UpdateController::class, 'update'])
                     ->middleware('permission:updates.apply')
                     ->name('tenant.updates.apply');
+                Route::post('/updates/{release}/rollback', [UpdateController::class, 'rollback'])
+                    ->middleware('permission:updates.apply')
+                    ->name('tenant.updates.rollback');
+                Route::post('/updates/backup/create', [UpdateController::class, 'createBackup'])
+                    ->middleware('permission:updates.apply')
+                    ->name('tenant.updates.backup.create');
+                Route::post('/updates/backup/restore', [UpdateController::class, 'restoreBackup'])
+                    ->middleware('permission:updates.apply')
+                    ->name('tenant.updates.backup.restore');
+                Route::post('/updates/migrations/run', [UpdateController::class, 'runMigrations'])
+                    ->middleware('permission:updates.apply')
+                    ->name('tenant.updates.migrations.run');
             });
 
             // === Customer portal routes (Premium only) ===

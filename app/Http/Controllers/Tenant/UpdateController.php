@@ -4,13 +4,22 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Http\Controllers\Controller;
 use App\Models\AppRelease;
+use App\Services\CodeDeploymentService;
 use App\Services\GitHubReleaseService;
+use App\Services\TenantBackupService;
+use App\Services\TenantMigrationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
 
 class UpdateController extends Controller
 {
+    public function __construct(
+        private TenantBackupService $backupService,
+        private TenantMigrationService $migrationService,
+        private CodeDeploymentService $deploymentService
+    ) {}
+
     /**
      * Display the version center for the tenant.
      */
@@ -38,7 +47,19 @@ class UpdateController extends Controller
             ->orderByDesc('created_at')
             ->get();
 
-        return view('tenant.updates.index', compact('currentVersion', 'availableUpdates', 'updateHistory'));
+        // Check for pending migrations
+        $hasPendingMigrations = $this->migrationService->hasPendingMigrations($tenant);
+
+        // Get available backups
+        $backups = $this->backupService->listBackups($tenant->id);
+
+        return view('tenant.updates.index', compact(
+            'currentVersion',
+            'availableUpdates',
+            'updateHistory',
+            'hasPendingMigrations',
+            'backups'
+        ));
     }
 
     /**
@@ -47,20 +68,46 @@ class UpdateController extends Controller
     public function update(Request $request, AppRelease $release)
     {
         $tenant = tenant();
+        $currentUpdate = $tenant->updates()->where('is_current', true)->with('release')->first();
+        $currentVersion = $currentUpdate?->release?->version_tag ?? 'v0.0.0';
 
         try {
-            // Create database backup before update
-            $this->info('Creating backup before update...');
-            $this->createBackup($tenant);
+            // Step 1: Create backup
+            Log::info("Starting update for tenant {$tenant->id} to {$release->version_tag}");
+            
+            $backupResult = $this->backupService->createBackup($tenant, 'pre_update');
+            
+            if (!$backupResult['success']) {
+                throw new \Exception('Backup failed: ' . $backupResult['error']);
+            }
 
-            // Deactivate old current version
+            // Step 2: Deploy code (if enabled)
+            if (config('app.auto_deploy_code', false)) {
+                $deployResult = $this->deploymentService->deployFromGitHub($release->version_tag);
+                
+                if (!$deployResult['success']) {
+                    throw new \Exception('Code deployment failed: ' . $deployResult['error']);
+                }
+            }
+
+            // Step 3: Run migrations
+            $migrationResult = $this->migrationService->runMigrationsForVersion(
+                $tenant,
+                $currentVersion,
+                $release->version_tag
+            );
+
+            if (!$migrationResult['success']) {
+                // Rollback on migration failure
+                $this->rollbackUpdate($tenant, $backupResult['backup_path']);
+                throw new \Exception('Migration failed: ' . $migrationResult['error']);
+            }
+
+            // Step 4: Update version record
             $tenant->updates()->where('is_current', true)->update(['is_current' => false]);
 
-            // Activate new version
             $tenant->updates()->updateOrCreate(
-                [
-                    'app_release_id' => $release->id,
-                ],
+                ['app_release_id' => $release->id],
                 [
                     'status' => 'updated',
                     'is_current' => true,
@@ -68,15 +115,24 @@ class UpdateController extends Controller
                 ]
             );
 
-            Log::info("Tenant {$tenant->id} updated to version {$release->version_tag}");
+            Log::info("Tenant {$tenant->id} updated successfully to {$release->version_tag}");
 
-            return back()->with('success', 'Successfully updated your application version to '.$release->version_tag.'. A backup was created before the update.');
+            return back()->with('success', 
+                "Successfully updated to version {$release->version_tag}. " .
+                "Backup created: {$backupResult['backup_name']}. " .
+                "Migrations run: " . count($migrationResult['migrations'] ?? [])
+            );
+
         } catch (\Exception $e) {
-            Log::error("Failed to update tenant {$tenant->id} to version {$release->version_tag}", [
+            Log::error("Update failed for tenant {$tenant->id}", [
+                'version' => $release->version_tag,
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
 
-            return back()->with('error', 'Failed to update. Please contact support if the issue persists.');
+            return back()->with('error', 
+                'Update failed: ' . $e->getMessage() . '. Please contact support if the issue persists.'
+            );
         }
     }
 
@@ -86,25 +142,40 @@ class UpdateController extends Controller
     public function rollback(Request $request, AppRelease $release, GitHubReleaseService $service)
     {
         $tenant = tenant();
+        $currentUpdate = $tenant->updates()->where('is_current', true)->with('release')->first();
+        $currentVersion = $currentUpdate?->release?->version_tag ?? 'v0.0.0';
 
         // Check if rollback is safe
         $safetyCheck = $service->canRollbackTo($release, $tenant);
 
-        if (! $safetyCheck['can_rollback']) {
+        if (!$safetyCheck['can_rollback']) {
             return back()->with('error', 'Rollback not allowed: '.implode(' ', $safetyCheck['errors']));
         }
 
         try {
             // Create backup before rollback
-            $this->info('Creating backup before rollback...');
-            $this->createBackup($tenant);
+            $backupResult = $this->backupService->createBackup($tenant, 'pre_rollback');
+            
+            if (!$backupResult['success']) {
+                throw new \Exception('Backup failed: ' . $backupResult['error']);
+            }
 
+            // Rollback migrations
+            $migrationResult = $this->migrationService->rollbackMigrationsForVersion(
+                $tenant,
+                $currentVersion,
+                $release->version_tag
+            );
+
+            if (!$migrationResult['success']) {
+                throw new \Exception('Migration rollback failed: ' . $migrationResult['error']);
+            }
+
+            // Update version record
             $tenant->updates()->where('is_current', true)->update(['is_current' => false]);
 
             $tenant->updates()->updateOrCreate(
-                [
-                    'app_release_id' => $release->id,
-                ],
+                ['app_release_id' => $release->id],
                 [
                     'status' => 'rolled_back',
                     'is_current' => true,
@@ -112,46 +183,123 @@ class UpdateController extends Controller
                 ]
             );
 
-            Log::info("Tenant {$tenant->id} rolled back to version {$release->version_tag}");
+            Log::info("Tenant {$tenant->id} rolled back to {$release->version_tag}");
 
-            $warningMessage = ! empty($safetyCheck['warnings'])
+            $warningMessage = !empty($safetyCheck['warnings'])
                 ? ' Warning: '.implode(' ', $safetyCheck['warnings'])
                 : '';
 
-            return back()->with('success', 'Rolled back to version '.$release->version_tag.'. A backup was created before the rollback.'.$warningMessage);
+            return back()->with('success', 
+                "Rolled back to version {$release->version_tag}. " .
+                "Backup created: {$backupResult['backup_name']}." .
+                $warningMessage
+            );
+
         } catch (\Exception $e) {
-            Log::error("Failed to rollback tenant {$tenant->id} to version {$release->version_tag}", [
-                'error' => $e->getMessage(),
+            Log::error("Rollback failed for tenant {$tenant->id}", [
+                'version' => $release->version_tag,
+                'error' => $e->getMessage()
             ]);
 
-            return back()->with('error', 'Failed to rollback. Please contact support if the issue persists.');
+            return back()->with('error', 
+                'Rollback failed: ' . $e->getMessage() . '. Please contact support.'
+            );
         }
     }
 
     /**
-     * Create a database backup for the tenant.
+     * Rollback update on failure.
      */
-    private function createBackup($tenant): void
+    private function rollbackUpdate($tenant, string $backupPath): void
     {
         try {
-            // You can implement actual backup logic here
-            // For now, we'll just log it
-            Log::info("Backup created for tenant {$tenant->id} before version change");
-
-            // Example: Use Laravel Backup package or custom backup logic
-            // Artisan::call('backup:run', ['--only-db' => true]);
+            Log::info("Rolling back failed update for tenant {$tenant->id}");
+            
+            $this->backupService->restoreBackup($tenant, $backupPath);
+            
+            Log::info("Rollback completed for tenant {$tenant->id}");
         } catch (\Exception $e) {
-            Log::warning("Failed to create backup for tenant {$tenant->id}", [
-                'error' => $e->getMessage(),
+            Log::critical("Rollback failed for tenant {$tenant->id}", [
+                'error' => $e->getMessage()
             ]);
         }
     }
 
     /**
-     * Helper to log info messages.
+     * Create manual backup.
      */
-    private function info(string $message): void
+    public function createBackup(Request $request)
     {
-        Log::info($message);
+        $tenant = tenant();
+        
+        try {
+            $result = $this->backupService->createBackup($tenant, 'manual');
+            
+            if ($result['success']) {
+                return back()->with('success', 
+                    "Backup created successfully: {$result['backup_name']}. " .
+                    "Size: " . round($result['size'] / 1024 / 1024, 2) . " MB"
+                );
+            }
+            
+            return back()->with('error', 'Backup failed: ' . $result['error']);
+            
+        } catch (\Exception $e) {
+            return back()->with('error', 'Backup failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Restore from backup.
+     */
+    public function restoreBackup(Request $request)
+    {
+        $request->validate([
+            'backup_path' => 'required|string'
+        ]);
+        
+        $tenant = tenant();
+        
+        try {
+            $result = $this->backupService->restoreBackup($tenant, $request->backup_path);
+            
+            if ($result['success']) {
+                return back()->with('success', 'Backup restored successfully.');
+            }
+            
+            return back()->with('error', 'Restore failed: ' . $result['error']);
+            
+        } catch (\Exception $e) {
+            return back()->with('error', 'Restore failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Run pending migrations.
+     */
+    public function runMigrations(Request $request)
+    {
+        $tenant = tenant();
+        $currentUpdate = $tenant->updates()->where('is_current', true)->with('release')->first();
+        $currentVersion = $currentUpdate?->release?->version_tag ?? 'v0.0.0';
+        
+        try {
+            $result = $this->migrationService->runMigrationsForVersion(
+                $tenant,
+                $currentVersion,
+                $currentVersion
+            );
+            
+            if ($result['success']) {
+                return back()->with('success', 
+                    'Migrations completed. ' . count($result['migrations']) . ' migrations run.'
+                );
+            }
+            
+            return back()->with('error', 'Migrations failed: ' . $result['error']);
+            
+        } catch (\Exception $e) {
+            return back()->with('error', 'Migrations failed: ' . $e->getMessage());
+        }
     }
 }

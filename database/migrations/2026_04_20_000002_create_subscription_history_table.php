@@ -17,8 +17,8 @@ return new class extends Migration
             
             $table->enum('change_type', ['initial', 'upgrade', 'downgrade', 'renewal'])->default('renewal');
             
-            $table->timestamp('cycle_start');
-            $table->timestamp('cycle_end');
+            $table->timestamp('cycle_start')->nullable();
+            $table->timestamp('cycle_end')->nullable();
             
             $table->decimal('amount_paid', 10, 2)->default(0);
             

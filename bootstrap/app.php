@@ -3,6 +3,7 @@
 use App\Http\Middleware\AuthenticateAdmin;
 use App\Http\Middleware\AuthenticateTenant;
 use App\Http\Middleware\CheckPlanLimit;
+use App\Http\Middleware\CheckRequiredUpdate;
 use App\Http\Middleware\CheckTenantFeature;
 use App\Http\Middleware\EnsureUserHasPermission;
 use App\Http\Middleware\EnsureUserHasRole;
@@ -30,6 +31,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'feature' => CheckTenantFeature::class,
             'plan.limit' => CheckPlanLimit::class,
             'track.usage' => TrackTenantUsage::class,
+            'check.required.update' => CheckRequiredUpdate::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
