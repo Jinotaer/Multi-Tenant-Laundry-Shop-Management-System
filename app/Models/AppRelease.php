@@ -31,6 +31,11 @@ class AppRelease extends Model
         return $this->hasMany(TenantUpdate::class);
     }
 
+    public function forceRuns(): HasMany
+    {
+        return $this->hasMany(AppReleaseForceRun::class, 'app_release_id');
+    }
+
     /**
      * Check if this version is newer than another version.
      */
