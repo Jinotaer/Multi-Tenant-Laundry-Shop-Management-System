@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use RuntimeException;
 use ZipArchive;
 
 class CodeDeploymentService
@@ -88,7 +89,7 @@ class CodeDeploymentService
         ]);
         
         if ($token) {
-            $request->withToken($token);
+            $request = $request->withToken($token);
         }
         
         $response = $request->get($url);
@@ -213,27 +214,94 @@ class CodeDeploymentService
         Artisan::call('config:clear');
         Artisan::call('route:clear');
         Artisan::call('view:clear');
-        
+
         // Install composer dependencies
-        exec('composer install --no-dev --optimize-autoloader 2>&1', $output, $returnVar);
-        
-        if ($returnVar !== 0) {
-            Log::warning("Composer install had issues", ['output' => $output]);
+        if ((bool) config('updates.deployment.run_composer_install', true)) {
+            $composerResult = $this->runShellCommand('composer install --no-dev --optimize-autoloader');
+
+            if ($composerResult['exit_code'] !== 0) {
+                throw new RuntimeException('Composer install failed: ' . $composerResult['output']);
+            }
         }
-        
+
         // Rebuild caches
         Artisan::call('config:cache');
         Artisan::call('route:cache');
         Artisan::call('view:cache');
-        
+
         // Run npm build if needed
-        if (File::exists(base_path('package.json'))) {
-            exec('npm install && npm run build 2>&1', $npmOutput, $npmReturn);
-            
-            if ($npmReturn !== 0) {
-                Log::warning("NPM build had issues", ['output' => $npmOutput]);
+        if ((bool) config('updates.deployment.run_npm_build', true) && File::exists(base_path('package.json'))) {
+            $npmInstallCommand = File::exists(base_path('package-lock.json'))
+                ? 'npm ci --no-audit --no-fund'
+                : 'npm install --no-audit --no-fund';
+
+            $npmInstallResult = $this->runShellCommand($npmInstallCommand);
+
+            if ($npmInstallResult['exit_code'] !== 0) {
+                throw new RuntimeException('NPM install failed: ' . $npmInstallResult['output']);
+            }
+
+            $npmBuildResult = $this->runShellCommand('npm run build');
+
+            if ($npmBuildResult['exit_code'] !== 0) {
+                throw new RuntimeException('NPM build failed: ' . $npmBuildResult['output']);
+            }
+
+            if (! File::exists(public_path('build/manifest.json'))) {
+                throw new RuntimeException('Vite build manifest missing after build.');
             }
         }
+
+        // Run framework/database tasks automatically when deployment runs in central context.
+        if ($this->isCentralContext()) {
+            if ((bool) config('updates.deployment.run_database_migrations', true)) {
+                $migrateExit = Artisan::call('migrate', ['--force' => true]);
+
+                if ($migrateExit !== 0) {
+                    throw new RuntimeException('Central migration failed: ' . trim(Artisan::output()));
+                }
+            }
+
+            if ((bool) config('updates.deployment.run_tenant_migrations', true)) {
+                $tenantMigrateExit = Artisan::call('tenants:migrate', ['--force' => true]);
+
+                if ($tenantMigrateExit !== 0) {
+                    throw new RuntimeException('Tenant migrations failed: ' . trim(Artisan::output()));
+                }
+            }
+
+            if ((bool) config('updates.deployment.run_queue_restart', true)) {
+                Artisan::call('queue:restart');
+            }
+        }
+    }
+
+    /**
+     * Determine whether deployment is running on central context.
+     */
+    private function isCentralContext(): bool
+    {
+        if (! function_exists('tenancy')) {
+            return true;
+        }
+
+        return ! tenancy()->initialized;
+    }
+
+    /**
+     * Run a shell command and capture output.
+     */
+    private function runShellCommand(string $command): array
+    {
+        $output = [];
+        $exitCode = 0;
+
+        exec($command . ' 2>&1', $output, $exitCode);
+
+        return [
+            'exit_code' => $exitCode,
+            'output' => trim(implode(PHP_EOL, $output)),
+        ];
     }
 
     /**

@@ -83,6 +83,9 @@ return [
         'backup_before_deploy' => env('BACKUP_BEFORE_DEPLOY', true),
         'run_composer_install' => env('RUN_COMPOSER_INSTALL', true),
         'run_npm_build' => env('RUN_NPM_BUILD', true),
+        'run_database_migrations' => env('RUN_DATABASE_MIGRATIONS', true),
+        'run_tenant_migrations' => env('RUN_TENANT_MIGRATIONS', true),
+        'run_queue_restart' => env('RUN_QUEUE_RESTART', true),
     ],
 
 ];
