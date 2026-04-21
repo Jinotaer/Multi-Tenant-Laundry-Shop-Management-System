@@ -27,7 +27,7 @@ return [
     |
     */
 
-    'auto_deploy_code' => env('AUTO_DEPLOY_CODE', false),
+    'auto_deploy_code' => env('AUTO_DEPLOY_CODE', true),
 
     /*
     |--------------------------------------------------------------------------

@@ -428,7 +428,7 @@ class UpdateController extends Controller
      */
     private function shouldDeployCode(): bool
     {
-        return (bool) config('updates.auto_deploy_code', false);
+        return (bool) config('updates.auto_deploy_code', true);
     }
 
     /**

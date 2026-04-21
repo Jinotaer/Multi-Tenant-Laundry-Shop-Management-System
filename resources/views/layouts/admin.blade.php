@@ -92,7 +92,21 @@
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
 
-        @vite(['resources/css/app.css', 'resources/js/app.js'])
+        @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
+            @vite(['resources/css/app.css', 'resources/js/app.js'])
+        @else
+            <style>
+                .vite-warning {
+                    margin: 0.75rem 0;
+                    border: 1px solid #f59e0b;
+                    background: #fffbeb;
+                    color: #92400e;
+                    padding: 0.625rem 0.75rem;
+                    border-radius: 0.5rem;
+                    font-size: 0.875rem;
+                }
+            </style>
+        @endif
 
         <script>
             (() => {
