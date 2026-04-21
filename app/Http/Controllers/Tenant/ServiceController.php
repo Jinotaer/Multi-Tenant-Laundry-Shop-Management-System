@@ -17,21 +17,35 @@ class ServiceController extends Controller
     {
         $services = Service::orderBy('sort_order')->orderBy('name')->get();
         $pricingMode = Service::pricingMode();
+        $priceTypes = Service::availablePriceTypes();
         $priceTypeDescriptions = Service::priceTypeDescriptions();
 
-        return view('tenant.services.index', compact('services', 'pricingMode', 'priceTypeDescriptions'));
+        // Determine if we need to show the edit modal
+        $editService = null;
+        if (request()->has('edit')) {
+            $editService = Service::find(request('edit'));
+        } elseif ($errors = session('errors')) {
+            // Re-open edit modal on validation failure
+            if (old('form_context') === 'service-edit' && old('service_id')) {
+                $editService = Service::find(old('service_id'));
+            }
+        }
+
+        return view('tenant.services.index', compact(
+            'services',
+            'pricingMode',
+            'priceTypes',
+            'priceTypeDescriptions',
+            'editService'
+        ));
     }
 
     /**
-     * Show the form for creating a new service.
+     * Redirect create requests to the index page and open the create modal.
      */
-    public function create(): View
+    public function create(): RedirectResponse
     {
-        $priceTypes = Service::availablePriceTypes();
-        $pricingMode = Service::pricingMode();
-        $priceTypeDescriptions = Service::priceTypeDescriptions();
-
-        return view('tenant.services.create', compact('priceTypes', 'pricingMode', 'priceTypeDescriptions'));
+        return redirect()->route('tenant.services.index', ['create' => 1]);
     }
 
     /**
@@ -46,15 +60,11 @@ class ServiceController extends Controller
     }
 
     /**
-     * Show the form for editing a service.
+     * Redirect edit requests to the index page and open the edit modal.
      */
-    public function edit(Service $service): View
+    public function edit(Service $service): RedirectResponse
     {
-        $priceTypes = Service::availablePriceTypes();
-        $pricingMode = Service::pricingMode();
-        $priceTypeDescriptions = Service::priceTypeDescriptions();
-
-        return view('tenant.services.edit', compact('service', 'priceTypes', 'pricingMode', 'priceTypeDescriptions'));
+        return redirect()->route('tenant.services.index', ['edit' => $service->getKey()]);
     }
 
     /**

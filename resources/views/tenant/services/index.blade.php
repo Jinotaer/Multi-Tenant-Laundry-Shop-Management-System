@@ -9,6 +9,10 @@
         $canCreateServices = $currentUser !== null && ($currentUser->isOwner() || $currentUser->hasPermission('services.create'));
         $canUpdateServices = $currentUser !== null && ($currentUser->isOwner() || $currentUser->hasPermission('services.update'));
         $canDeleteServices = $currentUser !== null && ($currentUser->isOwner() || $currentUser->hasPermission('services.delete'));
+        $showServiceCreateModal = ($errors->isNotEmpty() && old('form_context') === 'service-create')
+            || request()->boolean('create');
+        $showServiceEditModal = ($errors->isNotEmpty() && old('form_context') === 'service-edit')
+            || $editService !== null;
     @endphp
 
     <div class="space-y-4">
@@ -24,11 +28,14 @@
                 </p>
             </div>
             @if ($canCreateServices)
-                <a href="{{ route('tenant.services.create') }}"
+                <button
+                    type="button"
+                    x-data
+                    x-on:click="$dispatch('open-modal', 'service-create-modal')"
                     class="inline-flex items-center gap-2 rounded-md {{ $theme['primary_bg'] }} {{ $theme['primary_hover'] }} px-4 py-2 text-sm font-medium text-white shadow-sm transition">
                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
                     Add Service
-                </a>
+                </button>
             @endif
         </div>
 
@@ -41,6 +48,18 @@
                     </svg>
                     <p class="text-gray-500 text-sm font-medium">No services yet</p>
                     <p class="text-gray-400 text-xs mt-1">Add your laundry services and set pricing.</p>
+                    @if ($canCreateServices)
+                        <div class="mt-4">
+                            <button
+                                type="button"
+                                x-data
+                                x-on:click="$dispatch('open-modal', 'service-create-modal')"
+                                class="inline-flex items-center gap-2 rounded-md {{ $theme['primary_bg'] }} {{ $theme['primary_hover'] }} px-4 py-2 text-sm font-medium text-white shadow-sm transition">
+                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                                Add First Service
+                            </button>
+                        </div>
+                    @endif
                 </div>
             @else
                 <div class="overflow-x-auto">
@@ -82,7 +101,7 @@
                                     @if ($canUpdateServices || $canDeleteServices)
                                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
                                             @if ($canUpdateServices)
-                                                <a href="{{ route('tenant.services.edit', $service) }}" class="text-indigo-600 hover:text-indigo-900">Edit</a>
+                                                <a href="{{ route('tenant.services.index', ['edit' => $service->id]) }}" class="text-indigo-600 hover:text-indigo-900">Edit</a>
                                             @endif
                                             @if ($canDeleteServices)
                                                 <form method="POST" action="{{ route('tenant.services.destroy', $service) }}" class="inline"
@@ -101,4 +120,27 @@
             @endif
         </div>
     </div>
+
+    {{-- Create Modal --}}
+    @if ($canCreateServices)
+        @include('tenant.services.partials.service-create-modal', [
+            'theme' => $theme,
+            'priceTypes' => $priceTypes,
+            'pricingMode' => $pricingMode,
+            'priceTypeDescriptions' => $priceTypeDescriptions,
+            'showServiceCreateModal' => $showServiceCreateModal,
+        ])
+    @endif
+
+    {{-- Edit Modal --}}
+    @if ($canUpdateServices && $editService)
+        @include('tenant.services.partials.service-edit-modal', [
+            'theme' => $theme,
+            'priceTypes' => $priceTypes,
+            'pricingMode' => $pricingMode,
+            'priceTypeDescriptions' => $priceTypeDescriptions,
+            'editService' => $editService,
+            'showServiceEditModal' => $showServiceEditModal,
+        ])
+    @endif
 </x-tenant-layout>
