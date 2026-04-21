@@ -9,7 +9,6 @@ use App\Services\GitHubReleaseService;
 use App\Services\TenantBackupService;
 use App\Services\TenantMigrationService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
 
 class UpdateController extends Controller
@@ -17,7 +16,8 @@ class UpdateController extends Controller
     public function __construct(
         private TenantBackupService $backupService,
         private TenantMigrationService $migrationService,
-        private CodeDeploymentService $deploymentService
+        private CodeDeploymentService $deploymentService,
+        private GitHubReleaseService $releaseService,
     ) {}
 
     /**
@@ -26,6 +26,12 @@ class UpdateController extends Controller
     public function index()
     {
         $tenant = tenant();
+        $canApplyUpdates = $this->currentUserCanApplyUpdates(auth()->user());
+        
+        if (!$tenant) {
+            abort(500, 'Tenant context not initialized');
+        }
+        
         $currentVersion = $tenant->currentVersion();
         $currentUpdate = $tenant->updates()->where('is_current', true)->with('release')->first();
         $currentVersionTag = $currentUpdate?->release?->version_tag ?? 'v0.0.0';
@@ -35,9 +41,26 @@ class UpdateController extends Controller
         
         // Filter newer versions for updates
         $availableUpdates = $allReleases->filter(function ($release) use ($currentVersionTag) {
-            $releaseVersion = ltrim($release->version_tag, 'v');
-            $currentVer = ltrim($currentVersionTag, 'v');
+            $releaseVersion = $this->releaseService->normalizeVersion($release->version_tag);
+            $currentVer = $this->releaseService->normalizeVersion($currentVersionTag);
+
             return version_compare($releaseVersion, $currentVer, '>');
+        });
+
+        // Filter older versions that can be rolled back to
+        $rollbackCandidates = $allReleases->filter(function ($release) use ($currentVersionTag) {
+            $releaseVersion = $this->releaseService->normalizeVersion($release->version_tag);
+            $currentVer = $this->releaseService->normalizeVersion($currentVersionTag);
+
+            return version_compare($releaseVersion, $currentVer, '<');
+        })->map(function ($release) use ($tenant) {
+            $rollbackCheck = $this->releaseService->canRollbackTo($release, $tenant);
+
+            $release->can_rollback = $rollbackCheck['can_rollback'];
+            $release->rollback_errors = $rollbackCheck['errors'];
+            $release->rollback_warnings = $rollbackCheck['warnings'];
+
+            return $release;
         });
 
         // Get update history from tenant_updates table
@@ -45,20 +68,49 @@ class UpdateController extends Controller
             ->with('release')
             ->whereNotIn('status', ['update_available', 'deferred'])
             ->orderByDesc('created_at')
-            ->get();
+            ->get()
+            ->map(function ($history) use ($tenant, $canApplyUpdates) {
+                $history->can_rollback = false;
+                $history->rollback_errors = [];
+                $history->rollback_warnings = [];
+
+                if (! $canApplyUpdates || $history->is_current || ! $history->release) {
+                    return $history;
+                }
+
+                $rollbackCheck = $this->releaseService->canRollbackTo($history->release, $tenant);
+
+                $history->can_rollback = $rollbackCheck['can_rollback'];
+                $history->rollback_errors = $rollbackCheck['errors'];
+                $history->rollback_warnings = $rollbackCheck['warnings'];
+
+                return $history;
+            });
 
         // Check for pending migrations
-        $hasPendingMigrations = $this->migrationService->hasPendingMigrations($tenant);
+        $hasPendingMigrations = false;
+        try {
+            $hasPendingMigrations = $this->migrationService->hasPendingMigrations($tenant);
+        } catch (\Exception $e) {
+            \Log::warning('Failed to check pending migrations', ['error' => $e->getMessage()]);
+        }
 
         // Get available backups
-        $backups = $this->backupService->listBackups($tenant->id);
+        $backups = [];
+        try {
+            $backups = $this->backupService->listBackups($tenant->id);
+        } catch (\Exception $e) {
+            \Log::warning('Failed to list backups', ['error' => $e->getMessage()]);
+        }
 
         return view('tenant.updates.index', compact(
             'currentVersion',
             'availableUpdates',
+            'rollbackCandidates',
             'updateHistory',
             'hasPendingMigrations',
-            'backups'
+            'backups',
+            'canApplyUpdates',
         ));
     }
 
@@ -70,6 +122,9 @@ class UpdateController extends Controller
         $tenant = tenant();
         $currentUpdate = $tenant->updates()->where('is_current', true)->with('release')->first();
         $currentVersion = $currentUpdate?->release?->version_tag ?? 'v0.0.0';
+        $tenantBackupPath = null;
+        $codeBackupPath = null;
+        $migrationAttempted = false;
 
         try {
             // Step 1: Create backup
@@ -81,16 +136,20 @@ class UpdateController extends Controller
                 throw new \Exception('Backup failed: ' . $backupResult['error']);
             }
 
+            $tenantBackupPath = $backupResult['backup_path'];
+
             // Step 2: Deploy code (if enabled)
-            if (config('app.auto_deploy_code', false)) {
+            if ($this->shouldDeployCode()) {
                 $deployResult = $this->deploymentService->deployFromGitHub($release->version_tag);
-                
+                $codeBackupPath = $deployResult['backup_path'] ?? null;
+
                 if (!$deployResult['success']) {
                     throw new \Exception('Code deployment failed: ' . $deployResult['error']);
                 }
             }
 
             // Step 3: Run migrations
+            $migrationAttempted = true;
             $migrationResult = $this->migrationService->runMigrationsForVersion(
                 $tenant,
                 $currentVersion,
@@ -98,8 +157,6 @@ class UpdateController extends Controller
             );
 
             if (!$migrationResult['success']) {
-                // Rollback on migration failure
-                $this->rollbackUpdate($tenant, $backupResult['backup_path']);
                 throw new \Exception('Migration failed: ' . $migrationResult['error']);
             }
 
@@ -124,6 +181,15 @@ class UpdateController extends Controller
             );
 
         } catch (\Exception $e) {
+            if ($codeBackupPath || ($tenantBackupPath && $migrationAttempted)) {
+                $this->restoreFailedVersionChange(
+                    $tenant,
+                    $tenantBackupPath,
+                    $codeBackupPath,
+                    restoreCodeFirst: true
+                );
+            }
+
             Log::error("Update failed for tenant {$tenant->id}", [
                 'version' => $release->version_tag,
                 'error' => $e->getMessage(),
@@ -139,14 +205,17 @@ class UpdateController extends Controller
     /**
      * Rollback to a previous release.
      */
-    public function rollback(Request $request, AppRelease $release, GitHubReleaseService $service)
+    public function rollback(Request $request, AppRelease $release)
     {
         $tenant = tenant();
         $currentUpdate = $tenant->updates()->where('is_current', true)->with('release')->first();
         $currentVersion = $currentUpdate?->release?->version_tag ?? 'v0.0.0';
+        $tenantBackupPath = null;
+        $codeBackupPath = null;
+        $rollbackAttempted = false;
 
         // Check if rollback is safe
-        $safetyCheck = $service->canRollbackTo($release, $tenant);
+        $safetyCheck = $this->releaseService->canRollbackTo($release, $tenant);
 
         if (!$safetyCheck['can_rollback']) {
             return back()->with('error', 'Rollback not allowed: '.implode(' ', $safetyCheck['errors']));
@@ -160,7 +229,20 @@ class UpdateController extends Controller
                 throw new \Exception('Backup failed: ' . $backupResult['error']);
             }
 
+            $tenantBackupPath = $backupResult['backup_path'];
+
+            // Roll back code if automatic deployments are enabled
+            if ($this->shouldDeployCode()) {
+                $deployResult = $this->deploymentService->deployFromGitHub($release->version_tag);
+                $codeBackupPath = $deployResult['backup_path'] ?? null;
+
+                if (!$deployResult['success']) {
+                    throw new \Exception('Code rollback failed: ' . $deployResult['error']);
+                }
+            }
+
             // Rollback migrations
+            $rollbackAttempted = true;
             $migrationResult = $this->migrationService->rollbackMigrationsForVersion(
                 $tenant,
                 $currentVersion,
@@ -196,6 +278,15 @@ class UpdateController extends Controller
             );
 
         } catch (\Exception $e) {
+            if ($codeBackupPath || ($tenantBackupPath && $rollbackAttempted)) {
+                $this->restoreFailedVersionChange(
+                    $tenant,
+                    $tenantBackupPath,
+                    $codeBackupPath,
+                    restoreCodeFirst: false
+                );
+            }
+
             Log::error("Rollback failed for tenant {$tenant->id}", [
                 'version' => $release->version_tag,
                 'error' => $e->getMessage()
@@ -210,16 +301,45 @@ class UpdateController extends Controller
     /**
      * Rollback update on failure.
      */
-    private function rollbackUpdate($tenant, string $backupPath): void
+    private function restoreFailedVersionChange(
+        $tenant,
+        ?string $tenantBackupPath = null,
+        ?string $codeBackupPath = null,
+        bool $restoreCodeFirst = false
+    ): void
     {
         try {
-            Log::info("Rolling back failed update for tenant {$tenant->id}");
-            
-            $this->backupService->restoreBackup($tenant, $backupPath);
-            
-            Log::info("Rollback completed for tenant {$tenant->id}");
+            Log::info("Restoring failed version change for tenant {$tenant->id}", [
+                'restore_code_first' => $restoreCodeFirst,
+                'has_tenant_backup' => $tenantBackupPath !== null,
+                'has_code_backup' => $codeBackupPath !== null,
+            ]);
+
+            $steps = $restoreCodeFirst
+                ? ['code', 'tenant']
+                : ['tenant', 'code'];
+
+            foreach ($steps as $step) {
+                if ($step === 'tenant' && $tenantBackupPath) {
+                    $result = $this->backupService->restoreBackup($tenant, $tenantBackupPath);
+
+                    if (! $result['success']) {
+                        throw new \Exception('Tenant restore failed: ' . $result['error']);
+                    }
+                }
+
+                if ($step === 'code' && $codeBackupPath) {
+                    $result = $this->deploymentService->rollbackCode($codeBackupPath);
+
+                    if (! $result['success']) {
+                        throw new \Exception('Code restore failed: ' . $result['error']);
+                    }
+                }
+            }
+
+            Log::info("Version recovery completed for tenant {$tenant->id}");
         } catch (\Exception $e) {
-            Log::critical("Rollback failed for tenant {$tenant->id}", [
+            Log::critical("Version recovery failed for tenant {$tenant->id}", [
                 'error' => $e->getMessage()
             ]);
         }
@@ -301,5 +421,30 @@ class UpdateController extends Controller
         } catch (\Exception $e) {
             return back()->with('error', 'Migrations failed: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Determine if code should be deployed alongside version changes.
+     */
+    private function shouldDeployCode(): bool
+    {
+        return (bool) config('updates.auto_deploy_code', false);
+    }
+
+    /**
+     * Determine if the current actor can apply updates and rollbacks.
+     */
+    private function currentUserCanApplyUpdates($user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        if (method_exists($user, 'isOwner') && $user->isOwner()) {
+            return true;
+        }
+
+        return method_exists($user, 'hasPermission')
+            && $user->hasPermission('updates.apply');
     }
 }

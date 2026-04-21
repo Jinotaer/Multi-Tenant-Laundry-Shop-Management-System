@@ -14,67 +14,64 @@ class TenantMigrationService
      */
     public function runMigrationsForVersion($tenant, string $fromVersion, string $toVersion): array
     {
-        $results = [];
-        
-        try {
-            // Switch to tenant context
-            tenancy()->initialize($tenant);
-            
-            // Get migrations between versions
-            $migrations = $this->getMigrationsBetweenVersions($fromVersion, $toVersion);
-            
-            if (empty($migrations)) {
+        return $this->withTenantContext($tenant, function () use ($tenant, $fromVersion, $toVersion) {
+            $results = [];
+
+            try {
+                // Get migrations between versions
+                $migrations = $this->getMigrationsBetweenVersions($fromVersion, $toVersion);
+
+                if (empty($migrations)) {
+                    return [
+                        'success' => true,
+                        'message' => 'No migrations to run',
+                        'migrations' => []
+                    ];
+                }
+
+                // Run each migration
+                foreach ($migrations as $migration) {
+                    try {
+                        $this->runSingleMigration($migration);
+                        $results[] = [
+                            'migration' => $migration,
+                            'status' => 'success'
+                        ];
+                    } catch (\Exception $e) {
+                        $results[] = [
+                            'migration' => $migration,
+                            'status' => 'failed',
+                            'error' => $e->getMessage()
+                        ];
+                        throw $e; // Stop on first failure
+                    }
+                }
+
+                Log::info("Migrations completed for tenant {$tenant->id}", [
+                    'from_version' => $fromVersion,
+                    'to_version' => $toVersion,
+                    'migrations_run' => count($results)
+                ]);
+
                 return [
                     'success' => true,
-                    'message' => 'No migrations to run',
-                    'migrations' => []
+                    'migrations' => $results
+                ];
+
+            } catch (\Exception $e) {
+                Log::error("Migration failed for tenant {$tenant->id}", [
+                    'error' => $e->getMessage(),
+                    'from_version' => $fromVersion,
+                    'to_version' => $toVersion
+                ]);
+
+                return [
+                    'success' => false,
+                    'error' => $e->getMessage(),
+                    'migrations' => $results
                 ];
             }
-            
-            // Run each migration
-            foreach ($migrations as $migration) {
-                try {
-                    $this->runSingleMigration($migration);
-                    $results[] = [
-                        'migration' => $migration,
-                        'status' => 'success'
-                    ];
-                } catch (\Exception $e) {
-                    $results[] = [
-                        'migration' => $migration,
-                        'status' => 'failed',
-                        'error' => $e->getMessage()
-                    ];
-                    throw $e; // Stop on first failure
-                }
-            }
-            
-            Log::info("Migrations completed for tenant {$tenant->id}", [
-                'from_version' => $fromVersion,
-                'to_version' => $toVersion,
-                'migrations_run' => count($results)
-            ]);
-            
-            return [
-                'success' => true,
-                'migrations' => $results
-            ];
-            
-        } catch (\Exception $e) {
-            Log::error("Migration failed for tenant {$tenant->id}", [
-                'error' => $e->getMessage(),
-                'from_version' => $fromVersion,
-                'to_version' => $toVersion
-            ]);
-            
-            return [
-                'success' => false,
-                'error' => $e->getMessage(),
-                'migrations' => $results
-            ];
-        } finally {
-            tenancy()->end();
-        }
+        });
     }
 
     /**
@@ -163,50 +160,48 @@ class TenantMigrationService
      */
     public function rollbackMigrationsForVersion($tenant, string $fromVersion, string $toVersion): array
     {
-        try {
-            tenancy()->initialize($tenant);
-            
-            // Get migrations to rollback
-            $migrations = $this->getMigrationsBetweenVersions($toVersion, $fromVersion);
-            
-            if (empty($migrations)) {
+        return $this->withTenantContext($tenant, function () use ($tenant, $fromVersion, $toVersion) {
+            try {
+                // Get migrations to rollback
+                $migrations = $this->getMigrationsBetweenVersions($toVersion, $fromVersion);
+
+                if (empty($migrations)) {
+                    return [
+                        'success' => true,
+                        'message' => 'No migrations to rollback'
+                    ];
+                }
+
+                // Rollback migrations
+                $steps = count($migrations);
+                Artisan::call('migrate:rollback', [
+                    '--path' => 'database/migrations/tenant',
+                    '--step' => $steps,
+                    '--force' => true
+                ]);
+
+                Log::info("Migrations rolled back for tenant {$tenant->id}", [
+                    'from_version' => $fromVersion,
+                    'to_version' => $toVersion,
+                    'steps' => $steps
+                ]);
+
                 return [
                     'success' => true,
-                    'message' => 'No migrations to rollback'
+                    'migrations_rolled_back' => $steps
+                ];
+
+            } catch (\Exception $e) {
+                Log::error("Migration rollback failed for tenant {$tenant->id}", [
+                    'error' => $e->getMessage()
+                ]);
+
+                return [
+                    'success' => false,
+                    'error' => $e->getMessage()
                 ];
             }
-            
-            // Rollback migrations
-            $steps = count($migrations);
-            Artisan::call('migrate:rollback', [
-                '--path' => 'database/migrations/tenant',
-                '--step' => $steps,
-                '--force' => true
-            ]);
-            
-            Log::info("Migrations rolled back for tenant {$tenant->id}", [
-                'from_version' => $fromVersion,
-                'to_version' => $toVersion,
-                'steps' => $steps
-            ]);
-            
-            return [
-                'success' => true,
-                'migrations_rolled_back' => $steps
-            ];
-            
-        } catch (\Exception $e) {
-            Log::error("Migration rollback failed for tenant {$tenant->id}", [
-                'error' => $e->getMessage()
-            ]);
-            
-            return [
-                'success' => false,
-                'error' => $e->getMessage()
-            ];
-        } finally {
-            tenancy()->end();
-        }
+        });
     }
 
     /**
@@ -214,20 +209,13 @@ class TenantMigrationService
      */
     public function hasPendingMigrations($tenant): bool
     {
-        try {
-            tenancy()->initialize($tenant);
-            
-            $exitCode = Artisan::call('migrate:status', [
+        return $this->withTenantContext($tenant, function () {
+            Artisan::call('migrate:status', [
                 '--path' => 'database/migrations/tenant'
             ]);
-            
-            $output = Artisan::output();
-            
-            return str_contains($output, 'Pending');
-            
-        } finally {
-            tenancy()->end();
-        }
+
+            return str_contains(Artisan::output(), 'Pending');
+        });
     }
 
     /**
@@ -235,25 +223,47 @@ class TenantMigrationService
      */
     public function getMigrationStatus($tenant): array
     {
+        return $this->withTenantContext($tenant, function () {
+            try {
+                Artisan::call('migrate:status', [
+                    '--path' => 'database/migrations/tenant'
+                ]);
+
+                return [
+                    'success' => true,
+                    'output' => Artisan::output()
+                ];
+
+            } catch (\Exception $e) {
+                return [
+                    'success' => false,
+                    'error' => $e->getMessage()
+                ];
+            }
+        });
+    }
+
+    /**
+     * Run a callback without dropping the caller's tenant context.
+     */
+    private function withTenantContext($tenant, callable $callback): mixed
+    {
+        if (tenancy()->initialized && tenant()?->getTenantKey() === $tenant->getTenantKey()) {
+            return $callback();
+        }
+
+        $previousTenant = tenancy()->initialized ? tenant() : null;
+
+        tenancy()->initialize($tenant);
+
         try {
-            tenancy()->initialize($tenant);
-            
-            Artisan::call('migrate:status', [
-                '--path' => 'database/migrations/tenant'
-            ]);
-            
-            return [
-                'success' => true,
-                'output' => Artisan::output()
-            ];
-            
-        } catch (\Exception $e) {
-            return [
-                'success' => false,
-                'error' => $e->getMessage()
-            ];
+            return $callback();
         } finally {
-            tenancy()->end();
+            if ($previousTenant) {
+                tenancy()->initialize($previousTenant);
+            } else {
+                tenancy()->end();
+            }
         }
     }
 }

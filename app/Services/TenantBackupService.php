@@ -2,10 +2,9 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 use ZipArchive;
 
 class TenantBackupService
@@ -83,31 +82,19 @@ class TenantBackupService
      */
     private function backupDatabase($tenant, string $backupDir): string
     {
-        $dbName = $tenant->tenancy_db_name;
+        $connection = $this->getTenantDatabaseConnection($tenant);
+        $driver = $connection['driver'] ?? null;
+        $dbName = $connection['database'] ?? $tenant->database()->getName();
         $filename = "database_{$dbName}.sql";
         $filepath = "{$backupDir}/{$filename}";
-        
-        $host = config('tenancy.database.host', '127.0.0.1');
-        $username = config('tenancy.database.username', 'root');
-        $password = config('tenancy.database.password', '');
-        
-        // Use mysqldump
-        $command = sprintf(
-            'mysqldump --host=%s --user=%s %s %s > %s 2>&1',
-            escapeshellarg($host),
-            escapeshellarg($username),
-            $password ? '--password=' . escapeshellarg($password) : '',
-            escapeshellarg($dbName),
-            escapeshellarg($filepath)
-        );
-        
-        exec($command, $output, $returnVar);
-        
-        if ($returnVar !== 0) {
-            throw new \Exception("Database backup failed: " . implode("\n", $output));
-        }
-        
-        return $filepath;
+
+        return match ($driver) {
+            'mysql', 'mariadb' => $this->backupMySqlDatabase($connection, $dbName, $filepath),
+            'sqlite' => $this->backupSqliteDatabase($connection, $filepath),
+            default => throw new RuntimeException(
+                "Database backup failed: Unsupported database driver [{$driver}]."
+            ),
+        };
     }
 
     /**
@@ -115,15 +102,15 @@ class TenantBackupService
      */
     private function backupFiles($tenant, string $backupDir): ?string
     {
-        $tenantStoragePath = storage_path("app/public/tenant_{$tenant->id}");
-        
+        $tenantStoragePath = $this->resolveTenantPublicStoragePath($tenant);
+
         if (!File::exists($tenantStoragePath)) {
             return null;
         }
-        
+
         $filesBackupPath = "{$backupDir}/files";
         File::copyDirectory($tenantStoragePath, $filesBackupPath);
-        
+
         return $filesBackupPath;
     }
 
@@ -217,25 +204,17 @@ class TenantBackupService
      */
     private function restoreDatabase($tenant, string $sqlFile): void
     {
-        $dbName = $tenant->tenancy_db_name;
-        $host = config('tenancy.database.host', '127.0.0.1');
-        $username = config('tenancy.database.username', 'root');
-        $password = config('tenancy.database.password', '');
-        
-        $command = sprintf(
-            'mysql --host=%s --user=%s %s %s < %s 2>&1',
-            escapeshellarg($host),
-            escapeshellarg($username),
-            $password ? '--password=' . escapeshellarg($password) : '',
-            escapeshellarg($dbName),
-            escapeshellarg($sqlFile)
-        );
-        
-        exec($command, $output, $returnVar);
-        
-        if ($returnVar !== 0) {
-            throw new \Exception("Database restore failed: " . implode("\n", $output));
-        }
+        $connection = $this->getTenantDatabaseConnection($tenant);
+        $driver = $connection['driver'] ?? null;
+        $dbName = $connection['database'] ?? $tenant->database()->getName();
+
+        match ($driver) {
+            'mysql', 'mariadb' => $this->restoreMySqlDatabase($connection, $dbName, $sqlFile),
+            'sqlite' => $this->restoreSqliteDatabase($connection, $sqlFile),
+            default => throw new RuntimeException(
+                "Database restore failed: Unsupported database driver [{$driver}]."
+            ),
+        };
     }
 
     /**
@@ -243,12 +222,12 @@ class TenantBackupService
      */
     private function restoreFiles($tenant, string $filesPath): void
     {
-        $tenantStoragePath = storage_path("app/public/tenant_{$tenant->id}");
-        
+        $tenantStoragePath = $this->resolveTenantPublicStoragePath($tenant);
+
         if (File::exists($tenantStoragePath)) {
             File::deleteDirectory($tenantStoragePath);
         }
-        
+
         File::copyDirectory($filesPath, $tenantStoragePath);
     }
 
@@ -297,5 +276,219 @@ class TenantBackupService
             ->sortByDesc('created_at')
             ->values()
             ->toArray();
+    }
+
+    /**
+     * Get the resolved tenant database connection config.
+     */
+    private function getTenantDatabaseConnection($tenant): array
+    {
+        return $tenant->database()->connection();
+    }
+
+    /**
+     * Backup a MySQL/MariaDB tenant database.
+     */
+    private function backupMySqlDatabase(array $connection, string $dbName, string $filepath): string
+    {
+        $command = $this->buildMySqlCommand('mysqldump', $connection, $dbName, [
+            '--single-transaction',
+            '--skip-lock-tables',
+            '--default-character-set=' . ($connection['charset'] ?? 'utf8mb4'),
+        ]);
+
+        $result = $this->runProcess($command, $filepath);
+
+        if ($result['exit_code'] !== 0) {
+            File::delete($filepath);
+
+            throw new RuntimeException($this->formatDatabaseProcessError(
+                'Database backup failed',
+                $result
+            ));
+        }
+
+        return $filepath;
+    }
+
+    /**
+     * Restore a MySQL/MariaDB tenant database.
+     */
+    private function restoreMySqlDatabase(array $connection, string $dbName, string $sqlFile): void
+    {
+        $command = $this->buildMySqlCommand('mysql', $connection, $dbName);
+        $result = $this->runProcess($command, null, $sqlFile);
+
+        if ($result['exit_code'] !== 0) {
+            throw new RuntimeException($this->formatDatabaseProcessError(
+                'Database restore failed',
+                $result
+            ));
+        }
+    }
+
+    /**
+     * Backup a SQLite tenant database by copying the database file.
+     */
+    private function backupSqliteDatabase(array $connection, string $filepath): string
+    {
+        $databasePath = $connection['database'] ?? null;
+
+        if (!$databasePath || $databasePath === ':memory:' || !File::exists($databasePath)) {
+            throw new RuntimeException('Database backup failed: SQLite database file could not be found.');
+        }
+
+        File::copy($databasePath, $filepath);
+
+        return $filepath;
+    }
+
+    /**
+     * Restore a SQLite tenant database by replacing the database file.
+     */
+    private function restoreSqliteDatabase(array $connection, string $sqlFile): void
+    {
+        $databasePath = $connection['database'] ?? null;
+
+        if (!$databasePath || $databasePath === ':memory:') {
+            throw new RuntimeException('Database restore failed: SQLite database file could not be resolved.');
+        }
+
+        File::ensureDirectoryExists(dirname($databasePath));
+        File::copy($sqlFile, $databasePath);
+    }
+
+    /**
+     * Build a MySQL client command from the tenant connection config.
+     */
+    private function buildMySqlCommand(
+        string $binary,
+        array $connection,
+        string $dbName,
+        array $extraArguments = []
+    ): array {
+        $command = [
+            $this->resolveDatabaseBinary($binary),
+            '--host=' . ($connection['host'] ?? '127.0.0.1'),
+            '--user=' . ($connection['username'] ?? 'root'),
+        ];
+
+        if (!empty($connection['port'])) {
+            $command[] = '--port=' . $connection['port'];
+        }
+
+        if (!empty($connection['unix_socket'])) {
+            $command[] = '--socket=' . $connection['unix_socket'];
+        }
+
+        if (($connection['password'] ?? '') !== '') {
+            $command[] = '--password=' . $connection['password'];
+        }
+
+        return [...$command, ...$extraArguments, $dbName];
+    }
+
+    /**
+     * Resolve a database client binary path, including common Windows/XAMPP locations.
+     */
+    private function resolveDatabaseBinary(string $binary): string
+    {
+        $envKey = strtoupper($binary) . '_PATH';
+        $windowsBinary = "{$binary}.exe";
+        $xamppRoot = dirname(dirname(base_path()));
+
+        $candidates = array_filter([
+            env($envKey),
+            PHP_OS_FAMILY === 'Windows' ? $xamppRoot . DIRECTORY_SEPARATOR . 'mysql' . DIRECTORY_SEPARATOR . 'bin' . DIRECTORY_SEPARATOR . $windowsBinary : null,
+            PHP_OS_FAMILY === 'Windows' ? 'C:\\xampp\\mysql\\bin\\' . $windowsBinary : null,
+        ]);
+
+        foreach ($candidates as $candidate) {
+            if (File::exists($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return PHP_OS_FAMILY === 'Windows' ? $windowsBinary : $binary;
+    }
+
+    /**
+     * Run a database client process while capturing stderr.
+     */
+    private function runProcess(array $command, ?string $stdoutFile = null, ?string $stdinFile = null): array
+    {
+        $descriptorSpec = [
+            0 => $stdinFile ? ['file', $stdinFile, 'r'] : ['pipe', 'r'],
+            1 => $stdoutFile ? ['file', $stdoutFile, 'w'] : ['pipe', 'w'],
+            2 => ['pipe', 'w'],
+        ];
+
+        $pipes = [];
+        $process = @proc_open($command, $descriptorSpec, $pipes, base_path());
+
+        if (!is_resource($process)) {
+            $binary = $command[0] ?? 'database client';
+
+            throw new RuntimeException(
+                "Failed to start {$binary}. Set " . strtoupper(pathinfo($binary, PATHINFO_FILENAME)) . '_PATH if it is installed outside PATH.'
+            );
+        }
+
+        if (!$stdinFile && isset($pipes[0])) {
+            fclose($pipes[0]);
+        }
+
+        $stdout = '';
+        if (!$stdoutFile && isset($pipes[1])) {
+            $stdout = stream_get_contents($pipes[1]) ?: '';
+            fclose($pipes[1]);
+        }
+
+        $stderr = isset($pipes[2]) ? stream_get_contents($pipes[2]) ?: '' : '';
+        if (isset($pipes[2])) {
+            fclose($pipes[2]);
+        }
+
+        $exitCode = proc_close($process);
+
+        return [
+            'exit_code' => $exitCode,
+            'stdout' => trim($stdout),
+            'stderr' => trim($stderr),
+        ];
+    }
+
+    /**
+     * Build a readable database client error message.
+     */
+    private function formatDatabaseProcessError(string $prefix, array $result): string
+    {
+        $details = $result['stderr'] ?: $result['stdout'] ?: "Command exited with code {$result['exit_code']}.";
+
+        return "{$prefix}: {$details}";
+    }
+
+    /**
+     * Resolve the tenant-scoped public storage path.
+     */
+    private function resolveTenantPublicStoragePath($tenant): string
+    {
+        if (tenancy()->initialized && tenant()?->getTenantKey() === $tenant->getTenantKey()) {
+            return storage_path('app/public');
+        }
+
+        $previousTenant = tenancy()->initialized ? tenant() : null;
+
+        tenancy()->initialize($tenant);
+
+        try {
+            return storage_path('app/public');
+        } finally {
+            if ($previousTenant) {
+                tenancy()->initialize($previousTenant);
+            } else {
+                tenancy()->end();
+            }
+        }
     }
 }

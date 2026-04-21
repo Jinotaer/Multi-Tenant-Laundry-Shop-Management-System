@@ -231,9 +231,8 @@ class GitHubReleaseService
      */
     public function isNewerVersion(string $version1, string $version2): bool
     {
-        // Remove 'v' prefix if present
-        $v1 = ltrim($version1, 'v');
-        $v2 = ltrim($version2, 'v');
+        $v1 = $this->normalizeVersion($version1);
+        $v2 = $this->normalizeVersion($version2);
 
         return version_compare($v1, $v2, '>');
     }
@@ -244,6 +243,7 @@ class GitHubReleaseService
     public function canRollbackTo(AppRelease $release, Tenant $tenant): array
     {
         $errors = [];
+        $warnings = [];
 
         // Check if release is too old (more than 90 days)
         if ($release->published_at->lt(now()->subDays(90))) {
@@ -256,15 +256,15 @@ class GitHubReleaseService
             ->exists();
 
         if (! $hasUsedVersion) {
-            $errors[] = 'You have never used this version before. Rolling back to an unused version is not recommended.';
+            $warnings[] = 'You have never used this version before. Review your backup before proceeding.';
         }
 
         // Get current version
         $currentUpdate = $tenant->updates()->where('is_current', true)->with('release')->first();
 
         if ($currentUpdate) {
-            $currentVersion = ltrim($currentUpdate->release->version_tag, 'v');
-            $targetVersion = ltrim($release->version_tag, 'v');
+            $currentVersion = $this->normalizeVersion($currentUpdate->release->version_tag);
+            $targetVersion = $this->normalizeVersion($release->version_tag);
 
             // Check if trying to rollback to a newer version
             if (version_compare($targetVersion, $currentVersion, '>=')) {
@@ -283,7 +283,17 @@ class GitHubReleaseService
         return [
             'can_rollback' => empty($errors),
             'errors' => $errors,
-            'warnings' => empty($errors) ? ['Please ensure you have a recent backup before proceeding.'] : [],
+            'warnings' => empty($errors)
+                ? array_values(array_unique([...$warnings, 'Please ensure you have a recent backup before proceeding.']))
+                : [],
         ];
+    }
+
+    /**
+     * Normalize a semantic version tag for comparisons.
+     */
+    public function normalizeVersion(string $version): string
+    {
+        return preg_replace('/^v/i', '', trim($version));
     }
 }

@@ -4,21 +4,22 @@
 
     $layoutSettingsService = app(\App\Services\LayoutSettingsService::class);
     $currentUser = Auth::user();
-    $brandingEnabled = tenant()->hasFeature('custom_branding');
+    $currentTenant = tenant();
+    $brandingEnabled = $currentTenant?->hasFeature('custom_branding') ?? false;
     $canManageTenantLogo = $brandingEnabled && $currentUser !== null && (! method_exists($currentUser, 'isCustomer') || ! $currentUser->isCustomer());
     $theme = app(\App\Services\ThemeService::class)->getTenantTheme();
     $themePresets = app(\App\Services\ThemeService::class)->getAllPresets();
-    $resolvedLayout = $layoutSettingsService->resolve(tenant(), $currentUser);
-    $shopName = tenant('data')['shop_name'] ?? tenant()->registration?->shop_name ?? tenant('id') ?? config('app.name', 'LaundryTrack');
+    $resolvedLayout = $layoutSettingsService->resolve($currentTenant, $currentUser);
+    $shopName = tenant('data')['shop_name'] ?? $currentTenant?->registration?->shop_name ?? tenant('id') ?? config('app.name', 'LaundryTrack');
     $showSupportShortcut = $currentUser !== null
         && method_exists($currentUser, 'isOwner')
         && $currentUser->isOwner()
-        && tenant()->hasFeature('priority_support');
+        && $currentTenant?->hasFeature('priority_support');
     $saveRoute = route('tenant.settings.layout.save');
     $resetRoute = route('tenant.settings.layout.reset');
     $csrfToken = csrf_token();
-    $logoUrl = $brandingEnabled && tenant()->logo_path && Storage::disk('public')->exists(tenant()->logo_path)
-        ? route('stancl.tenancy.asset', ['path' => tenant()->logo_path], false)
+    $logoUrl = $brandingEnabled && $currentTenant?->logo_path && Storage::disk('public')->exists($currentTenant->logo_path)
+        ? route('stancl.tenancy.asset', ['path' => $currentTenant->logo_path], false)
         : null;
     $isSidebarTop = $resolvedLayout['sidebar_position'] === 'top';
     $isSidebarRight = $resolvedLayout['sidebar_position'] === 'right';
@@ -707,7 +708,7 @@
                     </a>
 
                     @auth
-                        @if ($currentUser->isCustomer() && tenant()->hasFeature('customer_portal'))
+                        @if ($currentUser->isCustomer() && $currentTenant?->hasFeature('customer_portal'))
                             <a href="{{ route('tenant.portal.index') }}" title="My Orders" class="flex items-center px-3 py-2 text-sm font-medium rounded-md {{ $navAlignmentClass }} {{ request()->routeIs('tenant.portal*') ? $activeNavClass : $inactiveNavClass }}">
                                 <svg class="{{ $iconSpacingClass }}" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
                                 <span class="{{ $navLabelVisibilityClass }}">My Orders</span>
@@ -743,9 +744,9 @@
 
                         @php
                             $canManageServices = $currentUser->isOwner() || $currentUser->hasAnyPermission(['services.view', 'services.create', 'services.update', 'services.delete']);
-                            $canManageExpenses = tenant()->hasFeature('expense_tracking') && ($currentUser->isOwner() || $currentUser->hasAnyPermission(['expenses.view', 'expenses.create', 'expenses.update', 'expenses.delete']));
-                            $canViewReports = tenant()->hasFeature('reports') && ($currentUser->isOwner() || $currentUser->hasAnyPermission(['reports.view', 'reports.export']));
-                            $canViewAnalytics = tenant()->hasFeature('analytics_dashboard') && ($currentUser->isOwner() || $currentUser->hasPermission('analytics.view'));
+                            $canManageExpenses = $currentTenant?->hasFeature('expense_tracking') && ($currentUser->isOwner() || $currentUser->hasAnyPermission(['expenses.view', 'expenses.create', 'expenses.update', 'expenses.delete']));
+                            $canViewReports = $currentTenant?->hasFeature('reports') && ($currentUser->isOwner() || $currentUser->hasAnyPermission(['reports.view', 'reports.export']));
+                            $canViewAnalytics = $currentTenant?->hasFeature('analytics_dashboard') && ($currentUser->isOwner() || $currentUser->hasPermission('analytics.view'));
                             $canManageSubscription = $currentUser->isOwner() || $currentUser->hasPermission('subscription.manage');
                             $canViewBilling = $currentUser->isOwner() || $currentUser->hasPermission('billing.view');
                             $canViewManagementSection = $canManageServices || $canManageExpenses || $canViewReports || $canViewAnalytics || $canManageSubscription || $canViewBilling;

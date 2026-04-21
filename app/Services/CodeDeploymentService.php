@@ -11,12 +11,10 @@ use ZipArchive;
 class CodeDeploymentService
 {
     private string $tempPath;
-    private string $deployPath;
 
     public function __construct()
     {
         $this->tempPath = storage_path('app/deployments/temp');
-        $this->deployPath = base_path();
         
         if (!File::exists($this->tempPath)) {
             File::makeDirectory($this->tempPath, 0755, true);
@@ -30,6 +28,7 @@ class CodeDeploymentService
     {
         $repo = config('services.github.repo');
         $token = config('services.github.token');
+        $backupPath = null;
         
         if (!$repo) {
             return ['success' => false, 'error' => 'GitHub repository not configured'];
@@ -60,7 +59,7 @@ class CodeDeploymentService
             return [
                 'success' => true,
                 'version' => $versionTag,
-                'backup_path' => $backupPath
+                'backup_path' => $backupPath,
             ];
             
         } catch (\Exception $e) {
@@ -71,7 +70,8 @@ class CodeDeploymentService
             
             return [
                 'success' => false,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'backup_path' => $backupPath,
             ];
         }
     }
@@ -137,8 +137,8 @@ class CodeDeploymentService
         
         File::makeDirectory($backupPath, 0755, true);
         
-        // Backup critical directories
-        $criticalDirs = ['app', 'config', 'database', 'routes', 'resources'];
+        // Backup directories that are replaced during deployment
+        $criticalDirs = $this->deploymentDirectories();
         
         foreach ($criticalDirs as $dir) {
             $source = base_path($dir);
@@ -149,9 +149,15 @@ class CodeDeploymentService
             }
         }
         
-        // Backup composer files
-        File::copy(base_path('composer.json'), "{$backupPath}/composer.json");
-        File::copy(base_path('composer.lock'), "{$backupPath}/composer.lock");
+        // Backup root-level files that affect dependencies and builds
+        foreach ($this->deploymentFiles() as $file) {
+            $source = base_path($file);
+            $destination = "{$backupPath}/{$file}";
+
+            if (File::exists($source)) {
+                File::copy($source, $destination);
+            }
+        }
         
         return $backupPath;
     }
@@ -162,7 +168,7 @@ class CodeDeploymentService
     private function deployCode(string $sourcePath): void
     {
         // Directories to deploy
-        $deployDirs = ['app', 'config', 'database', 'routes', 'resources', 'public'];
+        $deployDirs = $this->deploymentDirectories();
         
         foreach ($deployDirs as $dir) {
             $source = "{$sourcePath}/{$dir}";
@@ -181,13 +187,19 @@ class CodeDeploymentService
             File::copyDirectory($source, $destination);
         }
         
-        // Update composer files
-        if (File::exists("{$sourcePath}/composer.json")) {
-            File::copy("{$sourcePath}/composer.json", base_path('composer.json'));
-        }
-        
-        if (File::exists("{$sourcePath}/composer.lock")) {
-            File::copy("{$sourcePath}/composer.lock", base_path('composer.lock'));
+        // Sync root-level files
+        foreach ($this->deploymentFiles() as $file) {
+            $source = "{$sourcePath}/{$file}";
+            $destination = base_path($file);
+
+            if (File::exists($source)) {
+                File::copy($source, $destination);
+                continue;
+            }
+
+            if (File::exists($destination)) {
+                File::delete($destination);
+            }
         }
     }
 
@@ -231,7 +243,7 @@ class CodeDeploymentService
     {
         try {
             // Restore from backup
-            $deployDirs = ['app', 'config', 'database', 'routes', 'resources'];
+            $deployDirs = $this->deploymentDirectories();
             
             foreach ($deployDirs as $dir) {
                 $source = "{$backupPath}/{$dir}";
@@ -248,9 +260,20 @@ class CodeDeploymentService
                 File::copyDirectory($source, $destination);
             }
             
-            // Restore composer files
-            File::copy("{$backupPath}/composer.json", base_path('composer.json'));
-            File::copy("{$backupPath}/composer.lock", base_path('composer.lock'));
+            // Restore root-level files
+            foreach ($this->deploymentFiles() as $file) {
+                $source = "{$backupPath}/{$file}";
+                $destination = base_path($file);
+
+                if (File::exists($source)) {
+                    File::copy($source, $destination);
+                    continue;
+                }
+
+                if (File::exists($destination)) {
+                    File::delete($destination);
+                }
+            }
             
             // Run post-deployment tasks
             $this->runPostDeploymentTasks();
@@ -305,6 +328,34 @@ class CodeDeploymentService
         return [
             'can_deploy' => $allPassed,
             'checks' => $checks
+        ];
+    }
+
+    /**
+     * Directories managed by code deployment.
+     *
+     * @return array<int, string>
+     */
+    private function deploymentDirectories(): array
+    {
+        return ['app', 'config', 'database', 'routes', 'resources', 'public'];
+    }
+
+    /**
+     * Root-level files managed by code deployment.
+     *
+     * @return array<int, string>
+     */
+    private function deploymentFiles(): array
+    {
+        return [
+            'composer.json',
+            'composer.lock',
+            'package.json',
+            'package-lock.json',
+            'vite.config.js',
+            'postcss.config.js',
+            'tailwind.config.js',
         ];
     }
 }

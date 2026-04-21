@@ -5,8 +5,12 @@ use App\Models\Permission;
 use App\Models\Role;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Services\CodeDeploymentService;
+use App\Services\TenantBackupService;
+use App\Services\TenantMigrationService;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Mockery\MockInterface;
 
 beforeEach(function (): void {
     $tenantKey = 'tenantrbac'.Str::lower(Str::random(8));
@@ -84,6 +88,199 @@ test('owner can access update center', function (): void {
     $this->get(($this->tenantUrl)('/updates'))
         ->assertOk()
         ->assertSee('Update Center');
+});
+
+test('owner sees rollback action for a previously used version', function (): void {
+    $previousRelease = AppRelease::create([
+        'version_tag' => 'v1.0.0',
+        'name' => 'Stable release',
+        'body' => 'Rollback candidate.',
+        'published_at' => now()->subDays(7),
+    ]);
+
+    $currentRelease = AppRelease::create([
+        'version_tag' => 'v1.0.1',
+        'name' => 'Current release',
+        'body' => 'Active version.',
+        'published_at' => now()->subDay(),
+    ]);
+
+    $this->tenant->updates()->create([
+        'app_release_id' => $previousRelease->id,
+        'status' => 'updated',
+        'is_current' => false,
+        'action_taken_at' => now()->subDays(6),
+    ]);
+
+    $this->tenant->updates()->create([
+        'app_release_id' => $currentRelease->id,
+        'status' => 'updated',
+        'is_current' => true,
+        'action_taken_at' => now()->subDay(),
+    ]);
+
+    $this->post(($this->tenantUrl)('/login'), [
+        'email' => 'owner@tenant-rbac.test',
+        'password' => 'password',
+    ])->assertRedirect(route('tenant.dashboard', absolute: false));
+
+    $this->get(($this->tenantUrl)('/updates'))
+        ->assertOk()
+        ->assertSee('Rollback')
+        ->assertSee("/updates/{$previousRelease->id}/rollback", false);
+});
+
+test('update center keeps premium feature navigation visible', function (): void {
+    $this->tenant->update([
+        'features' => ['expense_tracking', 'reports', 'analytics_dashboard'],
+    ]);
+
+    $release = AppRelease::create([
+        'version_tag' => 'v1.0.4',
+        'name' => 'Current release',
+        'body' => 'Current version.',
+        'published_at' => now()->subDay(),
+    ]);
+
+    $this->tenant->updates()->create([
+        'app_release_id' => $release->id,
+        'status' => 'updated',
+        'is_current' => true,
+        'action_taken_at' => now()->subDay(),
+    ]);
+
+    $this->post(($this->tenantUrl)('/login'), [
+        'email' => 'owner@tenant-rbac.test',
+        'password' => 'password',
+    ])->assertRedirect(route('tenant.dashboard', absolute: false));
+
+    $this->get(($this->tenantUrl)('/updates'))
+        ->assertOk()
+        ->assertSee('Expenses')
+        ->assertSee('Reports')
+        ->assertSee('Analytics');
+});
+
+test('owner sees rollback options for older releases even without prior tenant history', function (): void {
+    $olderRelease = AppRelease::create([
+        'version_tag' => 'v1.0.3',
+        'name' => 'Previous release',
+        'body' => 'Rollback target.',
+        'published_at' => now()->subDays(2),
+    ]);
+
+    $currentRelease = AppRelease::create([
+        'version_tag' => 'v1.0.4',
+        'name' => 'Current release',
+        'body' => 'Current version.',
+        'published_at' => now()->subDay(),
+    ]);
+
+    $this->tenant->updates()->create([
+        'app_release_id' => $currentRelease->id,
+        'status' => 'updated',
+        'is_current' => true,
+        'action_taken_at' => now()->subDay(),
+    ]);
+
+    $this->post(($this->tenantUrl)('/login'), [
+        'email' => 'owner@tenant-rbac.test',
+        'password' => 'password',
+    ])->assertRedirect(route('tenant.dashboard', absolute: false));
+
+    $this->get(($this->tenantUrl)('/updates'))
+        ->assertOk()
+        ->assertSee('Available Rollbacks')
+        ->assertSee($olderRelease->version_tag)
+        ->assertSee('Rollback')
+        ->assertSee('never used this version before', false);
+});
+
+test('rollback deploys code when automatic deployment is enabled', function (): void {
+    config()->set('updates.auto_deploy_code', true);
+
+    $previousRelease = AppRelease::create([
+        'version_tag' => 'v1.0.0',
+        'name' => 'Stable release',
+        'body' => 'Rollback candidate.',
+        'published_at' => now()->subDays(7),
+    ]);
+
+    $currentRelease = AppRelease::create([
+        'version_tag' => 'v1.0.1',
+        'name' => 'Current release',
+        'body' => 'Active version.',
+        'published_at' => now()->subDay(),
+    ]);
+
+    $this->tenant->updates()->create([
+        'app_release_id' => $previousRelease->id,
+        'status' => 'updated',
+        'is_current' => false,
+        'action_taken_at' => now()->subDays(6),
+    ]);
+
+    $this->tenant->updates()->create([
+        'app_release_id' => $currentRelease->id,
+        'status' => 'updated',
+        'is_current' => true,
+        'action_taken_at' => now()->subDay(),
+    ]);
+
+    $this->mock(TenantBackupService::class, function (MockInterface $mock): void {
+        $mock->shouldReceive('createBackup')
+            ->once()
+            ->andReturn([
+                'success' => true,
+                'backup_path' => storage_path('framework/testing/rollback-test.zip'),
+                'backup_name' => 'rollback-test',
+                'size' => 1024,
+            ]);
+
+        $mock->shouldNotReceive('restoreBackup');
+    });
+
+    $this->mock(CodeDeploymentService::class, function (MockInterface $mock) use ($previousRelease): void {
+        $mock->shouldReceive('deployFromGitHub')
+            ->once()
+            ->with($previousRelease->version_tag)
+            ->andReturn([
+                'success' => true,
+                'version' => $previousRelease->version_tag,
+                'backup_path' => storage_path('framework/testing/code-backup'),
+            ]);
+
+        $mock->shouldNotReceive('rollbackCode');
+    });
+
+    $this->mock(TenantMigrationService::class, function (MockInterface $mock) use ($currentRelease, $previousRelease): void {
+        $mock->shouldReceive('rollbackMigrationsForVersion')
+            ->once()
+            ->withArgs(function ($tenant, $fromVersion, $toVersion) use ($currentRelease, $previousRelease): bool {
+                return $tenant->id === $this->tenant->id
+                    && $fromVersion === $currentRelease->version_tag
+                    && $toVersion === $previousRelease->version_tag;
+            })
+            ->andReturn([
+                'success' => true,
+                'migrations_rolled_back' => 1,
+            ]);
+    });
+
+    $this->post(($this->tenantUrl)('/login'), [
+        'email' => 'owner@tenant-rbac.test',
+        'password' => 'password',
+    ])->assertRedirect(route('tenant.dashboard', absolute: false));
+
+    $this->from(($this->tenantUrl)('/updates'))
+        ->post(($this->tenantUrl)("/updates/{$previousRelease->id}/rollback"))
+        ->assertRedirect(($this->tenantUrl)('/updates'))
+        ->assertSessionHas('success');
+
+    $this->tenant->refresh();
+
+    expect($this->tenant->updates()->where('app_release_id', $previousRelease->id)->first()?->is_current)->toBeTrue();
+    expect($this->tenant->updates()->where('app_release_id', $currentRelease->id)->first()?->is_current)->toBeFalse();
 });
 
 test('owner can access analytics page when analytics feature is enabled', function (): void {

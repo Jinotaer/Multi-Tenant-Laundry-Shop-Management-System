@@ -103,6 +103,73 @@
             </div>
             @endif
 
+            @if($rollbackCandidates->isNotEmpty())
+            <div class="p-4 sm:p-8 bg-amber-50 dark:bg-amber-900/20 shadow sm:rounded-lg border border-amber-200 dark:border-amber-800">
+                <div class="flex items-center gap-2 mb-4">
+                    <svg class="h-5 w-5 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 14.25 4.5 9.75m0 0L9 5.25m-4.5 4.5H16.5A2.25 2.25 0 0 1 18.75 12v6.75" />
+                    </svg>
+                    <h3 class="text-lg font-medium text-amber-900 dark:text-amber-100">Available Rollbacks</h3>
+                </div>
+
+                <p class="text-sm text-amber-800 dark:text-amber-200 mb-4">
+                    Roll back to an older release if you need to undo a recent change. A fresh backup will be created first.
+                </p>
+
+                <div class="mt-4 space-y-4">
+                    @foreach($rollbackCandidates as $release)
+                    <div class="bg-white dark:bg-slate-900 p-4 rounded-lg border border-amber-100 dark:border-amber-800 shadow-sm">
+                        <div class="flex items-start justify-between gap-4">
+                            <div class="flex-1">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <h4 class="font-bold text-gray-900 dark:text-slate-100">{{ $release->version_tag }}</h4>
+                                    <span class="inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
+                                        Older release
+                                    </span>
+                                </div>
+                                <p class="text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">{{ $release->name }}</p>
+                                <p class="text-xs text-gray-500 dark:text-slate-400 mb-3">Published {{ $release->published_at->diffForHumans() }}</p>
+
+                                @if(!empty($release->rollback_warnings ?? []))
+                                    <div class="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200">
+                                        {{ implode(' ', $release->rollback_warnings) }}
+                                    </div>
+                                @endif
+
+                                @if(!empty($release->rollback_errors ?? []))
+                                    <div class="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
+                                        {{ implode(' ', $release->rollback_errors) }}
+                                    </div>
+                                @endif
+
+                                <div class="text-sm text-gray-700 dark:text-slate-300 prose prose-sm dark:prose-invert max-w-none">
+                                    {!! Str::markdown($release->body ?? 'No release notes available.') !!}
+                                </div>
+                            </div>
+                            <div class="flex-shrink-0">
+                                @if($release->can_rollback && $canApplyUpdates)
+                                    <form action="{{ route('tenant.updates.rollback', $release->id) }}" method="POST" onsubmit="return confirm('A backup will be created before rollback. Continue?');">
+                                        @csrf
+                                        <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 transition ease-in-out duration-150">
+                                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 14.25 4.5 9.75m0 0L9 5.25m-4.5 4.5H16.5A2.25 2.25 0 0 1 18.75 12v6.75" />
+                                            </svg>
+                                            Rollback
+                                        </button>
+                                    </form>
+                                @else
+                                    <button type="button" disabled class="inline-flex items-center gap-2 px-4 py-2 bg-gray-200 dark:bg-slate-700 border border-transparent rounded-md font-semibold text-xs text-gray-500 dark:text-slate-300 uppercase tracking-widest cursor-not-allowed">
+                                        Rollback unavailable
+                                    </button>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+                    @endforeach
+                </div>
+            </div>
+            @endif
+
             <div class="p-4 sm:p-8 bg-white dark:bg-slate-900 shadow sm:rounded-lg">
                 <h3 class="text-lg font-medium text-gray-900 dark:text-slate-100 mb-4">Version History</h3>
                 <p class="text-sm text-gray-600 dark:text-slate-400 mb-4">View your update history and current version status.</p>
@@ -122,6 +189,7 @@
                                     <th scope="col" class="px-6 py-3">Version</th>
                                     <th scope="col" class="px-6 py-3">Status</th>
                                     <th scope="col" class="px-6 py-3">Action Date</th>
+                                    <th scope="col" class="px-6 py-3 text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -138,6 +206,27 @@
                                     </td>
                                     <td class="px-6 py-4">
                                         {{ $history->action_taken_at ? $history->action_taken_at->format('M d, Y H:i') : 'N/A' }}
+                                    </td>
+                                    <td class="px-6 py-4 text-right">
+                                        @if($history->is_current)
+                                            <span class="text-xs text-gray-400 dark:text-slate-500">Current version</span>
+                                        @elseif(($history->can_rollback ?? false) && $canApplyUpdates)
+                                            <form action="{{ route('tenant.updates.rollback', $history->release->id) }}" method="POST" class="inline-flex" onsubmit="return confirm('A backup will be created before rollback. Continue?');">
+                                                @csrf
+                                                <button type="submit" class="inline-flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold uppercase tracking-widest text-amber-700 transition hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300 dark:hover:bg-amber-900/30">
+                                                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 14.25 4.5 9.75m0 0L9 5.25m-4.5 4.5H16.5A2.25 2.25 0 0 1 18.75 12v6.75" />
+                                                    </svg>
+                                                    Rollback
+                                                </button>
+                                            </form>
+                                        @elseif(!empty($history->rollback_errors ?? []))
+                                            <span class="text-xs text-gray-400 dark:text-slate-500" title="{{ implode(' ', $history->rollback_errors) }}">
+                                                {{ $history->rollback_errors[0] }}
+                                            </span>
+                                        @else
+                                            <span class="text-xs text-gray-400 dark:text-slate-500">No actions</span>
+                                        @endif
                                     </td>
                                 </tr>
                                 @endforeach
