@@ -13,17 +13,22 @@
         $canCreateExpenses = $currentUser !== null && ($currentUser->isOwner() || $currentUser->hasPermission('expenses.create'));
         $canUpdateExpenses = $currentUser !== null && ($currentUser->isOwner() || $currentUser->hasPermission('expenses.update'));
         $canDeleteExpenses = $currentUser !== null && ($currentUser->isOwner() || $currentUser->hasPermission('expenses.delete'));
+        $showExpenseCreateModal = ($errors->isNotEmpty() && old('form_context') === 'expense-create')
+            || request()->boolean('create');
     @endphp
 
     @if ($canCreateExpenses)
         <div class="flex justify-end p-4">
-            <a href="{{ route('tenant.expenses.create') }}"
+            <button
+                type="button"
+                x-data
+                x-on:click="$dispatch('open-modal', 'expense-create-modal')"
                 class="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest transition ease-in-out duration-150">
                 <svg class="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                 </svg>
                 Record Expense
-            </a>
+            </button>
         </div>
     @endif
     <!-- Summary Cards -->
@@ -84,10 +89,13 @@
                 <p class="mt-1 text-sm text-gray-500">Start tracking your operational expenses.</p>
                 @if ($canCreateExpenses)
                     <div class="mt-6">
-                        <a href="{{ route('tenant.expenses.create') }}"
+                        <button
+                            type="button"
+                            x-data
+                            x-on:click="$dispatch('open-modal', 'expense-create-modal')"
                             class="inline-flex items-center px-4 py-2 {{ $theme['primary_bg'] }} {{ $theme['primary_hover'] }} border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest transition ease-in-out duration-150">
                             Record First Expense
-                        </a>
+                        </button>
                     </div>
                 @endif
             </div>
@@ -153,4 +161,12 @@
             </div>
         @endif
     </div>
+
+    @if ($canCreateExpenses)
+        @include('tenant.expenses.partials.expense-create-modal', [
+            'categories' => $categories,
+            'theme' => $theme,
+            'showExpenseCreateModal' => $showExpenseCreateModal,
+        ])
+    @endif
 </x-tenant-layout>

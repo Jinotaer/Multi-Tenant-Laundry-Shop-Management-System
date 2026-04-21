@@ -39,11 +39,9 @@ class ExpenseController extends Controller
     /**
      * Show the form for creating a new expense.
      */
-    public function create(): View
+    public function create(): RedirectResponse
     {
-        $categories = Expense::categoryLabels();
-
-        return view('tenant.expenses.create', compact('categories'));
+        return redirect()->route('tenant.expenses.index', ['create' => 1]);
     }
 
     /**
