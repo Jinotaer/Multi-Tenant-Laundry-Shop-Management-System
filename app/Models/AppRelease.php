@@ -37,14 +37,23 @@ class AppRelease extends Model
     }
 
     /**
+     * Normalize a version tag by stripping the leading v/V prefix.
+     */
+    private function normalizeVersion(string $version): string
+    {
+        return preg_replace('/^v/i', '', trim($version));
+    }
+
+    /**
      * Check if this version is newer than another version.
      */
     public function isNewerThan(string $version): bool
     {
-        $thisVersion = ltrim($this->version_tag, 'v');
-        $compareVersion = ltrim($version, 'v');
-
-        return version_compare($thisVersion, $compareVersion, '>');
+        return version_compare(
+            $this->normalizeVersion($this->version_tag),
+            $this->normalizeVersion($version),
+            '>'
+        );
     }
 
     /**
@@ -52,10 +61,11 @@ class AppRelease extends Model
      */
     public function isOlderThan(string $version): bool
     {
-        $thisVersion = ltrim($this->version_tag, 'v');
-        $compareVersion = ltrim($version, 'v');
-
-        return version_compare($thisVersion, $compareVersion, '<');
+        return version_compare(
+            $this->normalizeVersion($this->version_tag),
+            $this->normalizeVersion($version),
+            '<'
+        );
     }
 
     /**
@@ -63,9 +73,7 @@ class AppRelease extends Model
      */
     public function getMajorVersion(): int
     {
-        $version = ltrim($this->version_tag, 'v');
-
-        return (int) explode('.', $version)[0];
+        return (int) explode('.', $this->normalizeVersion($this->version_tag))[0];
     }
 
     /**
@@ -73,8 +81,7 @@ class AppRelease extends Model
      */
     public function getMinorVersion(): int
     {
-        $version = ltrim($this->version_tag, 'v');
-        $parts = explode('.', $version);
+        $parts = explode('.', $this->normalizeVersion($this->version_tag));
 
         return isset($parts[1]) ? (int) $parts[1] : 0;
     }
@@ -84,8 +91,7 @@ class AppRelease extends Model
      */
     public function getPatchVersion(): int
     {
-        $version = ltrim($this->version_tag, 'v');
-        $parts = explode('.', $version);
+        $parts = explode('.', $this->normalizeVersion($this->version_tag));
 
         return isset($parts[2]) ? (int) $parts[2] : 0;
     }
@@ -99,8 +105,8 @@ class AppRelease extends Model
             return 'initial';
         }
 
-        $prevVersion = ltrim($previousVersion, 'v');
-        $currVersion = ltrim($this->version_tag, 'v');
+        $prevVersion = $this->normalizeVersion($previousVersion);
+        $currVersion = $this->normalizeVersion($this->version_tag);
 
         $prevParts = explode('.', $prevVersion);
         $currParts = explode('.', $currVersion);
