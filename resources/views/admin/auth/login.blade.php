@@ -1,4 +1,4 @@
-<x-admin-guest-layout>
+<x-admin-guest-layout :show-color-mode-toggle="false">
     <div class="mb-6 text-center">
         <div class="tenant-auth-icon mx-auto mb-4">
             <svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
