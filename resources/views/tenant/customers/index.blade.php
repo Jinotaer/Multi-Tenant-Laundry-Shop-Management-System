@@ -9,6 +9,11 @@
         $theme = tenant()->getThemePreset();
         $showCustomerCreateModal = ($errors->isNotEmpty() && old('form_context') === 'customer-create')
             || request()->boolean('create');
+        $showCustomerEditModalId = null;
+
+        if ($errors->isNotEmpty() && str_starts_with((string) old('form_context'), 'customer-edit-')) {
+            $showCustomerEditModalId = (int) str_replace('customer-edit-', '', (string) old('form_context'));
+        }
     @endphp
 
     <div class="space-y-4">
@@ -112,7 +117,14 @@
                                     <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-400">{{ $customer->created_at->format('M d, Y') }}</td>
                                     <td class="space-x-2 whitespace-nowrap px-6 py-4 text-right text-sm font-medium">
                                         @if ($canUpdateCustomer)
-                                            <a href="{{ route('tenant.customers.edit', $customer) }}" class="text-indigo-600 hover:text-indigo-900">Edit</a>
+                                            <button
+                                                type="button"
+                                                x-data
+                                                x-on:click="$dispatch('open-modal', 'customer-edit-modal-{{ $customer->id }}')"
+                                                class="text-indigo-600 hover:text-indigo-900"
+                                            >
+                                                Edit
+                                            </button>
                                         @endif
                                         @if ($canDeleteCustomer)
                                             <form method="POST" action="{{ route('tenant.customers.destroy', $customer) }}" class="inline" onsubmit="return confirm('Delete this customer? Their orders will also be removed.')">
@@ -142,5 +154,15 @@
             'theme' => $theme,
             'showCustomerCreateModal' => $showCustomerCreateModal,
         ])
+    @endif
+
+    @if ($canUpdateCustomer)
+        @foreach ($customers as $customer)
+            @include('tenant.customers.partials.customer-edit-modal', [
+                'theme' => $theme,
+                'customer' => $customer,
+                'showCustomerEditModal' => $showCustomerEditModalId === $customer->id,
+            ])
+        @endforeach
     @endif
 </x-tenant-layout>

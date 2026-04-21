@@ -86,7 +86,7 @@
                                 </div>
                             </div>
                             <div class="flex-shrink-0">
-                                <form action="{{ route('tenant.updates.apply', $release->id) }}" method="POST" onsubmit="return confirm('A backup will be created before updating. Continue?');">
+                                <form action="{{ route('tenant.updates.apply', $release->id) }}" method="POST" class="js-update-action" data-action-label="Updating to {{ $release->version_tag }}" onsubmit="return confirm('A backup will be created before updating. Continue?');">
                                     @csrf
                                     <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition ease-in-out duration-150">
                                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -148,9 +148,9 @@
                             </div>
                             <div class="flex-shrink-0">
                                 @if($release->can_rollback && $canApplyUpdates)
-                                    <form action="{{ route('tenant.updates.rollback', $release->id) }}" method="POST" onsubmit="return confirm('A backup will be created before rollback. Continue?');">
+                                    <form action="{{ route('tenant.updates.rollback', $release->id) }}" method="POST" class="js-update-action" data-action-label="Rolling back to {{ $release->version_tag }}" onsubmit="return confirm('A backup will be created before rollback. Continue?');">
                                         @csrf
-                                        <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 transition ease-in-out duration-150">
+                                        <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition ease-in-out duration-150">
                                             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 14.25 4.5 9.75m0 0L9 5.25m-4.5 4.5H16.5A2.25 2.25 0 0 1 18.75 12v6.75" />
                                             </svg>
@@ -211,9 +211,9 @@
                                         @if($history->is_current)
                                             <span class="text-xs text-gray-400 dark:text-slate-500">Current version</span>
                                         @elseif(($history->can_rollback ?? false) && $canApplyUpdates)
-                                            <form action="{{ route('tenant.updates.rollback', $history->release->id) }}" method="POST" class="inline-flex" onsubmit="return confirm('A backup will be created before rollback. Continue?');">
+                                            <form action="{{ route('tenant.updates.rollback', $history->release->id) }}" method="POST" class="inline-flex js-update-action" data-action-label="Rolling back to {{ $history->release->version_tag }}" onsubmit="return confirm('A backup will be created before rollback. Continue?');">
                                                 @csrf
-                                                <button type="submit" class="inline-flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold uppercase tracking-widest text-amber-700 transition hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300 dark:hover:bg-amber-900/30">
+                                                <button type="submit" class="inline-flex items-center gap-2 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs font-semibold uppercase tracking-widest text-red-700 transition hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-900/30">
                                                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 14.25 4.5 9.75m0 0L9 5.25m-4.5 4.5H16.5A2.25 2.25 0 0 1 18.75 12v6.75" />
                                                     </svg>
@@ -238,4 +238,50 @@
 
         </div>
     </div>
+
+    <div id="update-progress" class="fixed right-4 top-4 z-[90] hidden w-80 rounded-lg border border-blue-200 bg-white p-4 shadow-lg dark:border-blue-800 dark:bg-slate-900" role="status" aria-live="polite" aria-atomic="true">
+        <div class="flex items-start justify-between gap-3">
+            <div>
+                <p id="update-progress-title" class="text-sm font-semibold text-blue-700 dark:text-blue-300">Processing update</p>
+                <p id="update-progress-message" class="mt-1 text-xs text-gray-600 dark:text-slate-300">Preparing backup and applying changes...</p>
+            </div>
+            <svg class="h-4 w-4 animate-spin text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+            </svg>
+        </div>
+        <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-blue-100 dark:bg-blue-900/40">
+            <div class="h-full w-1/3 animate-pulse rounded-full bg-blue-600 dark:bg-blue-400"></div>
+        </div>
+    </div>
+
+    <script>
+        (() => {
+            const forms = document.querySelectorAll('.js-update-action');
+            const panel = document.getElementById('update-progress');
+            const title = document.getElementById('update-progress-title');
+            const message = document.getElementById('update-progress-message');
+
+            if (!forms.length || !panel || !title || !message) {
+                return;
+            }
+
+            forms.forEach((form) => {
+                form.addEventListener('submit', () => {
+                    const label = form.dataset.actionLabel || 'Processing update';
+                    title.textContent = label;
+                    message.textContent = 'This may take a minute. Please keep this page open.';
+                    panel.classList.remove('hidden');
+
+                    const submitButton = form.querySelector('button[type="submit"]');
+                    if (submitButton) {
+                        submitButton.disabled = true;
+                        submitButton.classList.add('opacity-70', 'cursor-wait');
+                        submitButton.dataset.originalText = submitButton.textContent.trim();
+                        submitButton.textContent = 'Processing...';
+                    }
+                });
+            });
+        })();
+    </script>
 </x-tenant-layout>

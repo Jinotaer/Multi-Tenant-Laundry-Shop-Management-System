@@ -91,6 +91,12 @@ class TenantMigrationService
             ->sort()
             ->values()
             ->toArray();
+
+        // When versions are identical, this is a "run pending" operation,
+        // so include all tenant migration files.
+        if (ltrim($fromVersion, 'v') === ltrim($toVersion, 'v')) {
+            return $allMigrations;
+        }
         
         // Get version-specific migrations
         $versionMigrations = $this->filterMigrationsByVersion($allMigrations, $fromVersion, $toVersion);
@@ -103,10 +109,6 @@ class TenantMigrationService
      */
     private function filterMigrationsByVersion(array $migrations, string $fromVersion, string $toVersion): array
     {
-        // For now, return all pending migrations
-        // You can implement version-specific filtering based on migration naming convention
-        // Example: 2024_01_01_000000_v2_0_0_add_new_feature.php
-        
         return array_filter($migrations, function($migration) use ($fromVersion, $toVersion) {
             // Extract version from migration filename if present
             if (preg_match('/v(\d+)_(\d+)_(\d+)/', $migration, $matches)) {
@@ -114,8 +116,9 @@ class TenantMigrationService
                 return $this->isVersionBetween($migrationVersion, $fromVersion, $toVersion);
             }
             
-            // If no version tag, include all pending migrations
-            return true;
+            // Ignore untagged migrations for cross-version updates/rollbacks to avoid
+            // touching foundational schema migrations unrelated to the target version delta.
+            return false;
         });
     }
 
@@ -147,9 +150,9 @@ class TenantMigrationService
             return;
         }
         
-        // Run the migration
+        // Run only the targeted migration file.
         Artisan::call('migrate', [
-            '--path' => 'database/migrations/tenant',
+            '--path' => 'database/migrations/tenant/' . $migrationFile,
             '--force' => true,
             '--step' => true
         ]);

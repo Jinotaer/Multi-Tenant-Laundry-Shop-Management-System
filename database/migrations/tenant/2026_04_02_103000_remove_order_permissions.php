@@ -26,7 +26,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        DB::table('permissions')->insert([
+        DB::table('permissions')->upsert([
             [
                 'key' => 'orders.view',
                 'label' => 'View Orders',
@@ -62,6 +62,6 @@ return new class extends Migration
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
-        ]);
+        ], ['key'], ['label', 'module', 'updated_at']);
     }
 };
