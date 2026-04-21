@@ -1,6 +1,13 @@
 <?php
 
 return [
+    ['key' => 'dashboard.view', 'label' => 'View Dashboard', 'module' => 'dashboard'],
+
+    ['key' => 'orders.view', 'label' => 'View Orders', 'module' => 'orders'],
+    ['key' => 'orders.create', 'label' => 'Create Orders', 'module' => 'orders'],
+    ['key' => 'orders.update', 'label' => 'Update Orders', 'module' => 'orders'],
+    ['key' => 'orders.delete', 'label' => 'Delete Orders', 'module' => 'orders'],
+
     ['key' => 'customers.view', 'label' => 'View Customers', 'module' => 'customers'],
     ['key' => 'customers.create', 'label' => 'Create Customers', 'module' => 'customers'],
     ['key' => 'customers.update', 'label' => 'Update Customers', 'module' => 'customers'],
@@ -36,8 +43,18 @@ return [
 
     ['key' => 'reports.view', 'label' => 'View Reports', 'module' => 'reports'],
     ['key' => 'reports.export', 'label' => 'Export Reports', 'module' => 'reports'],
+
     ['key' => 'analytics.view', 'label' => 'View Analytics', 'module' => 'analytics'],
+
     ['key' => 'billing.view', 'label' => 'View Billing', 'module' => 'billing'],
     ['key' => 'billing.download', 'label' => 'Download Billing Documents', 'module' => 'billing'],
+
     ['key' => 'subscription.manage', 'label' => 'Manage Subscription', 'module' => 'billing'],
+
+    ['key' => 'updates.view', 'label' => 'View Updates', 'module' => 'updates'],
+    ['key' => 'updates.apply', 'label' => 'Apply Updates', 'module' => 'updates'],
+
+    ['key' => 'support.view', 'label' => 'View Support Tickets', 'module' => 'support'],
+    ['key' => 'support.create', 'label' => 'Create Support Tickets', 'module' => 'support'],
+    ['key' => 'support.reply', 'label' => 'Reply to Support Tickets', 'module' => 'support'],
 ];

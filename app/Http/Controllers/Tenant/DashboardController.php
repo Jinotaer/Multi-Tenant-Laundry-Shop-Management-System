@@ -20,9 +20,9 @@ class DashboardController extends Controller
     {
         $user = auth()->guard('web')->user() ?? auth()->guard('customer')->user();
 
-        // Customer dashboard
-        if ($user && $user->isCustomer()) {
-            $customer = $user instanceof Customer ? $user : Customer::query()->where('email', $user->email)->first();
+        // Customer dashboard - check if user is Customer model instance
+        if ($user instanceof Customer) {
+            $customer = $user;
             $completedStatuses = array_values(array_unique([Order::terminalStatusForPlan(), 'delivered']));
             $activeOrders = collect();
             $orderHistory = collect();
@@ -62,6 +62,7 @@ class DashboardController extends Controller
             return view('tenant.portal.dashboard', compact('user', 'customer', 'activeOrders', 'orderHistory', 'totalOrders', 'totalSpent', 'loyalty'));
         }
 
+        // Staff dashboard (owner, staff, manager, supervisor, etc.)
         $totalCustomers = Customer::count();
         $totalOrders = Order::count();
         $ordersByStatus = Order::selectRaw('status, count(*) as count')

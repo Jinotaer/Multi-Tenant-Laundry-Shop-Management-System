@@ -103,26 +103,59 @@ class ReportController extends Controller
     private function buildReportData(Request $request): array
     {
         $period = $request->get('period', 'month');
-        $startDate = match ($period) {
-            'week' => Carbon::now()->startOfWeek(),
-            'month' => Carbon::now()->startOfMonth(),
-            'year' => Carbon::now()->startOfYear(),
-            default => Carbon::now()->startOfMonth(),
-        };
+        $customStart = $request->get('start_date');
+        $customEnd = $request->get('end_date');
+        $monthParam = $request->get('month'); // Format: 2024-03
+        
+        // Handle month selector
+        if ($monthParam) {
+            $startDate = Carbon::parse($monthParam . '-01')->startOfMonth();
+            $endDate = Carbon::parse($monthParam . '-01')->endOfMonth();
+            $periodLabel = Carbon::parse($monthParam . '-01')->format('F Y');
+            $period = 'custom';
+        }
+        // Handle custom date range
+        elseif ($period === 'custom' && $customStart && $customEnd) {
+            $startDate = Carbon::parse($customStart)->startOfDay();
+            $endDate = Carbon::parse($customEnd)->endOfDay();
+            $periodLabel = Carbon::parse($customStart)->format('M d, Y') . ' - ' . Carbon::parse($customEnd)->format('M d, Y');
+        } else {
+            $startDate = match ($period) {
+                'week' => Carbon::now()->startOfWeek(),
+                'month' => Carbon::now()->startOfMonth(),
+                'year' => Carbon::now()->startOfYear(),
+                'all' => Carbon::parse('2000-01-01'), // All time
+                default => Carbon::now()->startOfMonth(),
+            };
+            $endDate = Carbon::now()->endOfDay();
+            $periodLabel = match ($period) {
+                'week' => 'This Week',
+                'year' => 'This Year',
+                'all' => 'All Time',
+                default => 'This Month',
+            };
+        }
 
-        $periodOrders = Order::query()->where('created_at', '>=', $startDate);
+        $periodOrders = Order::query()
+            ->where('created_at', '>=', $startDate)
+            ->where('created_at', '<=', $endDate);
+            
         $totalRevenue = (clone $periodOrders)->where('payment_status', 'paid')->sum('total_amount');
         $totalOrders = (clone $periodOrders)->count();
         $paidOrders = (clone $periodOrders)->where('payment_status', 'paid')->count();
         $unpaidOrders = (clone $periodOrders)->where('payment_status', 'unpaid')->count();
         $averageOrderValue = $paidOrders > 0 ? $totalRevenue / $paidOrders : 0;
         $totalExpenses = tenant()->hasFeature('expense_tracking')
-            ? Expense::query()->where('expense_date', '>=', $startDate->toDateString())->sum('amount')
+            ? Expense::query()
+                ->where('expense_date', '>=', $startDate->toDateString())
+                ->where('expense_date', '<=', $endDate->toDateString())
+                ->sum('amount')
             : 0;
         $estimatedProfit = $totalRevenue - $totalExpenses;
 
         $ordersByStatus = Order::query()
             ->where('created_at', '>=', $startDate)
+            ->where('created_at', '<=', $endDate)
             ->select('status', DB::raw('count(*) as count'))
             ->groupBy('status')
             ->pluck('count', 'status')
@@ -130,7 +163,8 @@ class ReportController extends Controller
 
         $dailyRevenue = Order::query()
             ->where('payment_status', 'paid')
-            ->where('created_at', '>=', Carbon::now()->subDays(30))
+            ->where('created_at', '>=', $startDate)
+            ->where('created_at', '<=', $endDate)
             ->select(DB::raw('DATE(created_at) as date'), DB::raw('SUM(total_amount) as revenue'))
             ->groupBy(DB::raw('DATE(created_at)'))
             ->orderBy('date')
@@ -139,24 +173,27 @@ class ReportController extends Controller
             ->toArray();
 
         $popularServices = Service::query()
-            ->withCount(['orders' => fn ($query) => $query->where('created_at', '>=', $startDate)])
+            ->withCount(['orders' => fn ($query) => $query
+                ->where('created_at', '>=', $startDate)
+                ->where('created_at', '<=', $endDate)
+            ])
             ->orderByDesc('orders_count')
             ->limit(5)
             ->get();
 
         $recentOrders = Order::query()
             ->with(['customer', 'service'])
+            ->where('created_at', '>=', $startDate)
+            ->where('created_at', '<=', $endDate)
             ->latest()
             ->limit(10)
             ->get();
 
         return [
             'period' => $period,
-            'periodLabel' => match ($period) {
-                'week' => 'This Week',
-                'year' => 'This Year',
-                default => 'This Month',
-            },
+            'periodLabel' => $periodLabel,
+            'startDate' => $startDate,
+            'endDate' => $endDate,
             'generatedAt' => now(),
             'totalRevenue' => (float) $totalRevenue,
             'totalExpenses' => (float) $totalExpenses,

@@ -37,7 +37,6 @@ class LoginController extends Controller
 
         $user = User::query()
             ->where('email', $credentials['email'])
-            ->whereIn('role', ['owner', 'staff'])
             ->first();
 
         if ($user && Hash::check($credentials['password'], $user->password)) {

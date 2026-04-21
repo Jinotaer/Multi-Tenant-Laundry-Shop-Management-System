@@ -1,124 +1,141 @@
-<x-tenant-layout>
-    <x-slot name="header">
-        <div class="flex items-center justify-between">
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                {{ __('Available Plans') }}
-            </h2>
-        </div>
-    </x-slot>
-
-    @php $theme = tenant()->getThemePreset(); @endphp
-
-    <div class="space-y-6">
-        {{-- Header --}}
-        <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-            <div class="p-6 text-center">
-                <h3 class="text-2xl font-bold text-gray-900">Choose the Right Plan for Your Business</h3>
-                <p class="mt-2 text-sm text-gray-600">Compare features and select the plan that fits your laundry shop needs.</p>
-                <p class="mt-1 text-xs text-gray-500">Contact your administrator to upgrade or change your plan.</p>
+<!DOCTYPE html>
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Available Plans - {{ tenant()->data['shop_name'] ?? tenant()->id }}</title>
+        <link rel="preconnect" href="https://fonts.bunny.net">
+        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700&display=swap" rel="stylesheet" />
+        <style>
+            *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+            body { font-family: 'Figtree', ui-sans-serif, system-ui, sans-serif; background-color: #f3f4f6; min-height: 100vh; padding: 2rem 1rem; }
+            .container { max-width: 80rem; margin: 0 auto; }
+            .header { text-align: center; margin-bottom: 3rem; }
+            .header h1 { font-size: 2rem; font-weight: 700; color: #111827; margin-bottom: 0.5rem; }
+            .header p { color: #6b7280; font-size: 1rem; }
+            .plans-grid { display: grid; grid-template-columns: 1fr; gap: 2rem; margin-bottom: 2rem; }
+            @media (min-width: 768px) { .plans-grid { grid-template-columns: repeat(2, 1fr); } }
+            .plan-card { background: #fff; border-radius: 1rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,.1); padding: 2rem; position: relative; border: 2px solid #e5e7eb; }
+            .plan-card.current { border-color: #10b981; }
+            .plan-card.premium { border-color: #6366f1; }
+            .badge { position: absolute; top: -0.75rem; left: 50%; transform: translateX(-50%); padding: 0.375rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; color: #fff; display: inline-flex; align-items: center; gap: 0.25rem; }
+            .badge.current { background: #10b981; }
+            .badge.premium { background: #6366f1; }
+            .badge svg { width: 0.875rem; height: 0.875rem; }
+            .plan-header { text-align: center; margin-bottom: 1.5rem; padding-top: 0.5rem; }
+            .plan-name { font-size: 1.5rem; font-weight: 700; color: #111827; margin-bottom: 0.5rem; }
+            .plan-desc { font-size: 0.875rem; color: #6b7280; margin-bottom: 1rem; }
+            .plan-price { font-size: 2.5rem; font-weight: 800; color: #111827; }
+            .plan-price-cycle { font-size: 1rem; font-weight: 500; color: #6b7280; }
+            .btn { display: block; width: 100%; padding: 0.75rem 1.5rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 600; text-align: center; text-decoration: none; transition: all 0.15s; border: none; cursor: pointer; margin-bottom: 1.5rem; }
+            .btn-primary { background: linear-gradient(135deg, #6366f1, #7c3aed); color: #fff; }
+            .btn-primary:hover { opacity: 0.9; }
+            .btn-secondary { background: #111827; color: #fff; }
+            .btn-secondary:hover { background: #1f2937; }
+            .btn-disabled { background: #f3f4f6; color: #9ca3af; cursor: not-allowed; }
+            .section { border-top: 1px solid #e5e7eb; padding-top: 1.5rem; margin-top: 1.5rem; }
+            .section-title { font-size: 0.75rem; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem; }
+            .limits { display: flex; flex-direction: column; gap: 0.625rem; }
+            .limit-item { display: flex; justify-content: space-between; font-size: 0.875rem; }
+            .limit-label { color: #6b7280; }
+            .limit-value { font-weight: 600; color: #111827; }
+            .features { list-style: none; padding: 0; }
+            .feature-item { display: flex; align-items: flex-start; gap: 0.625rem; padding: 0.5rem 0; font-size: 0.875rem; }
+            .feature-item.enabled { color: #374151; }
+            .feature-item.disabled { color: #d1d5db; }
+            .feature-item svg { width: 1.25rem; height: 1.25rem; flex-shrink: 0; margin-top: 0.125rem; }
+            .feature-item.enabled svg { color: #10b981; }
+            .feature-item.disabled svg { color: #d1d5db; }
+            .footer { background: linear-gradient(135deg, #6366f1, #7c3aed); border-radius: 0.75rem; padding: 2rem; text-align: center; color: #fff; }
+            .footer h3 { font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem; }
+            .footer p { color: rgba(255,255,255,0.9); font-size: 0.875rem; margin-bottom: 0.5rem; }
+            .footer .small { font-size: 0.75rem; color: rgba(255,255,255,0.7); }
+            .logout-link { display: inline-block; margin-top: 1.5rem; padding: 0.5rem 1rem; color: #6b7280; font-size: 0.875rem; text-decoration: none; }
+            .logout-link:hover { color: #374151; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>Choose the Right Plan for Your Business</h1>
+                <p>Compare features and select the plan that fits your laundry shop needs.</p>
             </div>
-        </div>
 
-        {{-- Plan Cards --}}
-        <div class="grid grid-cols-1 md:grid-cols-{{ count($plans) }} gap-6">
-            @php
-                // Sort plans: Starter/Free plans first, then Premium plans
-                $sortedPlans = $plans->sortBy(function($plan) {
-                    return $plan->isFree() ? 0 : 1;
-                });
-            @endphp
-            
-            @foreach($sortedPlans as $plan)
+            <div class="plans-grid">
                 @php
-                    $isPremium = !$plan->isFree();
-                    $isCurrent = $currentPlan && $currentPlan->id === $plan->id;
-                    $planFeatures = $plan->features ?? [];
+                    $sortedPlans = $plans->sortBy(function($plan) { return $plan->isFree() ? 0 : 1; });
                 @endphp
+                
+                @foreach($sortedPlans as $plan)
+                    @php
+                        $isPremium = !$plan->isFree();
+                        $isCurrent = $currentPlan && $currentPlan->id === $plan->id;
+                        $planFeatures = $plan->features ?? [];
+                    @endphp
 
-                <div class="relative bg-white rounded-xl shadow-sm border-1 transition-all {{ $isCurrent ? 'border-green-500 ring-2 ring-green-500' : ($isPremium ? 'border-indigo-500' : 'border-gray-200') }}">
-                    
-                    {{-- Current Plan Badge --}}
-                    @if($isCurrent)
-                        <div class="absolute -top-3.5 left-1/2 -translate-x-1/2">
-                            <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-green-600 text-white shadow-md">
-                                <svg class="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>
+                    <div class="plan-card {{ $isCurrent ? 'current' : ($isPremium ? 'premium' : '') }}">
+                        @if($isCurrent)
+                            <span class="badge current">
+                                <svg fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>
                                 Current Plan
                             </span>
-                        </div>
-                    @elseif($isPremium)
-                        <div class="absolute -top-3.5 left-1/2 -translate-x-1/2">
-                            <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-indigo-600 text-white shadow-md">
-                                <svg class="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10.868 2.884c-.321-.772-1.415-.772-1.736 0l-1.83 4.401-4.753.381c-.833.067-1.171 1.107-.536 1.651l3.62 3.102-1.106 4.637c-.194.813.691 1.456 1.405 1.02L10 15.591l4.069 2.485c.713.436 1.598-.207 1.404-1.02l-1.106-4.637 3.62-3.102c.635-.544.297-1.584-.536-1.65l-4.752-.382-1.831-4.401z" clip-rule="evenodd" /></svg>
+                        @elseif($isPremium)
+                            <span class="badge premium">
+                                <svg fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10.868 2.884c-.321-.772-1.415-.772-1.736 0l-1.83 4.401-4.753.381c-.833.067-1.171 1.107-.536 1.651l3.62 3.102-1.106 4.637c-.194.813.691 1.456 1.405 1.02L10 15.591l4.069 2.485c.713.436 1.598-.207 1.404-1.02l-1.106-4.637 3.62-3.102c.635-.544.297-1.584-.536-1.65l-4.752-.382-1.831-4.401z" clip-rule="evenodd" /></svg>
                                 Recommended
                             </span>
-                        </div>
-                    @endif
+                        @endif
 
-                    <div class="p-6 {{ $isCurrent || $isPremium ? 'pt-8' : '' }}">
-                        {{-- Plan Name & Price --}}
-                        <div class="text-center">
-                            <h3 class="text-xl font-bold text-gray-900">{{ $plan->name }}</h3>
+                        <div class="plan-header">
+                            <h2 class="plan-name">{{ $plan->name }}</h2>
                             @if($plan->description)
-                                <p class="mt-1 text-sm text-gray-500">{{ $plan->description }}</p>
+                                <p class="plan-desc">{{ $plan->description }}</p>
                             @endif
-                            <div class="mt-4 mb-6">
+                            <div>
                                 @if($plan->isFree())
-                                    <span class="text-4xl font-extrabold text-gray-900">Free</span>
+                                    <span class="plan-price">Free</span>
                                 @else
-                                    <span class="text-4xl font-extrabold text-gray-900">₱{{ number_format((float) $plan->price, 0) }}</span>
-                                    <span class="text-base font-medium text-gray-500">/{{ $plan->billing_cycle }}</span>
+                                    <span class="plan-price">₱{{ number_format((float) $plan->price, 0) }}</span>
+                                    <span class="plan-price-cycle">/{{ $plan->billing_cycle }}</span>
                                 @endif
                             </div>
                         </div>
 
-                        {{-- CTA Button --}}
                         @if($isCurrent)
-                            <button disabled class="w-full px-4 py-3 rounded-lg text-sm font-bold bg-gray-100 text-gray-400 cursor-not-allowed">
-                                Current Plan
-                            </button>
+                            <button disabled class="btn btn-disabled">Current Plan</button>
                         @else
-                            @if($plan->isFree())
-                                <a href="mailto:support@laundrytrack.com?subject=Downgrade Request&body=I would like to downgrade to the {{ $plan->name }} plan." 
-                                   class="block w-full px-4 py-3 rounded-lg text-sm font-bold text-center bg-gray-900 text-white hover:bg-gray-800 transition">
-                                    Contact Admin to Downgrade
-                                </a>
-                            @else
-                                <a href="{{ route('tenant.subscription.upgrade', ['plan' => $plan->id]) }}" 
-                                   class="block w-full px-4 py-3 rounded-lg text-sm font-bold text-center bg-indigo-600 text-white hover:bg-indigo-700 transition">
-                                    Upgrade Now
-                                </a>
-                            @endif
+                            <a href="{{ route('tenant.subscription.change-plan.confirm', ['plan' => $plan->id]) }}" class="btn {{ $plan->isFree() ? 'btn-secondary' : 'btn-primary' }}">
+                                {{ $plan->isFree() ? 'Downgrade to Free' : 'Upgrade Now' }}
+                            </a>
                         @endif
 
-                        {{-- Limits --}}
-                        <div class="mt-6 pt-6 border-t border-gray-100">
-                            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Plan Limits</p>
-                            <div class="space-y-2.5">
-                                <div class="flex items-center justify-between text-sm">
-                                    <span class="text-gray-600">Staff accounts</span>
-                                    <span class="font-semibold text-gray-900">{{ $plan->staff_limit_display }}</span>
+                        <div class="section">
+                            <p class="section-title">Plan Limits</p>
+                            <div class="limits">
+                                <div class="limit-item">
+                                    <span class="limit-label">Staff accounts</span>
+                                    <span class="limit-value">{{ $plan->staff_limit_display }}</span>
                                 </div>
-                                <div class="flex items-center justify-between text-sm">
-                                    <span class="text-gray-600">Customers</span>
-                                    <span class="font-semibold text-gray-900">{{ $plan->customer_limit_display }}</span>
+                                <div class="limit-item">
+                                    <span class="limit-label">Customers</span>
+                                    <span class="limit-value">{{ $plan->customer_limit_display }}</span>
                                 </div>
-                                <div class="flex items-center justify-between text-sm">
-                                    <span class="text-gray-600">Orders / month</span>
-                                    <span class="font-semibold text-gray-900">{{ $plan->order_limit_display }}</span>
+                                <div class="limit-item">
+                                    <span class="limit-label">Orders / month</span>
+                                    <span class="limit-value">{{ $plan->order_limit_display }}</span>
                                 </div>
                             </div>
                         </div>
 
-                        {{-- Features --}}
-                        <div class="mt-6 pt-6 border-t border-gray-100">
-                            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Features</p>
-                            <ul class="space-y-2.5">
+                        <div class="section">
+                            <p class="section-title">Features</p>
+                            <ul class="features">
                                 @foreach($allFeatures as $featureKey => $featureConfig)
-                                    <li class="flex items-start gap-2.5 text-sm {{ in_array($featureKey, $planFeatures) ? 'text-gray-700' : 'text-gray-300' }}">
+                                    <li class="feature-item {{ in_array($featureKey, $planFeatures) ? 'enabled' : 'disabled' }}">
                                         @if(in_array($featureKey, $planFeatures))
-                                            <svg class="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                                            <svg fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
                                         @else
-                                            <svg class="h-5 w-5 text-gray-300 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                            <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                                         @endif
                                         <span>{{ $featureConfig['label'] }}</span>
                                     </li>
@@ -126,17 +143,14 @@
                             </ul>
                         </div>
                     </div>
-                </div>
-            @endforeach
-        </div>
+                @endforeach
+            </div>
 
-        {{-- Contact Info --}}
-        <div class="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg shadow-sm p-6 text-white">
-            <div class="text-center">
-                <h3 class="text-lg font-bold mb-2">Need Help Choosing?</h3>
-                <p class="text-indigo-100 text-sm mb-4">Contact your administrator to discuss which plan is right for your business or to upgrade your current subscription.</p>
-                <p class="text-xs text-indigo-200">All plans include a 30-day free trial. Cancel anytime during the trial at no cost.</p>
+            <div class="footer">
+                <h3>Need Help Choosing?</h3>
+                <p>Contact your administrator to discuss which plan is right for your business or to upgrade your current subscription.</p>
+                <p class="small">All plans include a 30-day free trial. Cancel anytime during the trial at no cost.</p>
             </div>
         </div>
-    </div>
-</x-tenant-layout>
+    </body>
+</html>

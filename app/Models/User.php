@@ -217,25 +217,22 @@ class User extends Authenticatable
     {
         Role::ensureDefaultsExist();
 
-        // Take only the first role slug for single role assignment
-        $roleSlug = $roleSlugs[0] ?? null;
-
-        if ($roleSlug === null) {
+        if (empty($roleSlugs)) {
             $this->roles()->detach();
             return;
         }
 
-        $roleId = Role::query()
-            ->where('slug', $roleSlug)
-            ->value('id');
+        $roleIds = Role::query()
+            ->whereIn('slug', $roleSlugs)
+            ->pluck('id')
+            ->mapWithKeys(fn ($id) => [$id => ['assigned_by' => $assignedBy?->id]])
+            ->all();
 
-        if ($roleId === null) {
+        if (empty($roleIds)) {
             return;
         }
 
-        $this->roles()->sync([
-            $roleId => ['assigned_by' => $assignedBy?->id]
-        ]);
+        $this->roles()->sync($roleIds);
     }
 
     private function syncLegacyRoleRecord(): void

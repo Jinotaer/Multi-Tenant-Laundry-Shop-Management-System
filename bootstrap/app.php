@@ -6,6 +6,7 @@ use App\Http\Middleware\CheckPlanLimit;
 use App\Http\Middleware\CheckTenantFeature;
 use App\Http\Middleware\EnsureUserHasPermission;
 use App\Http\Middleware\EnsureUserHasRole;
+use App\Http\Middleware\EnsureUserIsStaff;
 use App\Http\Middleware\RedirectIfAuthenticatedAdmin;
 use App\Http\Middleware\TrackTenantUsage;
 use Illuminate\Foundation\Application;
@@ -22,6 +23,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role' => EnsureUserHasRole::class,
             'permission' => EnsureUserHasPermission::class,
+            'staff' => EnsureUserIsStaff::class,
             'admin.auth' => AuthenticateAdmin::class,
             'admin.guest' => RedirectIfAuthenticatedAdmin::class,
             'tenant.auth' => AuthenticateTenant::class,

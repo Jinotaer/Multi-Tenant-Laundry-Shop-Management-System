@@ -111,12 +111,16 @@
                                     <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-600">{{ $customer->orders_count }}</td>
                                     <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-400">{{ $customer->created_at->format('M d, Y') }}</td>
                                     <td class="space-x-2 whitespace-nowrap px-6 py-4 text-right text-sm font-medium">
-                                        <a href="{{ route('tenant.customers.edit', $customer) }}" class="text-indigo-600 hover:text-indigo-900">Edit</a>
-                                        <form method="POST" action="{{ route('tenant.customers.destroy', $customer) }}" class="inline" onsubmit="return confirm('Delete this customer? Their orders will also be removed.')">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="text-red-600 hover:text-red-900">Delete</button>
-                                        </form>
+                                        @if ($canUpdateCustomer)
+                                            <a href="{{ route('tenant.customers.edit', $customer) }}" class="text-indigo-600 hover:text-indigo-900">Edit</a>
+                                        @endif
+                                        @if ($canDeleteCustomer)
+                                            <form method="POST" action="{{ route('tenant.customers.destroy', $customer) }}" class="inline" onsubmit="return confirm('Delete this customer? Their orders will also be removed.')">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="text-red-600 hover:text-red-900">Delete</button>
+                                            </form>
+                                        @endif
                                     </td>
                                 </tr>
                             @endforeach

@@ -66,8 +66,8 @@ class StaffRequest extends FormRequest
         }
 
         if (Schema::hasTable('roles') && Schema::hasTable('role_user')) {
-            $rules['roles'] = ['sometimes', 'array'];
-            $rules['roles.*'] = [
+            $rules['role'] = [
+                'required',
                 'string',
                 Rule::exists('roles', 'slug'),
                 Rule::notIn(['owner', 'customer', 'staff']),

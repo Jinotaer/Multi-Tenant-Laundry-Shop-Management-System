@@ -68,15 +68,9 @@
                 <span class="text-sm text-gray-600 dark:text-slate-300">{{ __('Remember me') }}</span>
             </label>
 
-            <div class="flex flex-col items-end gap-1 text-right">
-                <a href="{{ route('tenant.password.request') }}" class="tenant-auth-link text-sm font-medium">
-                    {{ __('Forgot password?') }}
-                </a>
-
-                <a href="{{ route('tenant.register') }}" class="tenant-auth-link text-sm font-medium">
-                    {{ __('Create an account') }}
-                </a>
-            </div>
+            <a href="{{ route('tenant.password.request') }}" class="tenant-auth-link text-sm font-medium">
+                {{ __('Forgot password?') }}
+            </a>
         </div>
 
         <div class="pt-1">
@@ -88,6 +82,13 @@
             </button>
         </div>
     </form>
+
+    <div class="mt-4 text-center">
+        <span class="text-sm text-gray-600 dark:text-slate-400">Don't have an account? </span>
+        <a href="{{ route('tenant.register') }}" class="tenant-auth-link text-sm font-medium">
+            {{ __('Create an account') }}
+        </a>
+    </div>
 
     <div class="mt-6 flex items-center gap-3">
         <div class="flex-1 border-t border-gray-200 dark:border-slate-800"></div>

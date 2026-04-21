@@ -103,6 +103,37 @@
                     </div>
                 </div>
 
+                @if(!$isUpgrade && !empty($compatibilityIssues))
+                    {{-- Usage Warnings --}}
+                    <div class="bg-amber-50 border border-amber-200 rounded-lg p-6">
+                        <h3 class="text-lg font-semibold text-amber-900 mb-4">⚠️ Current Usage Exceeds New Plan Limits</h3>
+                        <p class="text-sm text-amber-800 mb-4">Your existing data will be preserved, but you'll have restrictions until you're within the new limits:</p>
+                        <ul class="space-y-3">
+                            @foreach($compatibilityIssues as $issue)
+                                <li class="bg-white rounded-lg p-4 border border-amber-200">
+                                    <p class="font-semibold text-amber-900 mb-1">{{ $issue['message'] }}</p>
+                                    <p class="text-sm text-amber-700">{{ $issue['warning'] }}</p>
+                                </li>
+                            @endforeach
+                        </ul>
+                        <div class="mt-4 p-4 bg-amber-100 rounded-lg">
+                            <p class="text-sm font-semibold text-amber-900 mb-2">What this means:</p>
+                            <ul class="text-sm text-amber-800 space-y-1 list-disc list-inside">
+                                <li>All your existing data remains safe and accessible</li>
+                                <li>You cannot add new records beyond the plan limits</li>
+                                <li>You can delete records to get back within limits</li>
+                                <li>Monthly order limits reset at the start of each month</li>
+                            </ul>
+                        </div>
+                        <div class="mt-4">
+                            <label class="flex items-start gap-3">
+                                <input type="checkbox" name="acknowledge_limits" value="1" required class="mt-1 h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                                <span class="text-sm text-amber-900">I understand that I won't be able to add new staff, customers, or orders beyond the plan limits until I reduce my current usage.</span>
+                            </label>
+                        </div>
+                    </div>
+                @endif
+
                 @if($isUpgrade)
                     {{-- Features You'll Gain --}}
                     <div class="bg-green-50 border border-green-200 rounded-lg p-6">
@@ -235,7 +266,7 @@
                 </div>
 
                 <p class="text-center text-sm text-gray-500">
-                    Need help? Email <a href="mailto:support@laundrytrack.com" class="text-indigo-600 hover:text-indigo-700 font-medium">support@laundrytrack.com</a>
+                    Need help? Email <a href="mailto:support@laundrytrack.com?subject=Subscription%20Plan%20Change&body=Hi%2C%0A%0AI%20need%20help%20with%20my%20subscription%20plan%20change.%0A%0AShop%20Name%3A%20{{ urlencode($shopName) }}%0ATenant%20ID%3A%20{{ tenant()->id }}%0ACurrent%20Plan%3A%20{{ urlencode($currentPlan->name) }}%0ANew%20Plan%3A%20{{ urlencode($newPlan->name) }}%0A%0AQuestion%3A%20" class="text-indigo-600 hover:text-indigo-700 font-medium">support@laundrytrack.com</a>
                 </p>
 
             </div>

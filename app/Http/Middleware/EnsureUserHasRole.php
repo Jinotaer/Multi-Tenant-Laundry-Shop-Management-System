@@ -21,18 +21,19 @@ class EnsureUserHasRole
             abort(403, 'Unauthorized.');
         }
 
-        if (method_exists($user, 'hasRole')) {
-            if (! $user->hasRole($roles)) {
+        // Allow customers to only access customer routes
+        if ($user instanceof \App\Models\Customer) {
+            if (! in_array('customer', $roles, true)) {
                 abort(403, 'Unauthorized.');
             }
-
             return $next($request);
         }
 
-        if (! in_array($user->role, $roles, true)) {
-            abort(403, 'Unauthorized.');
+        // For User model: check role column or roles relationship
+        if (method_exists($user, 'hasRole') && $user->hasRole($roles)) {
+            return $next($request);
         }
 
-        return $next($request);
+        abort(403, 'Unauthorized.');
     }
 }

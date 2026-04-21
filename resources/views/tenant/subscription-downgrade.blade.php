@@ -155,7 +155,7 @@
 
                 {{-- Help Section --}}
                 <div class="text-center text-sm text-gray-400">
-                    <p>Need help choosing a plan? <a href="mailto:support@laundrytrack.com" class="text-indigo-500 hover:text-indigo-600 underline">Contact us</a></p>
+                    <p>Need help choosing a plan? <a href="mailto:support@laundrytrack.com?subject=Plan%20Change%20Help&body=Hi%2C%0A%0AI%20need%20help%20choosing%20a%20subscription%20plan.%0A%0AShop%20Name%3A%20{{ urlencode($shopName) }}%0ATenant%20ID%3A%20{{ tenant()->id }}%0ACurrent%20Plan%3A%20{{ urlencode($currentPlan->name) }}%0A%0AQuestion%3A%20" class="text-indigo-500 hover:text-indigo-600 underline">Contact us</a></p>
                 </div>
 
             </div>

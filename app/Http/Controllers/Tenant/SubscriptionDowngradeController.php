@@ -86,7 +86,7 @@ class SubscriptionDowngradeController extends Controller
         }
 
         $currentUsage = $this->getCurrentUsage($tenant);
-        $isCompatible = $this->checkPlanCompatibility($plan, $currentUsage);
+        $hasExcessUsage = !$this->checkPlanCompatibility($plan, $currentUsage);
         $issues = $this->getCompatibilityIssues($plan, $currentUsage);
 
         return view('tenant.subscription-downgrade-confirm', [
@@ -94,7 +94,8 @@ class SubscriptionDowngradeController extends Controller
             'currentPlan' => $currentPlan,
             'newPlan' => $plan,
             'currentUsage' => $currentUsage,
-            'isCompatible' => $isCompatible,
+            'isCompatible' => !$hasExcessUsage,
+            'hasExcessUsage' => $hasExcessUsage,
             'compatibilityIssues' => $issues,
             'shopName' => $tenant->data['shop_name'] ?? $tenant->id,
         ]);
@@ -108,6 +109,7 @@ class SubscriptionDowngradeController extends Controller
         $request->validate([
             'plan_id' => 'required|integer',
             'confirmation' => 'required|in:DOWNGRADE,UPGRADE',
+            'acknowledge_limits' => 'nullable|boolean',
         ]);
 
         $tenant = tenant();
@@ -132,13 +134,14 @@ class SubscriptionDowngradeController extends Controller
             return back()->with('error', 'This is your current plan.');
         }
 
-        // Check compatibility
+        // Check if downgrading with excess usage
         $currentUsage = $this->getCurrentUsage($tenant);
         $isUpgrade = $newPlan->price > $currentPlan->price;
+        $hasExcessUsage = !$isUpgrade && !$this->checkPlanCompatibility($newPlan, $currentUsage);
         
-        // Only check compatibility for downgrades, upgrades are always allowed
-        if (!$isUpgrade && !$this->checkPlanCompatibility($newPlan, $currentUsage)) {
-            return back()->with('error', 'Your current usage exceeds the limits of the selected plan.');
+        // If downgrading with excess usage, require acknowledgment
+        if ($hasExcessUsage && !$request->boolean('acknowledge_limits')) {
+            return back()->with('error', 'You must acknowledge the plan limits before proceeding.');
         }
 
         // If free plan, activate immediately
@@ -324,15 +327,39 @@ class SubscriptionDowngradeController extends Controller
         $issues = [];
 
         if ($plan->staff_limit !== null && $usage['staff_count'] > $plan->staff_limit) {
-            $issues[] = "You have {$usage['staff_count']} staff members but this plan only allows {$plan->staff_limit}. You need to remove " . ($usage['staff_count'] - $plan->staff_limit) . " staff members.";
+            $excess = $usage['staff_count'] - $plan->staff_limit;
+            $issues[] = [
+                'type' => 'staff',
+                'message' => "You currently have {$usage['staff_count']} staff members, but this plan allows only {$plan->staff_limit}.",
+                'warning' => "You won't be able to add new staff until you're within the limit ({$excess} over limit).",
+                'current' => $usage['staff_count'],
+                'limit' => $plan->staff_limit,
+                'excess' => $excess,
+            ];
         }
 
         if ($plan->customer_limit !== null && $usage['customer_count'] > $plan->customer_limit) {
-            $issues[] = "You have {$usage['customer_count']} customers but this plan only allows {$plan->customer_limit}. You need to remove " . ($usage['customer_count'] - $plan->customer_limit) . " customers.";
+            $excess = $usage['customer_count'] - $plan->customer_limit;
+            $issues[] = [
+                'type' => 'customers',
+                'message' => "You currently have {$usage['customer_count']} customers, but this plan allows only {$plan->customer_limit}.",
+                'warning' => "You won't be able to add new customers until you're within the limit ({$excess} over limit).",
+                'current' => $usage['customer_count'],
+                'limit' => $plan->customer_limit,
+                'excess' => $excess,
+            ];
         }
 
         if ($plan->order_limit !== null && $usage['order_count'] > $plan->order_limit) {
-            $issues[] = "You have {$usage['order_count']} orders this month but this plan only allows {$plan->order_limit} per month.";
+            $excess = $usage['order_count'] - $plan->order_limit;
+            $issues[] = [
+                'type' => 'orders',
+                'message' => "You have {$usage['order_count']} orders this month, but this plan allows only {$plan->order_limit} per month.",
+                'warning' => "You won't be able to create new orders this month ({$excess} over limit). Limit resets next month.",
+                'current' => $usage['order_count'],
+                'limit' => $plan->order_limit,
+                'excess' => $excess,
+            ];
         }
 
         return $issues;

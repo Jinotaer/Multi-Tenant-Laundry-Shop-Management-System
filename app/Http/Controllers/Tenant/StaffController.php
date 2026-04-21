@@ -27,7 +27,7 @@ class StaffController extends Controller
         $hasRoleTables = $this->hasRoleTables();
 
         $staffQuery = User::query()
-            ->where('role', 'staff')
+            ->whereNotIn('role', ['owner', 'customer'])
             ->when($request->filled('search'), function ($query) use ($request): void {
                 $search = $request->string('search')->toString();
 
@@ -47,7 +47,7 @@ class StaffController extends Controller
             ->withQueryString();
 
         $planLimitService = new PlanLimitService(tenant());
-        $canAddStaff = $planLimitService->canAddStaff(User::where('role', 'staff')->count());
+        $canAddStaff = $planLimitService->canAddStaff(User::whereNotIn('role', ['owner', 'customer'])->count());
         $canCreateStaff = $actor !== null && ($actor->isOwner() || $actor->hasPermission('staff.create'));
         $canUpdateStaff = $actor !== null && ($actor->isOwner() || $actor->hasPermission('staff.update'));
         $canDeleteStaff = $actor !== null && ($actor->isOwner() || $actor->hasPermission('staff.delete'));
@@ -66,7 +66,7 @@ class StaffController extends Controller
         if ($requestedStaffEditId > 0 && $canUpdateStaff) {
             $editingStaffQuery = User::query()
                 ->whereKey($requestedStaffEditId)
-                ->where('role', 'staff');
+                ->whereNotIn('role', ['owner', 'customer']);
 
             if ($hasRoleTables) {
                 $editingStaffQuery->with('roles');
@@ -101,7 +101,7 @@ class StaffController extends Controller
             && ($actor->isOwner() || $actor->hasPermission('staff.assign_roles'));
 
         $planLimitService = new PlanLimitService(tenant());
-        $canAddStaff = $planLimitService->canAddStaff(User::where('role', 'staff')->count());
+        $canAddStaff = $planLimitService->canAddStaff(User::whereNotIn('role', ['owner', 'customer'])->count());
 
         if (! $canAddStaff) {
             return view('tenant.staff.limit-reached');
@@ -122,21 +122,30 @@ class StaffController extends Controller
 
         $planLimitService = new PlanLimitService(tenant());
 
-        if (! $planLimitService->canAddStaff(User::where('role', 'staff')->count())) {
+        if (! $planLimitService->canAddStaff(User::whereNotIn('role', ['owner', 'customer'])->count())) {
             return redirect()->route('tenant.staff.index')
                 ->with('error', 'Staff limit reached for your current plan. Please upgrade.');
         }
+
+        // Require role selection
+        if (! $request->filled('role')) {
+            return redirect()->back()
+                ->withInput()
+                ->withErrors(['role' => 'Please select a role for this staff member.'], 'staff');
+        }
+
+        $selectedRole = $request->validated('role');
 
         $staff = User::create([
             'name' => $request->validated('name'),
             'email' => $request->validated('email'),
             'password' => Hash::make($request->validated('password')),
-            'role' => 'staff',
+            'role' => $selectedRole,
         ]);
 
         $this->syncStaffRoles(
             $staff,
-            $request->filled('role') ? [$request->validated('role')] : [],
+            [$selectedRole],
             $request->user(),
         );
 
@@ -149,7 +158,7 @@ class StaffController extends Controller
      */
     public function edit(User $staff): RedirectResponse
     {
-        abort_unless($staff->role === 'staff', 404);
+        abort_unless(! in_array($staff->role, ['owner', 'customer'], true), 404);
 
         return redirect()->route('tenant.staff.index', [
             'edit' => $staff->id,
@@ -161,13 +170,21 @@ class StaffController extends Controller
      */
     public function update(StaffRequest $request, User $staff): RedirectResponse
     {
-        abort_unless($staff->role === 'staff', 404);
-
         Permission::ensureDefaultsExist();
+
+        // Require role selection
+        if (! $request->filled('role')) {
+            return redirect()->back()
+                ->withInput()
+                ->withErrors(['role' => 'Please select a role for this staff member.'], 'staff');
+        }
+
+        $selectedRole = $request->validated('role');
 
         $data = [
             'name' => $request->validated('name'),
             'email' => $request->validated('email'),
+            'role' => $selectedRole,
         ];
 
         if ($request->filled('password')) {
@@ -178,7 +195,7 @@ class StaffController extends Controller
 
         $this->syncStaffRoles(
             $staff,
-            $request->filled('role') ? [$request->validated('role')] : [],
+            [$selectedRole],
             $request->user(),
         );
 
@@ -191,7 +208,7 @@ class StaffController extends Controller
      */
     public function destroy(User $staff): RedirectResponse
     {
-        abort_unless($staff->role === 'staff', 404);
+        abort_unless(! in_array($staff->role, ['owner', 'customer'], true), 404);
 
         $staff->delete();
 
@@ -249,10 +266,10 @@ class StaffController extends Controller
         $allowedRoleSlugs = $this->allowedRoleSlugsForActor($actor, $requestedRoleSlugs);
         $roleSlug = $allowedRoleSlugs->first();
 
-        // Always include 'staff' as the primary role
-        $roleSlugs = $roleSlug ? [$roleSlug] : ['staff'];
-
-        $staff->syncRolesBySlug($roleSlugs, $actor);
+        // Only assign if role is provided
+        if ($roleSlug) {
+            $staff->syncRolesBySlug([$roleSlug], $actor);
+        }
     }
 
     private function hasRoleTables(): bool

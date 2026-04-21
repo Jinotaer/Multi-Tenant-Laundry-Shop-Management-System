@@ -114,7 +114,8 @@ Route::middleware([
             Route::get('/dashboard', [
                 DashboardController::class,
                 'index',
-            ])->name('tenant.dashboard');
+            ])
+                ->name('tenant.dashboard');
             Route::get('/settings/theme', [
                 SettingsController::class,
                 'index',
@@ -137,8 +138,8 @@ Route::middleware([
                 'success',
             ])->name('tenant.order-payments.success');
 
-            // === Owner & Staff routes (day-to-day operations) ===
-            Route::middleware('role:owner,staff')->group(function () {
+                // === Staff routes (day-to-day operations) - any staff role ===
+            Route::middleware('staff')->group(function () {
                 // Customers
                 Route::get('/customers', [CustomerController::class, 'index'])
                     ->middleware('permission:customers.view')
@@ -164,41 +165,52 @@ Route::middleware([
 
                 // Orders
                 Route::get('/orders', [OrderController::class, 'index'])
+                    ->middleware('permission:orders.view')
                     ->name('tenant.orders.index');
                 Route::get('/orders/create', [OrderController::class, 'create'])
+                    ->middleware('permission:orders.create')
                     ->name('tenant.orders.create');
                 Route::post('/orders', [OrderController::class, 'store'])
+                    ->middleware('permission:orders.create')
                     ->name('tenant.orders.store');
                 Route::get('/orders/{order}', [OrderController::class, 'show'])
+                    ->middleware('permission:orders.view')
                     ->name('tenant.orders.show');
                 Route::get('/orders/{order}/edit', [OrderController::class, 'edit'])
+                    ->middleware('permission:orders.update')
                     ->name('tenant.orders.edit');
                 Route::put('/orders/{order}', [OrderController::class, 'update'])
+                    ->middleware('permission:orders.update')
                     ->name('tenant.orders.update');
                 Route::delete('/orders/{order}', [OrderController::class, 'destroy'])
+                    ->middleware('permission:orders.delete')
                     ->name('tenant.orders.destroy');
 
                 // Order quick actions
                 Route::patch('/orders/{order}/status', [
                     OrderController::class,
                     'updateStatus',
-                ])->name('tenant.orders.update-status');
+                ])->middleware('permission:orders.update')
+                    ->name('tenant.orders.update-status');
                 Route::patch('/orders/{order}/mark-paid', [
                     OrderController::class,
                     'markPaid',
-                ])->name('tenant.orders.mark-paid');
+                ])->middleware('permission:orders.update')
+                    ->name('tenant.orders.mark-paid');
                 Route::get('/orders/{order}/receipt', [
                     OrderController::class,
                     'receipt',
-                ])->name('tenant.orders.receipt');
+                ])->middleware('permission:orders.view')
+                    ->name('tenant.orders.receipt');
                 Route::patch('/orders/{order}/redeem-loyalty', [
                     OrderController::class,
                     'redeemLoyalty',
-                ])->name('tenant.orders.redeem-loyalty');
+                ])->middleware('permission:orders.update')
+                    ->name('tenant.orders.redeem-loyalty');
 
                 // Staff Management (RBAC)
                 Route::get('/staff', [StaffController::class, 'index'])
-                    ->middleware('permission:staff.view,staff.create,staff.update,staff.delete,staff.assign_roles')
+                    ->middleware('permission:staff.view')
                     ->name('tenant.staff.index');
                 Route::get('/staff/create', [StaffController::class, 'create'])
                     ->middleware('permission:staff.create')
@@ -216,7 +228,7 @@ Route::middleware([
                     ->middleware('permission:staff.delete')
                     ->name('tenant.staff.destroy');
                 Route::get('/roles', [RoleController::class, 'index'])
-                    ->middleware('permission:roles.view,roles.create,roles.update,roles.delete')
+                    ->middleware('permission:roles.view')
                     ->name('tenant.roles.index');
                 Route::post('/roles', [RoleController::class, 'store'])
                     ->middleware('permission:roles.create')
@@ -230,11 +242,11 @@ Route::middleware([
 
             });
 
-            // === Owner & staff permission-gated management routes ===
-            Route::middleware('role:owner,staff')->group(function () {
+            // === Staff permission-gated management routes ===
+            Route::middleware('staff')->group(function () {
                 // Services & Pricing
                 Route::get('/services', [ServiceController::class, 'index'])
-                    ->middleware('permission:services.view,services.create,services.update,services.delete')
+                    ->middleware('permission:services.view')
                     ->name('tenant.services.index');
                 Route::get('/services/create', [ServiceController::class, 'create'])
                     ->middleware('permission:services.create')
@@ -255,7 +267,7 @@ Route::middleware([
                 // Expense Tracking (Premium only)
                 Route::middleware('feature:expense_tracking')->group(function () {
                     Route::get('/expenses', [ExpenseController::class, 'index'])
-                        ->middleware('permission:expenses.view,expenses.create,expenses.update,expenses.delete')
+                        ->middleware('permission:expenses.view')
                         ->name('tenant.expenses.index');
                     Route::get('/expenses/create', [ExpenseController::class, 'create'])
                         ->middleware('permission:expenses.create')
@@ -277,7 +289,7 @@ Route::middleware([
                 // Reports (Premium only)
                 Route::middleware('feature:reports')
                     ->get('/reports', [ReportController::class, 'index'])
-                    ->middleware('permission:reports.view,reports.export')
+                    ->middleware('permission:reports.view')
                     ->name('tenant.reports.index');
                 Route::middleware('feature:reports')
                     ->get('/reports/export/excel', [ReportController::class, 'exportExcel'])
@@ -292,7 +304,7 @@ Route::middleware([
                     ->middleware('permission:analytics.view')
                     ->name('tenant.analytics.index');
                 Route::middleware('feature:inventory_management')->group(function () {
-                    Route::get('/inventory', [InventoryController::class, 'index'])->middleware('permission:inventory.view,inventory.create,inventory.update,inventory.delete,inventory.adjust')->name('tenant.inventory.index');
+                    Route::get('/inventory', [InventoryController::class, 'index'])->middleware('permission:inventory.view')->name('tenant.inventory.index');
                     Route::get('/inventory/create', [InventoryController::class, 'create'])->middleware('permission:inventory.create')->name('tenant.inventory.create');
                     Route::post('/inventory', [InventoryController::class, 'store'])->middleware('permission:inventory.create')->name('tenant.inventory.store');
                     Route::get('/inventory/{inventory}/edit', [InventoryController::class, 'edit'])->middleware('permission:inventory.update')->name('tenant.inventory.edit');
@@ -368,12 +380,20 @@ Route::middleware([
                 Route::get('/billing/{invoice}', [BillingController::class, 'show'])->middleware('permission:billing.view')->name('tenant.billing.show');
                 Route::get('/billing/{invoice}/download', [BillingController::class, 'download'])->middleware('permission:billing.download')->name('tenant.billing.download');
 
-                // Owner-only premium support
-                Route::middleware(['role:owner', 'feature:priority_support'])->group(function () {
-                    Route::get('/support', [SupportTicketController::class, 'index'])->name('tenant.support.index');
-                    Route::post('/support', [SupportTicketController::class, 'store'])->name('tenant.support.store');
-                    Route::get('/support/{ticket}', [SupportTicketController::class, 'show'])->name('tenant.support.show');
-                    Route::post('/support/{ticket}/message', [SupportTicketController::class, 'sendMessage'])->name('tenant.support.message');
+                // Premium support with RBAC
+                Route::middleware('feature:priority_support')->group(function () {
+                    Route::get('/support', [SupportTicketController::class, 'index'])
+                        ->middleware('permission:support.view')
+                        ->name('tenant.support.index');
+                    Route::post('/support', [SupportTicketController::class, 'store'])
+                        ->middleware('permission:support.create')
+                        ->name('tenant.support.store');
+                    Route::get('/support/{ticket}', [SupportTicketController::class, 'show'])
+                        ->middleware('permission:support.view')
+                        ->name('tenant.support.show');
+                    Route::post('/support/{ticket}/message', [SupportTicketController::class, 'sendMessage'])
+                        ->middleware('permission:support.reply')
+                        ->name('tenant.support.message');
                 });
             });
 
@@ -417,8 +437,12 @@ Route::middleware([
                     ])->name('tenant.settings.paymongo.remove');
                 });
 
-                Route::get('/updates', [UpdateController::class, 'index'])->name('tenant.updates.index');
-                Route::post('/updates/{release}/apply', [UpdateController::class, 'update'])->name('tenant.updates.apply');
+                Route::get('/updates', [UpdateController::class, 'index'])
+                    ->middleware('permission:updates.view')
+                    ->name('tenant.updates.index');
+                Route::post('/updates/{release}/apply', [UpdateController::class, 'update'])
+                    ->middleware('permission:updates.apply')
+                    ->name('tenant.updates.apply');
             });
 
             // === Customer portal routes (Premium only) ===

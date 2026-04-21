@@ -707,6 +707,12 @@
                     </a>
 
                     @auth
+                        @if ($currentUser->isCustomer() && tenant()->hasFeature('customer_portal'))
+                            <a href="{{ route('tenant.portal.index') }}" title="My Orders" class="flex items-center px-3 py-2 text-sm font-medium rounded-md {{ $navAlignmentClass }} {{ request()->routeIs('tenant.portal*') ? $activeNavClass : $inactiveNavClass }}">
+                                <svg class="{{ $iconSpacingClass }}" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
+                                <span class="{{ $navLabelVisibilityClass }}">My Orders</span>
+                            </a>
+                        @endif
                         @if ($currentUser->isOwner() || $currentUser->hasPermission('customers.view'))
                             <a href="{{ route('tenant.customers.index') }}" title="Customers" class="flex items-center px-3 py-2 text-sm font-medium rounded-md {{ $navAlignmentClass }} {{ request()->routeIs('tenant.customers*') ? $activeNavClass : $inactiveNavClass }}">
                                 <svg class="{{ $iconSpacingClass }}" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg>
@@ -714,7 +720,7 @@
                             </a>
                         @endif
 
-                        @if ($currentUser->isOwner() || $currentUser->isStaff())
+                        @if ($currentUser instanceof \App\Models\User)
                             <a href="{{ route('tenant.orders.index') }}" title="Orders" class="flex items-center px-3 py-2 text-sm font-medium rounded-md {{ $navAlignmentClass }} {{ request()->routeIs('tenant.orders*') ? $activeNavClass : $inactiveNavClass }}">
                                 <svg class="{{ $iconSpacingClass }}" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
                                 <span class="{{ $navLabelVisibilityClass }}">Orders</span>
@@ -801,13 +807,6 @@
                             <svg class="{{ $iconSpacingClass }}" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>
                             <span class="{{ $navLabelVisibilityClass }}">Update Center</span>
                         </a>
-                        @endif
-
-                        @if ($currentUser->isCustomer() && tenant()->hasFeature('customer_portal'))
-                            <a href="{{ route('tenant.portal.index') }}" title="My Orders" class="flex items-center px-3 py-2 text-sm font-medium rounded-md {{ $navAlignmentClass }} {{ request()->routeIs('tenant.portal*') ? $activeNavClass : $inactiveNavClass }}">
-                                <svg class="{{ $iconSpacingClass }}" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
-                                <span class="{{ $navLabelVisibilityClass }}">My Orders</span>
-                            </a>
                         @endif
                     @endauth
                 </nav>

@@ -8,7 +8,7 @@
     @php $theme = tenant()->getThemePreset(); @endphp
 
     <div class="space-y-6">
-        @if ($user->isOwner() || $user->isStaff())
+        @if ($user instanceof \App\Models\User)
             @foreach ($dashboardWidgets as $widgetKey)
                 @includeIf("tenant.dashboard.widgets.{$widgetKey}")
             @endforeach

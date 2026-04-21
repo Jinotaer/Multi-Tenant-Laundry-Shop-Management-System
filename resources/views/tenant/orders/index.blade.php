@@ -35,13 +35,15 @@
                     @endforeach
                 </select>
             </form>
-            <a href="{{ route('tenant.orders.create') }}"
-                class="inline-flex items-center gap-2 rounded-md {{ $theme['primary_bg'] }} {{ $theme['primary_hover'] }} px-4 py-2 text-sm font-medium text-white shadow-sm transition">
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                </svg>
-                New Order
-            </a>
+            @if ($canCreateOrder)
+                <a href="{{ route('tenant.orders.create') }}"
+                    class="inline-flex items-center gap-2 rounded-md {{ $theme['primary_bg'] }} {{ $theme['primary_hover'] }} px-4 py-2 text-sm font-medium text-white shadow-sm transition">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
+                    New Order
+                </a>
+            @endif
         </div>
 
         {{-- Table --}}
@@ -53,9 +55,11 @@
                     </svg>
                     <p class="text-gray-500 text-sm font-medium">No orders yet</p>
                     <p class="text-gray-400 text-xs mt-1">Create your first laundry order.</p>
-                    <a href="{{ route('tenant.orders.create') }}" class="mt-4 inline-flex items-center gap-1 text-sm font-medium {{ $theme['nav_active_text'] }} hover:underline">
-                        New Order →
-                    </a>
+                    @if ($canCreateOrder)
+                        <a href="{{ route('tenant.orders.create') }}" class="mt-4 inline-flex items-center gap-1 text-sm font-medium {{ $theme['nav_active_text'] }} hover:underline">
+                            New Order →
+                        </a>
+                    @endif
                 </div>
             @else
                 <div class="overflow-x-auto">
@@ -93,12 +97,16 @@
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $order->due_date?->format('M d, Y') ?? '—' }}</td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-400">{{ $order->created_at->format('M d, Y') }}</td>
                                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-                                        <a href="{{ route('tenant.orders.edit', $order) }}" class="text-indigo-600 hover:text-indigo-900">Edit</a>
-                                        <form method="POST" action="{{ route('tenant.orders.destroy', $order) }}" class="inline"
-                                            onsubmit="return confirm('Delete order {{ $order->order_number }}?')">
-                                            @csrf @method('DELETE')
-                                            <button type="submit" class="text-red-600 hover:text-red-900">Delete</button>
-                                        </form>
+                                        @if ($canUpdateOrder)
+                                            <a href="{{ route('tenant.orders.edit', $order) }}" class="text-indigo-600 hover:text-indigo-900">Edit</a>
+                                        @endif
+                                        @if ($canDeleteOrder)
+                                            <form method="POST" action="{{ route('tenant.orders.destroy', $order) }}" class="inline"
+                                                onsubmit="return confirm('Delete order {{ $order->order_number }}?')">
+                                                @csrf @method('DELETE')
+                                                <button type="submit" class="text-red-600 hover:text-red-900">Delete</button>
+                                            </form>
+                                        @endif
                                     </td>
                                 </tr>
                             @endforeach

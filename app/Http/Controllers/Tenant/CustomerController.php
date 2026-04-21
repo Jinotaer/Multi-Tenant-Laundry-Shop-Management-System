@@ -30,12 +30,18 @@ class CustomerController extends Controller
         $planLimitService = new PlanLimitService(tenant());
         $user = $request->user();
         $canCreateCustomer = $user !== null
-            && ($user->isOwner() || $user->hasAnyPermission(['customers.create']));
+            && ($user->isOwner() || $user->hasPermission('customers.create'));
+        $canUpdateCustomer = $user !== null
+            && ($user->isOwner() || $user->hasPermission('customers.update'));
+        $canDeleteCustomer = $user !== null
+            && ($user->isOwner() || $user->hasPermission('customers.delete'));
         $canAddCustomer = $planLimitService->canAddCustomer(Customer::count());
 
         return view('tenant.customers.index', compact(
             'customers',
             'canCreateCustomer',
+            'canUpdateCustomer',
+            'canDeleteCustomer',
             'canAddCustomer',
         ));
     }

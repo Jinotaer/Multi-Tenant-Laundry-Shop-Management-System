@@ -32,8 +32,15 @@ class OrderController extends Controller
             ->withQueryString();
 
         $statuses = Order::statusLabelsForPlan();
+        $user = $request->user();
+        $canCreateOrder = $user !== null
+            && ($user->isOwner() || $user->hasPermission('orders.create'));
+        $canUpdateOrder = $user !== null
+            && ($user->isOwner() || $user->hasPermission('orders.update'));
+        $canDeleteOrder = $user !== null
+            && ($user->isOwner() || $user->hasPermission('orders.delete'));
 
-        return view('tenant.orders.index', compact('orders', 'statuses'));
+        return view('tenant.orders.index', compact('orders', 'statuses', 'canCreateOrder', 'canUpdateOrder', 'canDeleteOrder'));
     }
 
     /**

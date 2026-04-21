@@ -16,21 +16,91 @@
     <div class="flex justify-end p-4">
         <div class="flex flex-wrap items-center justify-end gap-2">
             @if ($canExportReports)
-                <a href="{{ route('tenant.reports.export-excel', ['period' => $period]) }}"
+                <a href="{{ route('tenant.reports.export-excel', array_merge(['period' => $period], request()->only(['start_date', 'end_date']))) }}"
                     class="px-3 py-1.5 text-sm rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">
                     Export Excel
                 </a>
-                <a href="{{ route('tenant.reports.export-pdf', ['period' => $period]) }}" target="_blank"
+                <a href="{{ route('tenant.reports.export-pdf', array_merge(['period' => $period], request()->only(['start_date', 'end_date']))) }}" target="_blank"
                     class="px-3 py-1.5 text-sm rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">
                     Print / Save PDF
                 </a>
             @endif
-            @foreach (['week' => 'This Week', 'month' => 'This Month', 'year' => 'This Year'] as $key => $label)
+            @foreach (['week' => 'This Week', 'month' => 'This Month', 'year' => 'This Year', 'all' => 'All Time'] as $key => $label)
                 <a href="{{ route('tenant.reports.index', ['period' => $key]) }}"
                     class="px-3 py-1.5 text-sm rounded-md {{ $period === $key ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50' }}">
                     {{ $label }}
                 </a>
             @endforeach
+        </div>
+    </div>
+
+    {{-- Custom Date Range Filter --}}
+    <div class="px-4 pb-4">
+        <div class="bg-white rounded-lg shadow-sm p-4">
+            <div class="flex flex-wrap gap-4">
+                {{-- Quick Month Selector --}}
+                <div class="flex-1 min-w-[250px]">
+                    <label class="block text-xs font-medium text-gray-700 mb-2">Quick Select Month</label>
+                    <form method="GET" action="{{ route('tenant.reports.index') }}" id="monthForm">
+                        <input type="hidden" name="period" value="custom">
+                        <select name="month" onchange="this.form.submit()" 
+                            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                            <option value="">Select a month...</option>
+                            @php
+                                $currentMonth = request('month');
+                                $months = [];
+                                // Generate last 24 months
+                                for ($i = 0; $i < 24; $i++) {
+                                    $date = \Carbon\Carbon::now()->subMonths($i);
+                                    $value = $date->format('Y-m');
+                                    $label = $date->format('F Y');
+                                    $months[$value] = $label;
+                                }
+                            @endphp
+                            @foreach($months as $value => $label)
+                                <option value="{{ $value }}" {{ $currentMonth === $value ? 'selected' : '' }}>
+                                    {{ $label }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </form>
+                </div>
+
+                {{-- Custom Date Range --}}
+                <div class="flex-1 min-w-[400px]">
+                    <label class="block text-xs font-medium text-gray-700 mb-2">Or Custom Date Range</label>
+                    <form method="GET" action="{{ route('tenant.reports.index') }}" class="flex items-end gap-2">
+                        <input type="hidden" name="period" value="custom">
+                        <div class="flex-1">
+                            <input type="date" name="start_date" value="{{ request('start_date') }}" placeholder="Start Date"
+                                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                        <div class="flex-1">
+                            <input type="date" name="end_date" value="{{ request('end_date') }}" placeholder="End Date"
+                                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                        <button type="submit" class="px-4 py-2 text-sm font-medium rounded-md bg-indigo-600 text-white hover:bg-indigo-700 whitespace-nowrap">
+                            Generate
+                        </button>
+                    </form>
+                </div>
+
+                {{-- Clear Filter --}}
+                @if(request('start_date') || request('end_date') || request('month'))
+                    <div class="flex items-end">
+                        <a href="{{ route('tenant.reports.index', ['period' => 'month']) }}" 
+                            class="px-4 py-2 text-sm font-medium rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 whitespace-nowrap">
+                            Clear Filter
+                        </a>
+                    </div>
+                @endif
+            </div>
+            
+            @if($period === 'custom' && (request('start_date') && request('end_date') || request('month')))
+                <p class="mt-3 text-xs text-indigo-600 font-medium">
+                    📊 {{ $periodLabel }}
+                </p>
+            @endif
         </div>
     </div>
     <div class="space-y-6">

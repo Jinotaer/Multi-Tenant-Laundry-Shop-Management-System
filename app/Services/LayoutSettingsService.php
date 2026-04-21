@@ -380,11 +380,16 @@ class LayoutSettingsService
             return 'guest';
         }
 
-        if (method_exists($user, 'isOwner') && $user->isOwner()) {
-            return 'owner';
+        // Check if user is Customer model (not User model)
+        if ($user instanceof \App\Models\Customer) {
+            return 'customer';
         }
 
-        if (method_exists($user, 'isStaff') && $user->isStaff()) {
+        // All User model instances are staff (owner, staff, manager, supervisor, etc.)
+        if ($user instanceof \App\Models\User) {
+            if (method_exists($user, 'isOwner') && $user->isOwner()) {
+                return 'owner';
+            }
             return 'staff';
         }
 

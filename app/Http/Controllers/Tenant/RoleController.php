@@ -35,8 +35,22 @@ class RoleController extends Controller
 
             $permissions = Permission::query()
                 ->orderBy('module')
-                ->orderBy('label')
-                ->get();
+                ->get()
+                ->sortBy(function ($permission) {
+                    // Custom sort order: view first, then create, update, delete, others
+                    $action = explode('.', $permission->key)[1] ?? '';
+                    $order = [
+                        'view' => 1,
+                        'create' => 2,
+                        'update' => 3,
+                        'delete' => 4,
+                    ];
+                    return ($order[$action] ?? 99) . $permission->key;
+                })
+                ->values();
+
+            // Filter permissions based on subscription features
+            $permissions = $this->filterPermissionsBySubscriptionFeatures($permissions);
 
             if ($actor !== null && ! $actor->isOwner()) {
                 $permissions = $permissions
@@ -200,5 +214,45 @@ class RoleController extends Controller
         }
 
         return $actor->canManageRolePermissions($role);
+    }
+
+    /**
+     * Filter permissions based on tenant's subscription features.
+     *
+     * @param  \Illuminate\Support\Collection<int, Permission>  $permissions
+     * @return \Illuminate\Support\Collection<int, Permission>
+     */
+    private function filterPermissionsBySubscriptionFeatures($permissions)
+    {
+        $tenant = tenant();
+        
+        if (!$tenant) {
+            return $permissions;
+        }
+
+        // Map modules to required features
+        $moduleFeatureMap = [
+            'expenses' => 'expense_tracking',
+            'inventory' => 'inventory_management',
+            'reports' => 'reports',
+            'analytics' => 'analytics_dashboard',
+        ];
+
+        return $permissions->filter(function ($permission) use ($tenant, $moduleFeatureMap) {
+            // Core modules are always available
+            $coreModules = ['dashboard', 'orders', 'customers', 'staff', 'roles', 'services', 'billing'];
+            
+            if (in_array($permission->module, $coreModules, true)) {
+                return true;
+            }
+
+            // Check if module requires a feature
+            if (isset($moduleFeatureMap[$permission->module])) {
+                return $tenant->hasFeature($moduleFeatureMap[$permission->module]);
+            }
+
+            // Allow by default if not mapped
+            return true;
+        });
     }
 }

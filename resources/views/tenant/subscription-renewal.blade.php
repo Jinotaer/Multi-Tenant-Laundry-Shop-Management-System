@@ -159,7 +159,7 @@
                 Need help or have questions about your subscription?
             </p>
             <p class="text-sm text-gray-600 mt-1">
-                Contact us at <a href="mailto:support@laundrytrack.com" class="text-indigo-600 hover:text-indigo-700 font-medium">support@laundrytrack.com</a>
+                Contact us at <a href="mailto:support@laundrytrack.com?subject=Subscription%20Renewal%20Help&body=Hi%2C%0A%0AI%20need%20help%20with%20my%20subscription%20renewal.%0A%0AShop%20Name%3A%20{{ urlencode($shopName) }}%0ATenant%20ID%3A%20{{ tenant()->id }}%0A%0AQuestion%3A%20" class="text-indigo-600 hover:text-indigo-700 font-medium">support@laundrytrack.com</a>
             </p>
         </div>
 
