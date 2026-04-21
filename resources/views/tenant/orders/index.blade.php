@@ -5,7 +5,13 @@
         </h2>
     </x-slot>
 
-    @php $theme = tenant()->getThemePreset(); @endphp
+    @php
+        $theme = tenant()->getThemePreset();
+        $showOrderCreateModal = ($errors->isNotEmpty() && old('form_context') === 'order-create')
+            || request()->boolean('create');
+        $customers = \App\Models\Customer::orderBy('name')->get();
+        $services = \App\Models\Service::active()->orderBy('sort_order')->orderBy('name')->get();
+    @endphp
 
     <div class="space-y-4">
 
@@ -36,13 +42,16 @@
                 </select>
             </form>
             @if ($canCreateOrder)
-                <a href="{{ route('tenant.orders.create') }}"
+                <button
+                    type="button"
+                    x-data
+                    x-on:click="$dispatch('open-modal', 'order-create-modal')"
                     class="inline-flex items-center gap-2 rounded-md {{ $theme['primary_bg'] }} {{ $theme['primary_hover'] }} px-4 py-2 text-sm font-medium text-white shadow-sm transition">
                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                     </svg>
                     New Order
-                </a>
+                </button>
             @endif
         </div>
 
@@ -56,9 +65,14 @@
                     <p class="text-gray-500 text-sm font-medium">No orders yet</p>
                     <p class="text-gray-400 text-xs mt-1">Create your first laundry order.</p>
                     @if ($canCreateOrder)
-                        <a href="{{ route('tenant.orders.create') }}" class="mt-4 inline-flex items-center gap-1 text-sm font-medium {{ $theme['nav_active_text'] }} hover:underline">
+                        <button
+                            type="button"
+                            x-data
+                            x-on:click="$dispatch('open-modal', 'order-create-modal')"
+                            class="mt-4 inline-flex items-center gap-1 text-sm font-medium {{ $theme['nav_active_text'] }} hover:underline"
+                        >
                             New Order →
-                        </a>
+                        </button>
                     @endif
                 </div>
             @else
@@ -121,4 +135,14 @@
             @endif
         </div>
     </div>
+
+    @if ($canCreateOrder)
+        @include('tenant.orders.partials.order-create-modal', [
+            'theme' => $theme,
+            'customers' => $customers,
+            'services' => $services,
+            'statuses' => $statuses,
+            'showOrderCreateModal' => $showOrderCreateModal,
+        ])
+    @endif
 </x-tenant-layout>

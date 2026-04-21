@@ -53,11 +53,7 @@ class OrderController extends Controller
                 ->with('error', 'Monthly order limit reached for your current plan. Please upgrade to create more orders.');
         }
 
-        $customers = Customer::orderBy('name')->get();
-        $services = Service::active()->orderBy('sort_order')->orderBy('name')->get();
-        $statuses = Order::statusLabelsForPlan();
-
-        return view('tenant.orders.create', compact('customers', 'services', 'statuses'));
+        return redirect()->route('tenant.orders.index', ['create' => 1]);
     }
 
     /**
