@@ -242,6 +242,14 @@ class GitHubReleaseService
      */
     public function normalizeVersion(string $version): string
     {
-        return preg_replace('/^v/i', '', trim($version));
+        $normalized = trim($version);
+
+        // Accept common tag prefixes like v1.2.3 and v.1.2.3.
+        $normalized = preg_replace('/^v[\.\-_]*/i', '', $normalized);
+
+        // Remove any remaining non-numeric prefix so version_compare works reliably.
+        $normalized = preg_replace('/^[^0-9]+/', '', $normalized);
+
+        return $normalized !== '' ? $normalized : '0.0.0';
     }
 }
