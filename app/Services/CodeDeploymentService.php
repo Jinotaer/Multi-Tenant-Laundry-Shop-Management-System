@@ -6,6 +6,9 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use FilesystemIterator;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
 use RuntimeException;
 use ZipArchive;
 
@@ -185,16 +188,9 @@ class CodeDeploymentService
             if (!File::exists($source)) {
                 continue;
             }
-            
-            // Remove old directory
-            if (File::exists($destination)) {
-                File::deleteDirectory($destination);
-            }
-            
-            // Copy new directory
-            if (!File::copyDirectory($source, $destination)) {
-                throw new RuntimeException("Failed to copy directory [{$dir}] during deployment.");
-            }
+
+            $this->guardAgainstUnexpectedlyEmptySource($dir, $source, $destination);
+            $this->replaceDirectory($source, $destination, 'deployment');
         }
         
         // Sync root-level files
@@ -337,14 +333,8 @@ class CodeDeploymentService
                 if (!File::exists($source)) {
                     continue;
                 }
-                
-                if (File::exists($destination)) {
-                    File::deleteDirectory($destination);
-                }
-                
-                if (!File::copyDirectory($source, $destination)) {
-                    throw new RuntimeException("Failed to restore directory [{$dir}] during rollback.");
-                }
+
+                $this->replaceDirectory($source, $destination, 'rollback');
             }
             
             // Restore root-level files
@@ -489,5 +479,79 @@ class CodeDeploymentService
             'storage',
             'vendor',
         ], true);
+    }
+
+    /**
+     * Avoid deleting a populated directory when release archive unexpectedly ships an empty one.
+     */
+    private function guardAgainstUnexpectedlyEmptySource(string $name, string $source, string $destination): void
+    {
+        if (!File::exists($destination)) {
+            return;
+        }
+
+        $sourceFiles = $this->countFilesRecursively($source);
+        $destinationFiles = $this->countFilesRecursively($destination);
+
+        if ($destinationFiles > 0 && $sourceFiles === 0) {
+            throw new RuntimeException("Unsafe deployment for [{$name}]: source archive directory is empty while destination has files.");
+        }
+    }
+
+    /**
+     * Stage a directory copy then swap, reducing risk of partial-copy loss.
+     */
+    private function replaceDirectory(string $source, string $destination, string $context): void
+    {
+        $tempDestination = $destination . '.__tmp_deploy_' . str_replace('.', '', uniqid('', true));
+
+        try {
+            if (File::exists($tempDestination)) {
+                File::deleteDirectory($tempDestination);
+            }
+
+            if (!File::copyDirectory($source, $tempDestination)) {
+                throw new RuntimeException("Failed to stage directory [{$source}] during {$context}.");
+            }
+
+            if (File::exists($destination)) {
+                File::deleteDirectory($destination);
+            }
+
+            if (!File::moveDirectory($tempDestination, $destination, true)) {
+                if (!File::copyDirectory($tempDestination, $destination)) {
+                    throw new RuntimeException("Failed to activate staged directory [{$destination}] during {$context}.");
+                }
+
+                File::deleteDirectory($tempDestination);
+            }
+        } finally {
+            if (File::exists($tempDestination)) {
+                File::deleteDirectory($tempDestination);
+            }
+        }
+    }
+
+    /**
+     * Count files in a directory recursively.
+     */
+    private function countFilesRecursively(string $path): int
+    {
+        if (!is_dir($path)) {
+            return 0;
+        }
+
+        $count = 0;
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($path, FilesystemIterator::SKIP_DOTS)
+        );
+
+        foreach ($iterator as $item) {
+            if ($item->isFile()) {
+                $count++;
+            }
+        }
+
+        return $count;
     }
 }
