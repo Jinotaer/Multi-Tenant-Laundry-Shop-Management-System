@@ -414,7 +414,16 @@ class CodeDeploymentService
      */
     private function deploymentDirectories(): array
     {
-        return ['app', 'config', 'database', 'routes', 'resources', 'public'];
+        return [
+            'app',
+            'bootstrap',
+            'config',
+            'database',
+            'routes',
+            'resources',
+            'tests',
+            'public',
+        ];
     }
 
     /**
@@ -425,6 +434,7 @@ class CodeDeploymentService
     private function deploymentFiles(): array
     {
         return [
+            'artisan',
             'composer.json',
             'composer.lock',
             'package.json',
@@ -432,6 +442,8 @@ class CodeDeploymentService
             'vite.config.js',
             'postcss.config.js',
             'tailwind.config.js',
+            'phpunit.xml',
+            'boost.json',
         ];
     }
 }
