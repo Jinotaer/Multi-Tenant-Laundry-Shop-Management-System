@@ -6,6 +6,7 @@ use App\Models\Admin;
 use App\Models\AppRelease;
 use App\Models\Tenant;
 use App\Models\TenantUpdate;
+use Illuminate\Support\Collection;
 use App\Notifications\AdminGenericNotification;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -144,9 +145,7 @@ class GitHubReleaseService
      */
     public function notifyTenantsOfUpdates()
     {
-        $latestRelease = AppRelease::where('is_prerelease', false)
-            ->orderBy('published_at', 'desc')
-            ->first();
+        $latestRelease = $this->latestStableRelease();
 
         if (! $latestRelease) {
             return;
@@ -198,9 +197,7 @@ class GitHubReleaseService
      */
     public function assignLatestVersionToTenant(Tenant $tenant): void
     {
-        $latestStableRelease = AppRelease::where('is_prerelease', false)
-            ->orderByDesc('published_at')
-            ->first();
+        $latestStableRelease = $this->latestStableRelease();
 
         if (! $latestStableRelease) {
             // Create a default v1.0.0 release if none exists
@@ -251,5 +248,42 @@ class GitHubReleaseService
         $normalized = preg_replace('/^[^0-9]+/', '', $normalized);
 
         return $normalized !== '' ? $normalized : '0.0.0';
+    }
+
+    /**
+     * Compare two version tags using semantic version ordering.
+     */
+    public function compareVersions(string $left, string $right): int
+    {
+        return version_compare(
+            $this->normalizeVersion($left),
+            $this->normalizeVersion($right)
+        );
+    }
+
+    /**
+     * Sort releases from newest semantic version to oldest.
+     *
+     * @param  iterable<int, AppRelease>  $releases
+     * @return Collection<int, AppRelease>
+     */
+    public function sortReleasesDescending(iterable $releases): Collection
+    {
+        return collect($releases)
+            ->sort(fn (AppRelease $left, AppRelease $right): int => $this->compareVersions(
+                $right->version_tag,
+                $left->version_tag
+            ))
+            ->values();
+    }
+
+    /**
+     * Resolve the latest stable release by semantic version, not publish date.
+     */
+    public function latestStableRelease(): ?AppRelease
+    {
+        return $this->sortReleasesDescending(
+            AppRelease::where('is_prerelease', false)->get()
+        )->first();
     }
 }

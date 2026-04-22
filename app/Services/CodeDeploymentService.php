@@ -278,9 +278,11 @@ class CodeDeploymentService
             'commands' => array_map(static fn (array $step): string => $step['command'], $steps),
         ]);
 
-        foreach ($steps as $step) {
-            $this->executeDeploymentStep($step);
-        }
+        $this->runWithoutTenantContext(function () use ($steps): void {
+            foreach ($steps as $step) {
+                $this->executeDeploymentStep($step);
+            }
+        });
 
         return array_map(static fn (array $step): string => $step['command'], $steps);
     }
@@ -295,6 +297,28 @@ class CodeDeploymentService
         }
 
         return ! tenancy()->initialized;
+    }
+
+    /**
+     * Execute shared deployment tasks without a tenant-scoped cache/database context.
+     */
+    private function runWithoutTenantContext(callable $callback): mixed
+    {
+        if (! function_exists('tenancy') || ! tenancy()->initialized) {
+            return $callback();
+        }
+
+        $previousTenant = tenant();
+
+        tenancy()->end();
+
+        try {
+            return $callback();
+        } finally {
+            if ($previousTenant) {
+                tenancy()->initialize($previousTenant);
+            }
+        }
     }
 
     /**

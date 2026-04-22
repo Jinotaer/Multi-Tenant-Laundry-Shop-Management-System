@@ -36,8 +36,8 @@ class UpdateController extends Controller
         $currentUpdate = $tenant->updates()->where('is_current', true)->with('release')->first();
         $currentVersionTag = $currentUpdate?->release?->version_tag ?? 'v0.0.0';
 
-        // Get all releases
-        $allReleases = AppRelease::orderByDesc('published_at')->get();
+        // Sort by semantic version so tenants always see the true latest release first.
+        $allReleases = $this->releaseService->sortReleasesDescending(AppRelease::all());
         
         // Filter newer versions for updates
         $availableUpdates = $allReleases->filter(function ($release) use ($currentVersionTag) {
