@@ -9,6 +9,7 @@ use App\Services\GitHubReleaseService;
 use App\Services\TenantBackupService;
 use App\Services\TenantMigrationService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class UpdateController extends Controller
@@ -26,8 +27,7 @@ class UpdateController extends Controller
     public function index()
     {
         $tenant = tenant();
-        $canApplyUpdates = $this->currentUserCanApplyUpdates(auth()->user());
-        
+
         if (!$tenant) {
             abort(500, 'Tenant context not initialized');
         }
@@ -47,45 +47,12 @@ class UpdateController extends Controller
             return version_compare($releaseVersion, $currentVer, '>');
         });
 
-        // Filter older versions that can be rolled back to
-        $rollbackCandidates = $allReleases->filter(function ($release) use ($currentVersionTag) {
-            $releaseVersion = $this->releaseService->normalizeVersion($release->version_tag);
-            $currentVer = $this->releaseService->normalizeVersion($currentVersionTag);
-
-            return version_compare($releaseVersion, $currentVer, '<');
-        })->map(function ($release) use ($tenant) {
-            $rollbackCheck = $this->releaseService->canRollbackTo($release, $tenant);
-
-            $release->can_rollback = $rollbackCheck['can_rollback'];
-            $release->rollback_errors = $rollbackCheck['errors'];
-            $release->rollback_warnings = $rollbackCheck['warnings'];
-
-            return $release;
-        });
-
         // Get update history from tenant_updates table
         $updateHistory = $tenant->updates()
             ->with('release')
             ->whereNotIn('status', ['update_available', 'deferred'])
             ->orderByDesc('created_at')
-            ->get()
-            ->map(function ($history) use ($tenant, $canApplyUpdates) {
-                $history->can_rollback = false;
-                $history->rollback_errors = [];
-                $history->rollback_warnings = [];
-
-                if (! $canApplyUpdates || $history->is_current || ! $history->release) {
-                    return $history;
-                }
-
-                $rollbackCheck = $this->releaseService->canRollbackTo($history->release, $tenant);
-
-                $history->can_rollback = $rollbackCheck['can_rollback'];
-                $history->rollback_errors = $rollbackCheck['errors'];
-                $history->rollback_warnings = $rollbackCheck['warnings'];
-
-                return $history;
-            });
+            ->get();
 
         // Check for pending migrations
         $hasPendingMigrations = false;
@@ -106,11 +73,9 @@ class UpdateController extends Controller
         return view('tenant.updates.index', compact(
             'currentVersion',
             'availableUpdates',
-            'rollbackCandidates',
             'updateHistory',
             'hasPendingMigrations',
             'backups',
-            'canApplyUpdates',
         ));
     }
 
@@ -125,10 +90,17 @@ class UpdateController extends Controller
         $tenantBackupPath = null;
         $codeBackupPath = null;
         $migrationAttempted = false;
+        $maintenanceModeEntered = false;
+        $deployCode = $this->shouldDeployCode();
+        $codeDeploymentSkippedForIsolation = (bool) config('updates.auto_deploy_code', false) && !$deployCode;
 
         try {
-            // Step 1: Create backup
+            // Step 1: Validate before changing state.
             Log::info("Starting update for tenant {$tenant->id} to {$release->version_tag}");
+
+            $this->validatePreflight($deployCode);
+
+            // Step 2: Create backup
             
             $backupResult = $this->backupService->createBackup($tenant, 'pre_update');
             
@@ -138,8 +110,11 @@ class UpdateController extends Controller
 
             $tenantBackupPath = $backupResult['backup_path'];
 
-            // Step 2: Deploy code (if enabled)
-            if ($this->shouldDeployCode()) {
+            // Step 3: Enter tenant-scoped maintenance mode.
+            $maintenanceModeEntered = $this->enterTenantMaintenanceMode($tenant, $release->version_tag);
+
+            // Step 4: Deploy code (if enabled)
+            if ($deployCode) {
                 $deployResult = $this->deploymentService->deployFromGitHub($release->version_tag);
                 $codeBackupPath = $deployResult['backup_path'] ?? null;
 
@@ -148,7 +123,7 @@ class UpdateController extends Controller
                 }
             }
 
-            // Step 3: Run migrations
+            // Step 5: Run migrations
             $migrationAttempted = true;
             $migrationResult = $this->migrationService->runMigrationsForVersion(
                 $tenant,
@@ -160,25 +135,45 @@ class UpdateController extends Controller
                 throw new \Exception('Migration failed: ' . $migrationResult['error']);
             }
 
-            // Step 4: Update version record
-            $tenant->updates()->where('is_current', true)->update(['is_current' => false]);
+            // Step 6: Run optional smoke test command.
+            $smokeTestResult = $this->runOptionalSmokeTest();
 
-            $tenant->updates()->updateOrCreate(
-                ['app_release_id' => $release->id],
-                [
-                    'status' => 'updated',
-                    'is_current' => true,
-                    'action_taken_at' => now(),
-                ]
-            );
+            // Step 7: Update version record
+            \Illuminate\Support\Facades\DB::transaction(function () use ($tenant, $release) {
+                $tenant->updates()->where('is_current', true)->update(['is_current' => false]);
+    
+                $tenant->updates()->updateOrCreate(
+                    ['app_release_id' => $release->id],
+                    [
+                        'status' => 'updated',
+                        'is_current' => true,
+                        'action_taken_at' => now(),
+                    ]
+                );
+            });
+
+            // Step 8: Exit maintenance mode only after successful completion.
+            if ($maintenanceModeEntered) {
+                $this->exitTenantMaintenanceMode($tenant);
+                $maintenanceModeEntered = false;
+            }
 
             Log::info("Tenant {$tenant->id} updated successfully to {$release->version_tag}");
 
-            return back()->with('success', 
+            $successMessage =
                 "Successfully updated to version {$release->version_tag}. " .
                 "Backup created: {$backupResult['backup_name']}. " .
-                "Migrations run: " . count($migrationResult['migrations'] ?? [])
-            );
+                "Migrations run: " . count($migrationResult['migrations'] ?? []);
+
+            if ($codeDeploymentSkippedForIsolation) {
+                $successMessage .= ' Shared code deployment was skipped to keep other tenant stores unaffected.';
+            }
+
+            if ($smokeTestResult['executed']) {
+                $successMessage .= ' Smoke test passed.';
+            }
+
+            return back()->with('success', $successMessage);
 
         } catch (\Exception $e) {
             if ($codeBackupPath || ($tenantBackupPath && $migrationAttempted)) {
@@ -190,116 +185,32 @@ class UpdateController extends Controller
                 );
             }
 
+            if ($maintenanceModeEntered) {
+                Log::warning('Tenant update failed while maintenance mode is active; manual verification is required.', [
+                    'tenant_id' => $tenant->id,
+                    'target_version' => $release->version_tag,
+                ]);
+            }
+
             Log::error("Update failed for tenant {$tenant->id}", [
                 'version' => $release->version_tag,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
 
-            return back()->with('error', 
-                'Update failed: ' . $e->getMessage() . '. Please contact support if the issue persists.'
-            );
+            $errorMessage =
+                'Update failed: ' . $e->getMessage() . '. Please contact support if the issue persists.';
+
+            if ($maintenanceModeEntered) {
+                $errorMessage .= ' This store remains in maintenance mode until the update is verified.';
+            }
+
+            return back()->with('error', $errorMessage);
         }
     }
 
     /**
-     * Rollback to a previous release.
-     */
-    public function rollback(Request $request, AppRelease $release)
-    {
-        $tenant = tenant();
-        $currentUpdate = $tenant->updates()->where('is_current', true)->with('release')->first();
-        $currentVersion = $currentUpdate?->release?->version_tag ?? 'v0.0.0';
-        $tenantBackupPath = null;
-        $codeBackupPath = null;
-        $rollbackAttempted = false;
-
-        // Check if rollback is safe
-        $safetyCheck = $this->releaseService->canRollbackTo($release, $tenant);
-
-        if (!$safetyCheck['can_rollback']) {
-            return back()->with('error', 'Rollback not allowed: '.implode(' ', $safetyCheck['errors']));
-        }
-
-        try {
-            // Create backup before rollback
-            $backupResult = $this->backupService->createBackup($tenant, 'pre_rollback');
-            
-            if (!$backupResult['success']) {
-                throw new \Exception('Backup failed: ' . $backupResult['error']);
-            }
-
-            $tenantBackupPath = $backupResult['backup_path'];
-
-            // Roll back code if automatic deployments are enabled
-            if ($this->shouldDeployCode()) {
-                $deployResult = $this->deploymentService->deployFromGitHub($release->version_tag);
-                $codeBackupPath = $deployResult['backup_path'] ?? null;
-
-                if (!$deployResult['success']) {
-                    throw new \Exception('Code rollback failed: ' . $deployResult['error']);
-                }
-            }
-
-            // Rollback migrations
-            $rollbackAttempted = true;
-            $migrationResult = $this->migrationService->rollbackMigrationsForVersion(
-                $tenant,
-                $currentVersion,
-                $release->version_tag
-            );
-
-            if (!$migrationResult['success']) {
-                throw new \Exception('Migration rollback failed: ' . $migrationResult['error']);
-            }
-
-            // Update version record
-            $tenant->updates()->where('is_current', true)->update(['is_current' => false]);
-
-            $tenant->updates()->updateOrCreate(
-                ['app_release_id' => $release->id],
-                [
-                    'status' => 'rolled_back',
-                    'is_current' => true,
-                    'action_taken_at' => now(),
-                ]
-            );
-
-            Log::info("Tenant {$tenant->id} rolled back to {$release->version_tag}");
-
-            $warningMessage = !empty($safetyCheck['warnings'])
-                ? ' Warning: '.implode(' ', $safetyCheck['warnings'])
-                : '';
-
-            return back()->with('success', 
-                "Rolled back to version {$release->version_tag}. " .
-                "Backup created: {$backupResult['backup_name']}." .
-                $warningMessage
-            );
-
-        } catch (\Exception $e) {
-            if ($codeBackupPath || ($tenantBackupPath && $rollbackAttempted)) {
-                $this->restoreFailedVersionChange(
-                    $tenant,
-                    $tenantBackupPath,
-                    $codeBackupPath,
-                    restoreCodeFirst: false
-                );
-            }
-
-            Log::error("Rollback failed for tenant {$tenant->id}", [
-                'version' => $release->version_tag,
-                'error' => $e->getMessage()
-            ]);
-
-            return back()->with('error', 
-                'Rollback failed: ' . $e->getMessage() . '. Please contact support.'
-            );
-        }
-    }
-
-    /**
-     * Rollback update on failure.
+     * Restore a failed update from backups.
      */
     private function restoreFailedVersionChange(
         $tenant,
@@ -424,27 +335,148 @@ class UpdateController extends Controller
     }
 
     /**
+     * Validate deployment prerequisites before changing tenant state.
+     */
+    private function validatePreflight(bool $deployCode): void
+    {
+        if (! $deployCode) {
+            return;
+        }
+
+        $preflight = $this->deploymentService->canDeploy();
+
+        if ($preflight['can_deploy'] ?? false) {
+            return;
+        }
+
+        $failedChecks = collect($preflight['checks'] ?? [])
+            ->filter(fn (array $check) => ! ($check['passed'] ?? false))
+            ->map(fn (array $check, string $name) => $name . ': ' . ($check['message'] ?? 'failed'))
+            ->values()
+            ->implode('; ');
+
+        throw new \RuntimeException(
+            'Preflight validation failed' . ($failedChecks !== '' ? ': ' . $failedChecks : '.')
+        );
+    }
+
+    /**
+     * Run an optional smoke test command configured for updates.
+     */
+    private function runOptionalSmokeTest(): array
+    {
+        $enabled = (bool) config('updates.smoke_test.enabled', false);
+        $command = trim((string) config('updates.smoke_test.command', ''));
+
+        if (! $enabled || $command === '') {
+            return ['executed' => false];
+        }
+
+        $output = [];
+        $exitCode = 0;
+
+        exec($command . ' 2>&1', $output, $exitCode);
+
+        if ($exitCode !== 0) {
+            throw new \RuntimeException('Smoke test failed: ' . trim(implode(PHP_EOL, $output)));
+        }
+
+        Log::info('Smoke test command completed successfully.', [
+            'command' => $command,
+        ]);
+
+        return ['executed' => true];
+    }
+
+    /**
+     * Enable tenant-scoped maintenance mode while update tasks execute.
+     */
+    private function enterTenantMaintenanceMode($tenant, string $targetVersion): bool
+    {
+        if (! (bool) config('updates.tenant_maintenance.enabled', true)) {
+            return false;
+        }
+
+        $ttlMinutes = max((int) config('updates.tenant_maintenance.ttl_minutes', 60), 5);
+
+        try {
+            $this->maintenanceCache()->put(
+                $this->tenantMaintenanceCacheKey($tenant->id),
+                [
+                    'tenant_id' => $tenant->id,
+                    'target_version' => $targetVersion,
+                    'started_at' => now()->toIso8601String(),
+                ],
+                now()->addMinutes($ttlMinutes)
+            );
+        } catch (\Throwable $e) {
+            Log::warning('Unable to enable tenant maintenance mode for update; continuing without maintenance lock.', [
+                'tenant_id' => $tenant->id,
+                'target_version' => $targetVersion,
+                'error' => $e->getMessage(),
+            ]);
+
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Disable tenant-scoped maintenance mode after a successful update.
+     */
+    private function exitTenantMaintenanceMode($tenant): void
+    {
+        try {
+            $this->maintenanceCache()->forget($this->tenantMaintenanceCacheKey($tenant->id));
+        } catch (\Throwable $e) {
+            Log::warning('Unable to clear tenant maintenance mode after update.', [
+                'tenant_id' => $tenant->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Build cache key for tenant update maintenance state.
+     */
+    private function tenantMaintenanceCacheKey($tenantId): string
+    {
+        return 'tenant:update:maintenance:' . $tenantId;
+    }
+
+    /**
+     * Resolve cache repository used for tenant update maintenance flags.
+     */
+    private function maintenanceCache()
+    {
+        $store = (string) config('updates.tenant_maintenance.cache_store', config('cache.default'));
+
+        return Cache::store($store);
+    }
+
+    /**
      * Determine if code should be deployed alongside version changes.
      */
     private function shouldDeployCode(): bool
     {
-        return (bool) config('updates.auto_deploy_code', true);
-    }
+        $autoDeployEnabled = (bool) config('updates.auto_deploy_code', false);
 
-    /**
-     * Determine if the current actor can apply updates and rollbacks.
-     */
-    private function currentUserCanApplyUpdates($user): bool
-    {
-        if (! $user) {
+        if (! $autoDeployEnabled) {
             return false;
         }
 
-        if (method_exists($user, 'isOwner') && $user->isOwner()) {
-            return true;
+        // Tenant-triggered updates should remain tenant-scoped and must not replace shared app code.
+        if (function_exists('tenancy') && tenancy()->initialized
+            && ! (bool) config('updates.allow_tenant_code_deploy', false)) {
+            Log::warning('Skipping shared code deployment during tenant update to prevent cross-tenant impact.', [
+                'tenant_id' => tenant()?->id,
+            ]);
+
+            return false;
         }
 
-        return method_exists($user, 'hasPermission')
-            && $user->hasPermission('updates.apply');
+        return true;
     }
+
 }

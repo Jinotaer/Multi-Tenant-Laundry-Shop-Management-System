@@ -1,7 +1,7 @@
 # System Updates Implementation Guide
 
 ## Overview
-This document explains the fully implemented tenant update system with backup, migration, code deployment, and forced updates.
+This document explains the tenant update system with backup, migration, optional code deployment, tenant-scoped maintenance mode, preflight validation, and optional smoke testing.
 
 ## Features Implemented
 
@@ -52,13 +52,20 @@ $deploymentService = app(CodeDeploymentService::class);
 $result = $deploymentService->deployFromGitHub('v2.0.0');
 ```
 
-### 4. **Forced Updates** ✅
-- **Middleware:** `App\Http\Middleware\CheckRequiredUpdate`
+### 4. **Tenant-Scoped Maintenance During Updates** ✅
+- **Middleware:** `App\Http\Middleware\CheckTenantUpdateMaintenance`
 - **Features:**
-  - Grace period (default 7 days)
-  - Automatic blocking after grace period
-  - Warning messages during grace period
-  - Allowed routes (update center, logout)
+  - Marks only the updating tenant as in maintenance mode
+  - Other tenants remain online and unaffected
+  - Allows update center and logout routes while maintenance is active
+
+### 5. **Preflight Validation + Optional Smoke Test** ✅
+- **Preflight:** `CodeDeploymentService::canDeploy()`
+- **Smoke Test:** Optional shell command configured via env
+- **Features:**
+  - Validate deployment prerequisites before pipeline execution
+  - Run smoke test after pipeline and before final success response
+  - Keep tenant maintenance mode active on failure for manual verification
 
 ## Configuration
 
@@ -72,9 +79,18 @@ GITHUB_TOKEN=your_github_token
 
 # Update System
 AUTO_DEPLOY_CODE=false
+ALLOW_TENANT_CODE_DEPLOY=false
 REQUIRED_UPDATE_GRACE_PERIOD=7
 AUTO_RUN_MIGRATIONS=true
 MIGRATION_TIMEOUT=300
+
+# Tenant update maintenance
+TENANT_UPDATE_MAINTENANCE_ENABLED=true
+TENANT_UPDATE_MAINTENANCE_TTL_MINUTES=60
+
+# Optional smoke test
+UPDATE_SMOKE_TEST_ENABLED=false
+UPDATE_SMOKE_TEST_COMMAND="php artisan about"
 
 # Backup Settings
 BACKUP_RETENTION_COUNT=10
@@ -88,29 +104,30 @@ RUN_NPM_BUILD=true
 
 ### Register Middleware
 
-Add to `app/Http/Kernel.php`:
+Alias is already registered in `bootstrap/app.php`:
 ```php
-protected $middlewareGroups = [
-    'tenant.auth' => [
-        // ... other middleware
-        \App\Http\Middleware\CheckRequiredUpdate::class,
-    ],
-];
+'tenant.update.maintenance' => \App\Http\Middleware\CheckTenantUpdateMaintenance::class,
 ```
+
+And applied to tenant authenticated routes in `routes/tenant.php`.
 
 ## Update Process Flow
 
 ### Automatic Update Process:
-1. **Backup Creation** - Full database + files backup
-2. **Code Deployment** (if enabled) - Download and deploy from GitHub
-3. **Migration Execution** - Run version-specific migrations
-4. **Version Update** - Update tenant version record
-5. **Cache Rebuild** - Clear and rebuild all caches
+1. **Preflight Validate** - Run `canDeploy()` checks (when code deployment is enabled)
+2. **Backup Creation** - Full tenant database + files backup
+3. **Enter Tenant Maintenance** - Only the current tenant is maintenance-blocked
+4. **Code Deployment** (optional) - Download/extract/replace/install if allowed
+5. **Migration Execution** - Run version-specific tenant migrations
+6. **Optional Smoke Test** - Execute configured post-update command
+7. **Version Update** - Update tenant version record
+8. **Exit Tenant Maintenance on Success** - Maintenance cleared only after successful completion
 
 ### On Failure:
-- Automatic rollback to backup
+- Automatic rollback/restore where applicable
 - Error logging
 - User notification
+- Tenant maintenance remains active for manual verification if failure occurred after maintenance began
 
 ## API Routes
 
@@ -120,9 +137,6 @@ GET /updates
 
 // Apply update
 POST /updates/{release}/apply
-
-// Rollback version
-POST /updates/{release}/rollback
 
 // Create manual backup
 POST /updates/backup/create
@@ -171,13 +185,7 @@ $release = AppRelease::where('version_tag', 'v2.0.0')->first();
 $updateController->update(request(), $release);
 ```
 
-### 3. Mark Release as Required
-```php
-$release = AppRelease::where('version_tag', 'v2.0.0')->first();
-$release->update(['is_required' => true]);
-```
-
-### 4. List Tenant Backups
+### 3. List Tenant Backups
 ```php
 $backupService = app(TenantBackupService::class);
 $backups = $backupService->listBackups(tenant()->id);
@@ -211,16 +219,17 @@ $backups = $backupService->listBackups(tenant()->id);
 - Check disk space
 - Verify composer/npm availability
 
-### Required Update Not Enforcing
-- Verify middleware is registered
-- Check `is_required` flag on release
-- Verify grace period configuration
+### Tenant Stuck in Maintenance After Failed Update
+- Check update logs for the underlying error
+- Verify backup restore status
+- Re-run update after fixing root cause
+- Clear tenant maintenance cache key manually only if recovery is complete
 
 ## Monitoring
 
 ### Log Files
 - `storage/logs/laravel.log` - All update operations
-- Check for: backup creation, migrations, deployments
+- Check for: preflight checks, backup creation, maintenance start/end, migrations, deployments, smoke test
 
 ### Database Queries
 ```sql
@@ -230,9 +239,6 @@ FROM tenants t
 JOIN tenant_updates tu ON t.id = tu.tenant_id
 JOIN app_releases ar ON tu.app_release_id = ar.id
 WHERE tu.is_current = 1;
-
--- Check required updates
-SELECT * FROM app_releases WHERE is_required = 1;
 
 -- Check update history
 SELECT * FROM tenant_updates ORDER BY created_at DESC LIMIT 50;
@@ -246,8 +252,8 @@ SELECT * FROM tenant_updates ORDER BY created_at DESC LIMIT 50;
 4. **Keep backup retention reasonable (10 backups)**
 5. **Use semantic versioning (v1.0.0, v2.0.0)**
 6. **Document breaking changes in release notes**
-7. **Set reasonable grace periods (7-14 days)**
-8. **Test rollback procedures regularly**
+7. **Keep `ALLOW_TENANT_CODE_DEPLOY=false` for tenant isolation**
+8. **Enable a lightweight smoke test command in production**
 
 ## Maintenance
 

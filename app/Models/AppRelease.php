@@ -31,11 +31,6 @@ class AppRelease extends Model
         return $this->hasMany(TenantUpdate::class);
     }
 
-    public function forceRuns(): HasMany
-    {
-        return $this->hasMany(AppReleaseForceRun::class, 'app_release_id');
-    }
-
     /**
      * Normalize a version tag by stripping the leading v/V prefix.
      */

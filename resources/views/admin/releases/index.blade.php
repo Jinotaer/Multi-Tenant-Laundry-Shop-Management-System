@@ -41,10 +41,6 @@
                                                 <span
                                                     class="bg-yellow-100 text-yellow-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded ml-2">Pre-release</span>
                                             @endif
-                                            @if($release->is_required)
-                                                <span
-                                                    class="bg-red-100 text-red-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded ml-2">Required</span>
-                                            @endif
                                         </td>
                                         <td class="px-6 py-4">
                                             {{ $release->name }}
@@ -64,14 +60,6 @@
                                         <td class="px-6 py-4 flex space-x-3">
                                             <a href="{{ route('admin.releases.show', $release->id) }}"
                                                 class="font-medium text-blue-600 hover:underline">View</a>
-
-                                            <form action="{{ route('admin.releases.force-all', $release->id) }}"
-                                                method="POST"
-                                                onsubmit="return confirm('Are you sure you want to FORCE all tenants to update to {{ $release->version_tag }}?');">
-                                                @csrf
-                                                <button type="submit" class="font-medium text-red-600 hover:underline">Force
-                                                    All</button>
-                                            </form>
                                         </td>
                                     </tr>
                                 @empty

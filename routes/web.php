@@ -263,10 +263,6 @@ foreach (config('tenancy.central_domains') as $domain) {
                         ReleaseController::class,
                         'show',
                     ])->name('admin.releases.show');
-                    Route::post('/releases/{release}/force-all', [
-                        ReleaseController::class,
-                        'forceUpdateAll',
-                    ])->name('admin.releases.force-all');
 
                     // Tenant Resource Monitoring
                     Route::get('/monitoring', [

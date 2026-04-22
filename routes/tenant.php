@@ -79,7 +79,7 @@ Route::middleware([
     });
 
     // Authenticated routes
-    Route::middleware('tenant.auth')->group(function () {
+    Route::middleware(['tenant.auth', 'tenant.update.maintenance'])->group(function () {
         Route::post('/logout', [LoginController::class, 'destroy'])->name(
             'tenant.logout',
         );
@@ -443,9 +443,6 @@ Route::middleware([
                 Route::post('/updates/{release}/apply', [UpdateController::class, 'update'])
                     ->middleware('permission:updates.apply')
                     ->name('tenant.updates.apply');
-                Route::post('/updates/{release}/rollback', [UpdateController::class, 'rollback'])
-                    ->middleware('permission:updates.apply')
-                    ->name('tenant.updates.rollback');
                 Route::post('/updates/backup/create', [UpdateController::class, 'createBackup'])
                     ->middleware('permission:updates.apply')
                     ->name('tenant.updates.backup.create');

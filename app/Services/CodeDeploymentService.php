@@ -27,6 +27,9 @@ class CodeDeploymentService
      */
     public function deployFromGitHub(string $versionTag): array
     {
+        // Prevent PHP from timing out during long download/build processes
+        set_time_limit(0);
+        
         $repo = config('services.github.repo');
         $token = config('services.github.token');
         $backupPath = null;
@@ -296,7 +299,12 @@ class CodeDeploymentService
         $output = [];
         $exitCode = 0;
 
-        exec($command . ' 2>&1', $output, $exitCode);
+        // Force execution strictly inside the application root folder
+        // (Prevents failures if web server executes this script originating from the public/ folder)
+        $basePath = escapeshellarg(base_path());
+        $fullCommand = "cd {$basePath} && {$command}";
+
+        exec($fullCommand . ' 2>&1', $output, $exitCode);
 
         return [
             'exit_code' => $exitCode,

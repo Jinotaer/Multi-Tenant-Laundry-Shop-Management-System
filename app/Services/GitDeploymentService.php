@@ -245,27 +245,6 @@ class GitDeploymentService
     }
 
     /**
-     * Rollback to previous commit/tag.
-     */
-    public function rollbackToVersion(string $versionTag): array
-    {
-        try {
-            $result = $this->executeGitCommand("git checkout tags/{$versionTag}");
-
-            if ($result['exit_code'] !== 0) {
-                throw new \Exception("Failed to rollback: {$result['output']}");
-            }
-
-            $this->runPostDeploymentTasks();
-
-            return ['success' => true, 'version' => $versionTag];
-
-        } catch (\Exception $e) {
-            return ['success' => false, 'error' => $e->getMessage()];
-        }
-    }
-
-    /**
      * Get git status.
      */
     public function getStatus(): array

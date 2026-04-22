@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\Admin;
 use App\Models\AppRelease;
-use App\Models\Tenant;
 use App\Models\TenantUpdate;
 use App\Notifications\AdminGenericNotification;
 use Illuminate\Support\Facades\Cache;
@@ -235,58 +234,6 @@ class GitHubReleaseService
         $v2 = $this->normalizeVersion($version2);
 
         return version_compare($v1, $v2, '>');
-    }
-
-    /**
-     * Check if a rollback to a specific version is safe.
-     */
-    public function canRollbackTo(AppRelease $release, Tenant $tenant): array
-    {
-        $errors = [];
-        $warnings = [];
-
-        // Check if release is too old (more than 90 days)
-        if ($release->published_at->lt(now()->subDays(90))) {
-            $errors[] = 'This release is too old (more than 90 days). Rollback may cause compatibility issues.';
-        }
-
-        // Check if tenant has ever used this version
-        $hasUsedVersion = $tenant->updates()
-            ->where('app_release_id', $release->id)
-            ->exists();
-
-        if (! $hasUsedVersion) {
-            $warnings[] = 'You have never used this version before. Review your backup before proceeding.';
-        }
-
-        // Get current version
-        $currentUpdate = $tenant->updates()->where('is_current', true)->with('release')->first();
-
-        if ($currentUpdate) {
-            $currentVersion = $this->normalizeVersion($currentUpdate->release->version_tag);
-            $targetVersion = $this->normalizeVersion($release->version_tag);
-
-            // Check if trying to rollback to a newer version
-            if (version_compare($targetVersion, $currentVersion, '>=')) {
-                $errors[] = 'Cannot rollback to a version that is the same or newer than your current version.';
-            }
-
-            // Check major version difference
-            $currentMajor = (int) explode('.', $currentVersion)[0];
-            $targetMajor = (int) explode('.', $targetVersion)[0];
-
-            if ($currentMajor - $targetMajor > 1) {
-                $errors[] = 'Rolling back more than one major version may cause database compatibility issues.';
-            }
-        }
-
-        return [
-            'can_rollback' => empty($errors),
-            'errors' => $errors,
-            'warnings' => empty($errors)
-                ? array_values(array_unique([...$warnings, 'Please ensure you have a recent backup before proceeding.']))
-                : [],
-        ];
     }
 
     /**

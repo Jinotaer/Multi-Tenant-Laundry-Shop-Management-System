@@ -31,6 +31,49 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Tenant Update Isolation
+    |--------------------------------------------------------------------------
+    |
+    | Keep this disabled to ensure tenant-triggered updates do not replace
+    | shared application code and impact other tenant stores.
+    |
+    */
+
+    'allow_tenant_code_deploy' => env('ALLOW_TENANT_CODE_DEPLOY', false),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Tenant Update Maintenance Mode
+    |--------------------------------------------------------------------------
+    |
+    | Enable a tenant-scoped maintenance state while updates are running.
+    | This keeps other tenants unaffected.
+    |
+    */
+
+    'tenant_maintenance' => [
+        'enabled' => env('TENANT_UPDATE_MAINTENANCE_ENABLED', true),
+        'ttl_minutes' => env('TENANT_UPDATE_MAINTENANCE_TTL_MINUTES', 60),
+        'cache_store' => env('TENANT_UPDATE_MAINTENANCE_CACHE_STORE', 'file'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Optional Smoke Test
+    |--------------------------------------------------------------------------
+    |
+    | Configure an optional command to verify the deployment after install.
+    | Example: php artisan about
+    |
+    */
+
+    'smoke_test' => [
+        'enabled' => env('UPDATE_SMOKE_TEST_ENABLED', false),
+        'command' => env('UPDATE_SMOKE_TEST_COMMAND', ''),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Required Update Settings
     |--------------------------------------------------------------------------
     |
