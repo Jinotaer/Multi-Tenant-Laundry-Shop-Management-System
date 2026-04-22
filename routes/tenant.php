@@ -264,6 +264,10 @@ Route::middleware([
                     ->middleware('permission:services.delete')
                     ->name('tenant.services.destroy');
 
+                // Promotions Demonstration Route
+                Route::get('/promotions', [\App\Http\Controllers\Tenant\PromotionController::class, 'index'])
+                    ->name('tenant.promotions.index');
+
                 // Expense Tracking (Premium only)
                 Route::middleware('feature:expense_tracking')->group(function () {
                     Route::get('/expenses', [ExpenseController::class, 'index'])
