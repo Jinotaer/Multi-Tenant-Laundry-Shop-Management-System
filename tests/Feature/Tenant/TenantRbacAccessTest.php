@@ -90,6 +90,63 @@ test('owner can access update center', function (): void {
         ->assertSee('Update Center');
 });
 
+test('update apply is blocked when shared code deployment is restricted', function (): void {
+    config()->set('updates.auto_deploy_code', false);
+    config()->set('updates.allow_tenant_code_deploy', false);
+
+    $currentRelease = AppRelease::create([
+        'version_tag' => 'v1.0.0',
+        'name' => 'Current release',
+        'body' => 'Current version.',
+        'published_at' => now()->subDays(2),
+    ]);
+
+    $targetRelease = AppRelease::create([
+        'version_tag' => 'v1.1.2',
+        'name' => 'Target release',
+        'body' => 'Adds promotions.',
+        'published_at' => now()->subDay(),
+    ]);
+
+    $this->tenant->updates()->create([
+        'app_release_id' => $currentRelease->id,
+        'status' => 'updated',
+        'is_current' => true,
+        'action_taken_at' => now()->subDays(2),
+    ]);
+
+    $this->mock(TenantBackupService::class, function (MockInterface $mock): void {
+        $mock->shouldNotReceive('createBackup');
+    });
+
+    $this->mock(TenantMigrationService::class, function (MockInterface $mock): void {
+        $mock->shouldNotReceive('runMigrationsForVersion');
+    });
+
+    $this->mock(CodeDeploymentService::class, function (MockInterface $mock): void {
+        $mock->shouldNotReceive('canDeploy');
+        $mock->shouldNotReceive('deployFromGitHub');
+    });
+
+    $this->post(($this->tenantUrl)('/login'), [
+        'email' => 'owner@tenant-rbac.test',
+        'password' => 'password',
+    ])->assertRedirect(route('tenant.dashboard', absolute: false));
+
+    $this->from(($this->tenantUrl)('/updates'))
+        ->post(($this->tenantUrl)("/updates/{$targetRelease->id}/apply"))
+        ->assertRedirect(($this->tenantUrl)('/updates'))
+        ->assertSessionHas('error', function (string $message) use ($targetRelease): bool {
+            return str_contains($message, "Cannot apply {$targetRelease->version_tag}")
+                && str_contains($message, 'Deploy the latest release code on this server first');
+        });
+
+    $this->tenant->refresh();
+
+    expect($this->tenant->updates()->where('app_release_id', $currentRelease->id)->first()?->is_current)->toBeTrue();
+    expect($this->tenant->updates()->where('app_release_id', $targetRelease->id)->exists())->toBeFalse();
+});
+
 test('owner sees rollback action for a previously used version', function (): void {
     $previousRelease = AppRelease::create([
         'version_tag' => 'v1.0.0',

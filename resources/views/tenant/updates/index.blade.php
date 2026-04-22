@@ -20,6 +20,20 @@
                 </div>
             @endif
 
+            @if(!config('updates.auto_deploy_code', false) || !config('updates.allow_tenant_code_deploy', false))
+                <div class="rounded-lg bg-amber-50 p-4 text-sm text-amber-800 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-300">
+                    <p class="font-semibold">Code deployment notice</p>
+                    <p class="mt-1">
+                        Tenant update actions here run backups and tenant migrations, but shared application code deployment is currently restricted.
+                        New feature screens and controllers (such as Promotions) require deploying the latest release code on this server.
+                    </p>
+                </div>
+            @endif
+
+            @php
+                $tenantCanDeployCode = config('updates.auto_deploy_code', false) && config('updates.allow_tenant_code_deploy', false);
+            @endphp
+
             <div class="p-4 sm:p-8 bg-white dark:bg-slate-900 shadow sm:rounded-lg">
                 <div class="flex items-center justify-between">
                     <div class="flex-1">
@@ -81,15 +95,21 @@
                                 </div>
                             </div>
                             <div class="flex-shrink-0">
-                                <form action="{{ route('tenant.updates.apply', $release->id) }}" method="POST" class="js-update-action" data-action-label="Updating to {{ $release->version_tag }}" onsubmit="return confirm('A backup will be created before updating. Continue?');">
-                                    @csrf
-                                    <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition ease-in-out duration-150">
-                                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                                        </svg>
-                                        Update Now
+                                @if($tenantCanDeployCode)
+                                    <form action="{{ route('tenant.updates.apply', $release->id) }}" method="POST" class="js-update-action" data-action-label="Updating to {{ $release->version_tag }}" onsubmit="return confirm('A backup will be created before updating. Continue?');">
+                                        @csrf
+                                        <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition ease-in-out duration-150">
+                                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                                            </svg>
+                                            Update Now
+                                        </button>
+                                    </form>
+                                @else
+                                    <button type="button" disabled class="inline-flex items-center gap-2 px-4 py-2 bg-gray-200 dark:bg-slate-700 border border-transparent rounded-md font-semibold text-xs text-gray-600 dark:text-slate-300 uppercase tracking-widest opacity-80 cursor-not-allowed">
+                                        Manual Deploy Required
                                     </button>
-                                </form>
+                                @endif
                             </div>
                         </div>
                     </div>

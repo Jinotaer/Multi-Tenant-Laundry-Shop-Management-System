@@ -92,11 +92,21 @@ class UpdateController extends Controller
         $migrationAttempted = false;
         $maintenanceModeEntered = false;
         $deployCode = $this->shouldDeployCode();
-        $codeDeploymentSkippedForIsolation = (bool) config('updates.auto_deploy_code', false) && !$deployCode;
 
         try {
             // Step 1: Validate before changing state.
             Log::info("Starting update for tenant {$tenant->id} to {$release->version_tag}");
+
+            if ($this->releaseService->isNewerVersion($release->version_tag, $currentVersion) && ! $deployCode) {
+                $reason = (bool) config('updates.auto_deploy_code', false)
+                    ? 'tenant-triggered shared code deployment is restricted'
+                    : 'automatic code deployment is disabled';
+
+                throw new \RuntimeException(
+                    "Cannot apply {$release->version_tag} because {$reason}. " .
+                    'Deploy the latest release code on this server first, then run the tenant update again.'
+                );
+            }
 
             $this->validatePreflight($deployCode);
 
@@ -165,8 +175,13 @@ class UpdateController extends Controller
                 "Backup created: {$backupResult['backup_name']}. " .
                 "Migrations run: " . count($migrationResult['migrations'] ?? []);
 
-            if ($codeDeploymentSkippedForIsolation) {
-                $successMessage .= ' Shared code deployment was skipped to keep other tenant stores unaffected.';
+            if (! $deployCode) {
+                $reason = (bool) config('updates.auto_deploy_code', false)
+                    ? 'to keep other tenant stores unaffected'
+                    : 'because AUTO_DEPLOY_CODE is disabled';
+
+                $successMessage .= ' Shared application code was not deployed on this server ' . $reason . '. ' .
+                    'Deploy the latest release code on this device to access new feature pages and controllers.';
             }
 
             if ($smokeTestResult['executed']) {
@@ -471,6 +486,8 @@ class UpdateController extends Controller
             && ! (bool) config('updates.allow_tenant_code_deploy', false)) {
             Log::warning('Skipping shared code deployment during tenant update to prevent cross-tenant impact.', [
                 'tenant_id' => tenant()?->id,
+                'updates.auto_deploy_code' => $autoDeployEnabled,
+                'updates.allow_tenant_code_deploy' => (bool) config('updates.allow_tenant_code_deploy', false),
             ]);
 
             return false;

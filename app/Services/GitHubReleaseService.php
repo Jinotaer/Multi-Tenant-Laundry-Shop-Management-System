@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Admin;
 use App\Models\AppRelease;
+use App\Models\Tenant;
 use App\Models\TenantUpdate;
 use App\Notifications\AdminGenericNotification;
 use Illuminate\Support\Facades\Cache;
