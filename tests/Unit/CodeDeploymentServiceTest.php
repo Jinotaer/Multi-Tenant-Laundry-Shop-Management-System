@@ -18,6 +18,30 @@ function invokeDeploymentManifest(CodeDeploymentService $service, string $path):
     return $manifest;
 }
 
+function invokeManagedDirectorySync(
+    CodeDeploymentService $service,
+    string $source,
+    string $destination,
+    string $relativePath,
+    string $operation = 'deployment'
+): void {
+    $method = new ReflectionMethod($service, 'syncManagedDirectory');
+    $method->setAccessible(true);
+    $method->invoke($service, $source, $destination, $relativePath, $operation);
+}
+
+function invokeManagedFileSync(
+    CodeDeploymentService $service,
+    string $source,
+    string $destination,
+    string $relativePath,
+    string $operation = 'deployment'
+): void {
+    $method = new ReflectionMethod($service, 'syncManagedFile');
+    $method->setAccessible(true);
+    $method->invoke($service, $source, $destination, $relativePath, $operation);
+}
+
 test('deployment manifest includes deployable release roots and excludes local-only paths', function () {
     $root = storage_path('framework/testing/deployment-manifest-' . Str::random(12));
 
@@ -71,4 +95,106 @@ test('deployment manifest fails when archive has no deployable entries', functio
     } finally {
         File::deleteDirectory($root);
     }
+});
+
+test('managed directory sync copies dotfiles and removes stale files without deleting the live directory first', function () {
+    $root = storage_path('framework/testing/deployment-sync-' . Str::random(12));
+    $source = "{$root}/source/public";
+    $destination = "{$root}/destination/public";
+
+    File::makeDirectory("{$source}/js", 0755, true);
+    File::makeDirectory("{$destination}/js", 0755, true);
+    File::makeDirectory("{$destination}/css", 0755, true);
+
+    File::put("{$source}/.htaccess", "RewriteEngine On\n");
+    File::put("{$source}/js/app.js", 'console.log("new");');
+    File::put("{$destination}/js/old.js", 'console.log("old");');
+    File::put("{$destination}/css/app.css", 'body{}');
+
+    try {
+        invokeManagedDirectorySync(
+            app(CodeDeploymentService::class),
+            $source,
+            $destination,
+            'public'
+        );
+
+        expect(File::exists("{$destination}/.htaccess"))->toBeTrue();
+        expect(File::get("{$destination}/js/app.js"))->toBe('console.log("new");');
+        expect(File::exists("{$destination}/js/old.js"))->toBeFalse();
+        expect(File::exists("{$destination}/css"))->toBeFalse();
+    } finally {
+        File::deleteDirectory($root);
+    }
+});
+
+test('managed file sync can replace a directory with a release file', function () {
+    $root = storage_path('framework/testing/deployment-file-sync-' . Str::random(12));
+    $source = "{$root}/source/artisan";
+    $destination = "{$root}/destination/artisan";
+
+    File::makeDirectory($destination, 0755, true);
+    File::ensureDirectoryExists(dirname($source));
+    File::put($source, '<?php echo "artisan";');
+
+    try {
+        invokeManagedFileSync(
+            app(CodeDeploymentService::class),
+            $source,
+            $destination,
+            'artisan'
+        );
+
+        expect(is_file($destination))->toBeTrue();
+        expect(File::get($destination))->toBe('<?php echo "artisan";');
+    } finally {
+        File::deleteDirectory($root);
+    }
+});
+
+test('deployment command plan runs install and build steps before recaching and queue restart', function () {
+    config()->set('updates.deployment.run_composer_install', true);
+    config()->set('updates.deployment.run_npm_build', true);
+    config()->set('updates.deployment.run_database_migrations', true);
+    config()->set('updates.deployment.run_tenant_migrations', true);
+    config()->set('updates.deployment.run_queue_restart', true);
+
+    $commands = app(CodeDeploymentService::class)->getDeploymentCommandPlan(true);
+
+    expect($commands)->toBe([
+        'php artisan cache:clear',
+        'php artisan config:clear',
+        'php artisan route:clear',
+        'php artisan view:clear',
+        'composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader',
+        'npm ci --no-audit --no-fund',
+        'npm run build',
+        'verify public/build/manifest.json',
+        'php artisan migrate --force',
+        'php artisan tenants:migrate --force',
+        'php artisan config:cache',
+        'php artisan route:cache',
+        'php artisan view:cache',
+        'php artisan queue:restart',
+    ]);
+});
+
+test('tenant scoped deployment command plan excludes central-only commands', function () {
+    config()->set('updates.deployment.run_composer_install', false);
+    config()->set('updates.deployment.run_npm_build', false);
+    config()->set('updates.deployment.run_database_migrations', true);
+    config()->set('updates.deployment.run_tenant_migrations', true);
+    config()->set('updates.deployment.run_queue_restart', true);
+
+    $commands = app(CodeDeploymentService::class)->getDeploymentCommandPlan(false);
+
+    expect($commands)->toBe([
+        'php artisan cache:clear',
+        'php artisan config:clear',
+        'php artisan route:clear',
+        'php artisan view:clear',
+        'php artisan config:cache',
+        'php artisan route:cache',
+        'php artisan view:cache',
+    ]);
 });

@@ -11,6 +11,26 @@ use ZipArchive;
 
 class CodeDeploymentService
 {
+    private const ARTISAN_CLEAR_COMMANDS = [
+        'cache:clear',
+        'config:clear',
+        'route:clear',
+        'view:clear',
+    ];
+
+    private const ARTISAN_CACHE_COMMANDS = [
+        'config:cache',
+        'route:cache',
+        'view:cache',
+    ];
+
+    /**
+     * Strict version-tag pattern. Anything that does not match is rejected
+     * before being interpolated into filesystem paths or API URLs — prevents
+     * path traversal like "../../foo" being passed as a tag.
+     */
+    private const VERSION_TAG_PATTERN = '/^v?\d+\.\d+\.\d+(?:-[A-Za-z0-9.]+)?$/';
+
     private string $tempPath;
 
     public function __construct()
@@ -29,35 +49,40 @@ class CodeDeploymentService
     {
         // Prevent PHP from timing out during long download/build processes
         set_time_limit(0);
-        
+
         $repo = config('services.github.repo');
         $token = config('services.github.token');
         $backupPath = null;
-        
+        $archivePath = null;
+        $extractRootPath = null;
+        $postDeploymentCommands = $this->getDeploymentCommandPlan();
+
         if (!$repo) {
             return ['success' => false, 'error' => 'GitHub repository not configured'];
         }
-        
+
         try {
+            $this->validateVersionTag($versionTag);
+
             // Download release archive
             $archivePath = $this->downloadRelease($repo, $versionTag, $token);
             
             // Extract archive
-            $extractPath = $this->extractArchive($archivePath, $versionTag);
+            $extractedArchive = $this->extractArchive($archivePath, $versionTag);
+            $extractRootPath = $extractedArchive['root'];
+            $extractPath = $extractedArchive['source'];
             $manifest = $this->buildDeploymentManifest($extractPath);
             
             // Backup current code
-            $backupPath = $this->backupCurrentCode($manifest);
+            if ((bool) config('updates.deployment.backup_before_deploy', true)) {
+                $backupPath = $this->backupCurrentCode($manifest);
+            }
             
             // Deploy new code
             $this->deployCode($extractPath, $manifest);
             
             // Run post-deployment tasks
-            $this->runPostDeploymentTasks();
-            
-            // Clean up
-            File::delete($archivePath);
-            File::deleteDirectory($extractPath);
+            $postDeploymentCommands = $this->runPostDeploymentTasks();
             
             Log::info("Code deployed successfully", ['version' => $versionTag]);
             
@@ -65,20 +90,46 @@ class CodeDeploymentService
                 'success' => true,
                 'version' => $versionTag,
                 'backup_path' => $backupPath,
+                'post_deployment_commands' => $postDeploymentCommands,
             ];
             
         } catch (\Exception $e) {
             Log::error("Code deployment failed", [
                 'version' => $versionTag,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'post_deployment_commands' => $postDeploymentCommands,
             ]);
             
             return [
                 'success' => false,
                 'error' => $e->getMessage(),
                 'backup_path' => $backupPath,
+                'post_deployment_commands' => $postDeploymentCommands,
             ];
+        } finally {
+            if ($archivePath && File::exists($archivePath)) {
+                File::delete($archivePath);
+            }
+
+            if ($extractRootPath && File::exists($extractRootPath)) {
+                File::deleteDirectory($extractRootPath);
+            }
         }
+    }
+
+    /**
+     * Return the ordered commands/checks used after code files are updated.
+     *
+     * @return array<int, string>
+     */
+    public function getDeploymentCommandPlan(?bool $centralContext = null): array
+    {
+        $centralContext ??= $this->isCentralContext();
+
+        return array_map(
+            static fn (array $step): string => $step['command'],
+            $this->buildPostDeploymentStepPlan($centralContext)
+        );
     }
 
     /**
@@ -86,33 +137,63 @@ class CodeDeploymentService
      */
     private function downloadRelease(string $repo, string $versionTag, ?string $token): string
     {
+        $this->validateVersionTag($versionTag);
+
         $url = "https://api.github.com/repos/{$repo}/zipball/{$versionTag}";
-        
+        $archivePath = "{$this->tempPath}/{$versionTag}.zip";
+
+        if (File::exists($archivePath)) {
+            File::delete($archivePath);
+        }
+
         $request = Http::withHeaders([
             'Accept' => 'application/vnd.github.v3+json',
-        ]);
-        
+        ])->connectTimeout(30)->timeout(600)->retry(3, 1000)->sink($archivePath);
+
         if ($token) {
             $request = $request->withToken($token);
         }
-        
+
         $response = $request->get($url);
-        
-        if (!$response->successful()) {
-            throw new \Exception("Failed to download release: " . $response->body());
+
+        if (! $response->successful()) {
+            if (File::exists($archivePath)) {
+                File::delete($archivePath);
+            }
+
+            throw new RuntimeException("Failed to download release [{$versionTag}] (HTTP {$response->status()}).");
         }
-        
-        $archivePath = "{$this->tempPath}/{$versionTag}.zip";
-        File::put($archivePath, $response->body());
-        
+
+        if (! File::exists($archivePath) || File::size($archivePath) === 0) {
+            throw new RuntimeException("Release archive [{$versionTag}] downloaded but is empty.");
+        }
+
         return $archivePath;
     }
 
     /**
-     * Extract downloaded archive.
+     * Reject tags that contain anything other than a semver-like token.
+     * Guards against path traversal when the tag is interpolated into
+     * filesystem paths in downloadRelease/extractArchive/stageUpdate.
      */
-    private function extractArchive(string $archivePath, string $versionTag): string
+    private function validateVersionTag(string $versionTag): void
     {
+        if (! preg_match(self::VERSION_TAG_PATTERN, $versionTag)) {
+            throw new RuntimeException("Invalid version tag [{$versionTag}]. Expected semver like v1.2.3.");
+        }
+    }
+
+    /**
+     * Extract downloaded archive.
+     *
+     * @return array{root: string, source: string}
+     */
+    private function extractArchive(string $archivePath, string $versionTag): array
+    {
+        if (! class_exists(ZipArchive::class)) {
+            throw new RuntimeException('PHP ZipArchive extension is not available.');
+        }
+
         $extractPath = "{$this->tempPath}/extract_{$versionTag}";
 
         if (File::exists($extractPath)) {
@@ -131,11 +212,12 @@ class CodeDeploymentService
         
         // GitHub creates a subdirectory, find it
         $dirs = File::directories($extractPath);
-        if (count($dirs) === 1) {
-            return $dirs[0];
-        }
-        
-        return $extractPath;
+        $sourcePath = count($dirs) === 1 ? $dirs[0] : $extractPath;
+
+        return [
+            'root' => $extractPath,
+            'source' => $sourcePath,
+        ];
     }
 
     /**
@@ -156,7 +238,9 @@ class CodeDeploymentService
             $destination = "{$backupPath}/{$dir}";
             
             if (File::exists($source)) {
-                File::copyDirectory($source, $destination);
+                if (! File::copyDirectory($source, $destination)) {
+                    throw new RuntimeException("Failed to back up directory [{$dir}] before deployment.");
+                }
             }
         }
         
@@ -166,7 +250,9 @@ class CodeDeploymentService
             $destination = "{$backupPath}/{$file}";
 
             if (File::exists($source)) {
-                File::copy($source, $destination);
+                if (! File::copy($source, $destination)) {
+                    throw new RuntimeException("Failed to back up file [{$file}] before deployment.");
+                }
             }
         }
         
@@ -178,114 +264,25 @@ class CodeDeploymentService
      */
     private function deployCode(string $sourcePath, array $manifest): void
     {
-        foreach ($manifest['directories'] as $dir) {
-            $source = "{$sourcePath}/{$dir}";
-            $destination = base_path($dir);
-            
-            if (!File::exists($source)) {
-                continue;
-            }
-            
-            // Remove old directory
-            if (File::exists($destination)) {
-                File::deleteDirectory($destination);
-            }
-            
-            // Copy new directory
-            if (!File::copyDirectory($source, $destination)) {
-                throw new RuntimeException("Failed to copy directory [{$dir}] during deployment.");
-            }
-        }
-        
-        // Sync root-level files
-        foreach ($manifest['files'] as $file) {
-            $source = "{$sourcePath}/{$file}";
-            $destination = base_path($file);
-
-            if (File::exists($source)) {
-                if (!File::copy($source, $destination)) {
-                    throw new RuntimeException("Failed to copy file [{$file}] during deployment.");
-                }
-
-                continue;
-            }
-
-            if (File::exists($destination)) {
-                File::delete($destination);
-            }
-        }
+        $this->syncCodeTree($sourcePath, base_path(), $manifest, 'deployment');
     }
 
     /**
      * Run post-deployment tasks.
      */
-    private function runPostDeploymentTasks(): void
+    private function runPostDeploymentTasks(): array
     {
-        // Clear caches
-        Artisan::call('cache:clear');
-        Artisan::call('config:clear');
-        Artisan::call('route:clear');
-        Artisan::call('view:clear');
+        $steps = $this->buildPostDeploymentStepPlan($this->isCentralContext());
 
-        // Install composer dependencies
-        if ((bool) config('updates.deployment.run_composer_install', true)) {
-            $composerResult = $this->runShellCommand('composer install --no-dev --optimize-autoloader');
+        Log::info('Running post-deployment command plan.', [
+            'commands' => array_map(static fn (array $step): string => $step['command'], $steps),
+        ]);
 
-            if ($composerResult['exit_code'] !== 0) {
-                throw new RuntimeException('Composer install failed: ' . $composerResult['output']);
-            }
+        foreach ($steps as $step) {
+            $this->executeDeploymentStep($step);
         }
 
-        // Rebuild caches
-        Artisan::call('config:cache');
-        Artisan::call('route:cache');
-        Artisan::call('view:cache');
-
-        // Run npm build if needed
-        if ((bool) config('updates.deployment.run_npm_build', true) && File::exists(base_path('package.json'))) {
-            $npmInstallCommand = File::exists(base_path('package-lock.json'))
-                ? 'npm ci --no-audit --no-fund'
-                : 'npm install --no-audit --no-fund';
-
-            $npmInstallResult = $this->runShellCommand($npmInstallCommand);
-
-            if ($npmInstallResult['exit_code'] !== 0) {
-                throw new RuntimeException('NPM install failed: ' . $npmInstallResult['output']);
-            }
-
-            $npmBuildResult = $this->runShellCommand('npm run build');
-
-            if ($npmBuildResult['exit_code'] !== 0) {
-                throw new RuntimeException('NPM build failed: ' . $npmBuildResult['output']);
-            }
-
-            if (! File::exists(public_path('build/manifest.json'))) {
-                throw new RuntimeException('Vite build manifest missing after build.');
-            }
-        }
-
-        // Run framework/database tasks automatically when deployment runs in central context.
-        if ($this->isCentralContext()) {
-            if ((bool) config('updates.deployment.run_database_migrations', true)) {
-                $migrateExit = Artisan::call('migrate', ['--force' => true]);
-
-                if ($migrateExit !== 0) {
-                    throw new RuntimeException('Central migration failed: ' . trim(Artisan::output()));
-                }
-            }
-
-            if ((bool) config('updates.deployment.run_tenant_migrations', true)) {
-                $tenantMigrateExit = Artisan::call('tenants:migrate', ['--force' => true]);
-
-                if ($tenantMigrateExit !== 0) {
-                    throw new RuntimeException('Tenant migrations failed: ' . trim(Artisan::output()));
-                }
-            }
-
-            if ((bool) config('updates.deployment.run_queue_restart', true)) {
-                Artisan::call('queue:restart');
-            }
-        }
+        return array_map(static fn (array $step): string => $step['command'], $steps);
     }
 
     /**
@@ -305,19 +302,46 @@ class CodeDeploymentService
      */
     private function runShellCommand(string $command): array
     {
-        $output = [];
-        $exitCode = 0;
+        Log::info('Running deployment shell command.', ['command' => $command]);
 
-        // Force execution strictly inside the application root folder
-        // (Prevents failures if web server executes this script originating from the public/ folder)
-        $basePath = escapeshellarg(base_path());
-        $fullCommand = "cd {$basePath} && {$command}";
+        $descriptorSpec = [
+            0 => ['pipe', 'r'],
+            1 => ['pipe', 'w'],
+            2 => ['pipe', 'w'],
+        ];
 
-        exec($fullCommand . ' 2>&1', $output, $exitCode);
+        $pipes = [];
+        $process = @proc_open($command, $descriptorSpec, $pipes, base_path());
+
+        if (! is_resource($process)) {
+            throw new RuntimeException("Failed to start shell command [{$command}].");
+        }
+
+        if (isset($pipes[0])) {
+            fclose($pipes[0]);
+        }
+
+        $stdout = isset($pipes[1]) ? stream_get_contents($pipes[1]) ?: '' : '';
+        if (isset($pipes[1])) {
+            fclose($pipes[1]);
+        }
+
+        $stderr = isset($pipes[2]) ? stream_get_contents($pipes[2]) ?: '' : '';
+        if (isset($pipes[2])) {
+            fclose($pipes[2]);
+        }
+
+        $exitCode = proc_close($process);
+        $output = trim(implode(PHP_EOL, array_filter([$stdout, $stderr], static fn (string $value): bool => trim($value) !== '')));
+
+        Log::info('Deployment shell command finished.', [
+            'command' => $command,
+            'exit_code' => $exitCode,
+        ]);
 
         return [
             'exit_code' => $exitCode,
-            'output' => trim(implode(PHP_EOL, $output)),
+            'output' => $output,
         ];
     }
 
@@ -329,48 +353,18 @@ class CodeDeploymentService
         try {
             // Restore from backup
             $manifest = $this->buildDeploymentManifest($backupPath);
-            
-            foreach ($manifest['directories'] as $dir) {
-                $source = "{$backupPath}/{$dir}";
-                $destination = base_path($dir);
-                
-                if (!File::exists($source)) {
-                    continue;
-                }
-                
-                if (File::exists($destination)) {
-                    File::deleteDirectory($destination);
-                }
-                
-                if (!File::copyDirectory($source, $destination)) {
-                    throw new RuntimeException("Failed to restore directory [{$dir}] during rollback.");
-                }
-            }
-            
-            // Restore root-level files
-            foreach ($manifest['files'] as $file) {
-                $source = "{$backupPath}/{$file}";
-                $destination = base_path($file);
 
-                if (File::exists($source)) {
-                    if (!File::copy($source, $destination)) {
-                        throw new RuntimeException("Failed to restore file [{$file}] during rollback.");
-                    }
-
-                    continue;
-                }
-
-                if (File::exists($destination)) {
-                    File::delete($destination);
-                }
-            }
+            $this->syncCodeTree($backupPath, base_path(), $manifest, 'rollback');
             
             // Run post-deployment tasks
-            $this->runPostDeploymentTasks();
+            $postDeploymentCommands = $this->runPostDeploymentTasks();
             
             Log::info("Code rolled back successfully", ['backup' => $backupPath]);
             
-            return ['success' => true];
+            return [
+                'success' => true,
+                'post_deployment_commands' => $postDeploymentCommands,
+            ];
             
         } catch (\Exception $e) {
             Log::error("Code rollback failed", ['error' => $e->getMessage()]);
@@ -379,20 +373,225 @@ class CodeDeploymentService
     }
 
     /**
+     * Stage an update for the external updater to apply.
+     *
+     * Downloads the release zip, extracts it into storage/app/deployments/
+     * pending/<version>/, and writes a config.json next to it. The Laravel
+     * app stays online through this entire step — the file swap happens
+     * later in applyStagedUpdate() via the out-of-process updater.
+     *
+     * @return array{pending_dir: string, config_path: string, backup_dir: string, manifest: array}
+     */
+    public function stageUpdate(string $versionTag): array
+    {
+        set_time_limit(0);
+
+        $this->validateVersionTag($versionTag);
+
+        $repo = config('services.github.repo');
+        if (! $repo) {
+            throw new RuntimeException('GitHub repository not configured.');
+        }
+
+        $token = config('services.github.token');
+
+        $pendingDir = storage_path("app/deployments/pending/{$versionTag}");
+        if (File::exists($pendingDir)) {
+            File::deleteDirectory($pendingDir);
+        }
+
+        $archivePath = null;
+        $extractRootPath = null;
+
+        try {
+            $archivePath = $this->downloadRelease($repo, $versionTag, $token);
+
+            $extracted = $this->extractArchive($archivePath, $versionTag);
+            $extractRootPath = $extracted['root'];
+            $extractedSource = $extracted['source'];
+
+            File::ensureDirectoryExists($pendingDir);
+
+            // Move the extracted source into the durable pending dir. We copy
+            // (not rename) because extracted source is inside the temp dir
+            // that we'll clean up next.
+            if (! File::copyDirectory($extractedSource, $pendingDir)) {
+                throw new RuntimeException("Failed to move extracted release into [{$pendingDir}].");
+            }
+
+            $newManifest = $this->buildDeploymentManifest($pendingDir);
+            $oldManifest = $this->buildDeploymentManifest(base_path());
+            $unionManifest = $this->unionManifests($newManifest, $oldManifest);
+
+            $timestamp = now()->format('Ymd_His');
+            $backupDir = storage_path("app/deployments/backups/pre_{$versionTag}_{$timestamp}");
+
+            $configPath = $pendingDir . DIRECTORY_SEPARATOR . 'updater-config.json';
+            $this->writeUpdaterConfig($configPath, [
+                'pending_dir' => $pendingDir,
+                'backup_dir' => $backupDir,
+                'manifest' => $unionManifest,
+                'target_version' => $versionTag,
+            ]);
+
+            Log::info('Update staged successfully.', [
+                'version' => $versionTag,
+                'pending_dir' => $pendingDir,
+                'config_path' => $configPath,
+            ]);
+
+            return [
+                'pending_dir' => $pendingDir,
+                'config_path' => $configPath,
+                'backup_dir' => $backupDir,
+                'manifest' => $unionManifest,
+            ];
+        } catch (\Throwable $e) {
+            if (File::exists($pendingDir)) {
+                File::deleteDirectory($pendingDir);
+            }
+
+            throw $e;
+        } finally {
+            if ($archivePath !== null && File::exists($archivePath)) {
+                File::delete($archivePath);
+            }
+            if ($extractRootPath !== null && File::exists($extractRootPath)) {
+                File::deleteDirectory($extractRootPath);
+            }
+        }
+    }
+
+    /**
+     * Launch updater/apply.bat detached so it runs after this PHP request
+     * returns. The caller should immediately redirect the browser to a
+     * status page that polls storage/app/deployments/status.json.
+     *
+     * @return array{launched: bool, command: string}
+     */
+    public function applyStagedUpdate(string $configPath): array
+    {
+        if (! File::exists($configPath)) {
+            throw new RuntimeException("Updater config not found: [{$configPath}].");
+        }
+
+        if (! (bool) config('updates.updater.enabled', true)) {
+            throw new RuntimeException('External updater is disabled via UPDATER_ENABLED.');
+        }
+
+        $applyBat = base_path('updater' . DIRECTORY_SEPARATOR . 'apply.bat');
+        if (! File::exists($applyBat)) {
+            throw new RuntimeException("Updater launcher not found at [{$applyBat}]. Is the updater/ directory deployed?");
+        }
+
+        // `start "" /B` spawns the child detached and returns immediately. popen
+        // launches cmd.exe, which runs start, start launches apply.bat, then
+        // cmd.exe exits — pclose returns in ~100ms while apply.bat runs on.
+        $command = sprintf(
+            'start "LaundryUpdater" /B "%s" "%s"',
+            $applyBat,
+            $configPath
+        );
+
+        Log::info('Launching external updater.', [
+            'command' => $command,
+            'config' => $configPath,
+        ]);
+
+        $handle = popen($command, 'r');
+        if ($handle === false) {
+            throw new RuntimeException('Failed to launch external updater.');
+        }
+        pclose($handle);
+
+        return [
+            'launched' => true,
+            'command' => $command,
+        ];
+    }
+
+    /**
+     * Build the config.json consumed by updater/apply.php.
+     *
+     * @param array{pending_dir: string, backup_dir: string, manifest: array, target_version: string} $stage
+     */
+    private function writeUpdaterConfig(string $configPath, array $stage): void
+    {
+        $updaterConfig = config('updates.updater', []);
+        $deploymentConfig = config('updates.deployment', []);
+
+        $payload = [
+            'target_version' => $stage['target_version'],
+            'app_root' => base_path(),
+            'pending_dir' => $stage['pending_dir'],
+            'previous_backup_dir' => $stage['backup_dir'],
+            'status_file' => storage_path('app/deployments/status.json'),
+            'log_file' => storage_path('logs/updater.log'),
+            'manifest' => $stage['manifest'],
+
+            'php_binary' => $updaterConfig['php_binary'] ?? PHP_BINARY,
+            'composer_binary' => $updaterConfig['composer_binary'] ?? 'composer',
+            'npm_binary' => $updaterConfig['npm_binary'] ?? 'npm',
+            'apache_service' => $updaterConfig['apache_service'] ?? null,
+            'apache_start_bat' => $updaterConfig['apache_start_bat'] ?? null,
+            'min_free_space_mb' => (int) ($updaterConfig['min_free_space_mb'] ?? 500),
+
+            'run_composer' => (bool) ($deploymentConfig['run_composer_install'] ?? true),
+            'run_npm_build' => $this->shouldRunNpmBuild(),
+            'run_migrations' => (bool) ($deploymentConfig['run_database_migrations'] ?? true),
+            'run_tenant_migrations' => (bool) ($deploymentConfig['run_tenant_migrations'] ?? true),
+        ];
+
+        $encoded = json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        if ($encoded === false) {
+            throw new RuntimeException('Failed to encode updater config as JSON.');
+        }
+
+        if (File::put($configPath, $encoded) === false) {
+            throw new RuntimeException("Failed to write updater config to [{$configPath}].");
+        }
+    }
+
+    /**
+     * Union of two deployment manifests — ensures we sync directories and
+     * files present in either the old or the new tree, so top-level entries
+     * removed in the new release still get cleaned up.
+     *
+     * @param array{directories: array<int, string>, files: array<int, string>} $a
+     * @param array{directories: array<int, string>, files: array<int, string>} $b
+     * @return array{directories: array<int, string>, files: array<int, string>}
+     */
+    private function unionManifests(array $a, array $b): array
+    {
+        $directories = array_values(array_unique(array_merge($a['directories'], $b['directories'])));
+        $files = array_values(array_unique(array_merge($a['files'], $b['files'])));
+
+        sort($directories);
+        sort($files);
+
+        return [
+            'directories' => $directories,
+            'files' => $files,
+        ];
+    }
+
+    /**
      * Check if deployment is safe.
      */
     public function canDeploy(): array
     {
         $checks = [];
+        $runComposerInstall = (bool) config('updates.deployment.run_composer_install', true);
+        $runNpmBuild = $this->shouldRunNpmBuild();
         
         // Check disk space
         $freeSpace = disk_free_space(base_path());
-        $requiredSpace = 500 * 1024 * 1024; // 500MB
+        $requiredSpace = max((int) config('updates.deployment.min_disk_space_mb', 500), 1) * 1024 * 1024;
         
         $checks['disk_space'] = [
-            'passed' => $freeSpace > $requiredSpace,
-            'message' => $freeSpace > $requiredSpace 
-                ? 'Sufficient disk space' 
+            'passed' => is_numeric($freeSpace) && $freeSpace > $requiredSpace,
+            'message' => is_numeric($freeSpace) && $freeSpace > $requiredSpace
+                ? 'Sufficient disk space'
                 : 'Insufficient disk space'
         ];
         
@@ -404,21 +603,413 @@ class CodeDeploymentService
                 : 'Directory is not writable'
         ];
         
-        // Check if composer is available
-        exec('composer --version 2>&1', $output, $returnVar);
-        $checks['composer'] = [
-            'passed' => $returnVar === 0,
-            'message' => $returnVar === 0 
-                ? 'Composer is available' 
-                : 'Composer is not available'
+        $checks['github_repo'] = [
+            'passed' => trim((string) config('services.github.repo', '')) !== '',
+            'message' => trim((string) config('services.github.repo', '')) !== ''
+                ? 'GitHub repository is configured'
+                : 'GitHub repository is not configured'
         ];
+
+        $checks['zip_extension'] = [
+            'passed' => class_exists(ZipArchive::class),
+            'message' => class_exists(ZipArchive::class)
+                ? 'ZipArchive extension is available'
+                : 'ZipArchive extension is not available'
+        ];
+
+        if ($runComposerInstall) {
+            $composerAvailable = $this->commandIsAvailable('composer --version');
+            $checks['composer'] = [
+                'passed' => $composerAvailable,
+                'message' => $composerAvailable
+                    ? 'Composer is available'
+                    : 'Composer is not available'
+            ];
+        }
+
+        if ($runNpmBuild) {
+            $npmAvailable = $this->commandIsAvailable('npm --version');
+            $checks['npm'] = [
+                'passed' => $npmAvailable,
+                'message' => $npmAvailable
+                    ? 'NPM is available'
+                    : 'NPM is not available'
+            ];
+        }
         
         $allPassed = collect($checks)->every(fn($check) => $check['passed']);
         
         return [
             'can_deploy' => $allPassed,
-            'checks' => $checks
+            'checks' => $checks,
+            'planned_commands' => $this->getDeploymentCommandPlan(),
         ];
+    }
+
+    /**
+     * Build the step plan executed after code files are synced.
+     *
+     * @return array<int, array{type: string, command: string, signature?: string, parameters?: array<string, mixed>, shell?: string}>
+     */
+    private function buildPostDeploymentStepPlan(bool $centralContext): array
+    {
+        $steps = [];
+
+        foreach (self::ARTISAN_CLEAR_COMMANDS as $signature) {
+            $steps[] = $this->artisanStep($signature);
+        }
+
+        if ((bool) config('updates.deployment.run_composer_install', true)) {
+            $steps[] = $this->shellStep($this->composerInstallCommand());
+        }
+
+        if ($this->shouldRunNpmBuild()) {
+            $steps[] = $this->shellStep($this->npmInstallCommand());
+            $steps[] = $this->shellStep('npm run build');
+            $steps[] = [
+                'type' => 'check',
+                'command' => 'verify public/build/manifest.json',
+            ];
+        }
+
+        if ($centralContext && (bool) config('updates.deployment.run_database_migrations', true)) {
+            $steps[] = $this->artisanStep('migrate', ['--force' => true]);
+        }
+
+        if ($centralContext && (bool) config('updates.deployment.run_tenant_migrations', true)) {
+            $steps[] = $this->artisanStep('tenants:migrate', ['--force' => true]);
+        }
+
+        foreach (self::ARTISAN_CACHE_COMMANDS as $signature) {
+            $steps[] = $this->artisanStep($signature);
+        }
+
+        if ($centralContext && (bool) config('updates.deployment.run_queue_restart', true)) {
+            $steps[] = $this->artisanStep('queue:restart');
+        }
+
+        return $steps;
+    }
+
+    /**
+     * Execute a planned deployment step.
+     *
+     * @param array{type: string, command: string, signature?: string, parameters?: array<string, mixed>, shell?: string} $step
+     */
+    private function executeDeploymentStep(array $step): void
+    {
+        match ($step['type']) {
+            'artisan' => $this->runArtisanCommand($step['signature'] ?? '', $step['parameters'] ?? []),
+            'shell' => $this->runRequiredShellCommand($step['shell'] ?? $step['command']),
+            'check' => $this->runDeploymentCheck($step['command']),
+            default => throw new RuntimeException("Unknown deployment step type [{$step['type']}]."),
+        };
+    }
+
+    /**
+     * Create a normalized artisan step descriptor.
+     *
+     * @param array<string, mixed> $parameters
+     * @return array{type: string, command: string, signature: string, parameters: array<string, mixed>}
+     */
+    private function artisanStep(string $signature, array $parameters = []): array
+    {
+        return [
+            'type' => 'artisan',
+            'command' => $this->formatArtisanCommand($signature, $parameters),
+            'signature' => $signature,
+            'parameters' => $parameters,
+        ];
+    }
+
+    /**
+     * Create a normalized shell step descriptor.
+     *
+     * @return array{type: string, command: string, shell: string}
+     */
+    private function shellStep(string $command): array
+    {
+        return [
+            'type' => 'shell',
+            'command' => $command,
+            'shell' => $command,
+        ];
+    }
+
+    /**
+     * Run a required shell command and throw on failure.
+     */
+    private function runRequiredShellCommand(string $command): void
+    {
+        $result = $this->runShellCommand($command);
+
+        if ($result['exit_code'] !== 0) {
+            throw new RuntimeException("Command [{$command}] failed: " . ($result['output'] ?: 'unknown error'));
+        }
+    }
+
+    /**
+     * Execute an artisan command and throw on failure.
+     *
+     * @param array<string, mixed> $parameters
+     */
+    private function runArtisanCommand(string $signature, array $parameters = []): void
+    {
+        Log::info('Running deployment artisan command.', [
+            'command' => $this->formatArtisanCommand($signature, $parameters),
+        ]);
+
+        $exitCode = Artisan::call($signature, $parameters);
+        $output = trim(Artisan::output());
+
+        if ($exitCode !== 0) {
+            throw new RuntimeException(
+                "Artisan command [{$signature}] failed: " . ($output !== '' ? $output : "exit code {$exitCode}")
+            );
+        }
+    }
+
+    /**
+     * Run a deployment verification step.
+     */
+    private function runDeploymentCheck(string $command): void
+    {
+        if ($command !== 'verify public/build/manifest.json') {
+            throw new RuntimeException("Unknown deployment check [{$command}].");
+        }
+
+        if (! File::exists(public_path('build/manifest.json'))) {
+            throw new RuntimeException('Vite build manifest missing after build.');
+        }
+    }
+
+    /**
+     * Format a readable artisan command for logs and UI.
+     *
+     * @param array<string, mixed> $parameters
+     */
+    private function formatArtisanCommand(string $signature, array $parameters = []): string
+    {
+        $parts = ['php artisan', $signature];
+
+        foreach ($parameters as $key => $value) {
+            if (is_bool($value)) {
+                if ($value) {
+                    $parts[] = $key;
+                }
+
+                continue;
+            }
+
+            $parts[] = $key . '=' . $value;
+        }
+
+        return implode(' ', $parts);
+    }
+
+    /**
+     * Determine if npm build steps should run for this application.
+     */
+    private function shouldRunNpmBuild(): bool
+    {
+        return (bool) config('updates.deployment.run_npm_build', true)
+            && File::exists(base_path('package.json'));
+    }
+
+    /**
+     * Build the Composer install command used during deployment.
+     */
+    private function composerInstallCommand(): string
+    {
+        return 'composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader';
+    }
+
+    /**
+     * Build the NPM dependency install command used during deployment.
+     */
+    private function npmInstallCommand(): string
+    {
+        return File::exists(base_path('package-lock.json'))
+            ? 'npm ci --no-audit --no-fund'
+            : 'npm install --no-audit --no-fund';
+    }
+
+    /**
+     * Probe whether a command is available in the current runtime.
+     */
+    private function commandIsAvailable(string $command): bool
+    {
+        try {
+            return $this->runShellCommand($command)['exit_code'] === 0;
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * Sync managed release files into the live application tree.
+     *
+     * @param array{directories: array<int, string>, files: array<int, string>} $manifest
+     */
+    private function syncCodeTree(string $sourceRoot, string $destinationRoot, array $manifest, string $operation): void
+    {
+        foreach ($manifest['directories'] as $dir) {
+            $source = "{$sourceRoot}/{$dir}";
+            $destination = "{$destinationRoot}/{$dir}";
+
+            if (! is_dir($source)) {
+                continue;
+            }
+
+            $this->syncManagedDirectory($source, $destination, $dir, $operation);
+        }
+
+        foreach ($manifest['files'] as $file) {
+            $source = "{$sourceRoot}/{$file}";
+            $destination = "{$destinationRoot}/{$file}";
+
+            if (! is_file($source)) {
+                continue;
+            }
+
+            $this->syncManagedFile($source, $destination, $file, $operation);
+        }
+    }
+
+    /**
+     * Sync a managed top-level directory without deleting the live copy first.
+     */
+    private function syncManagedDirectory(
+        string $source,
+        string $destination,
+        string $relativePath,
+        string $operation
+    ): void {
+        if (is_file($destination)) {
+            $this->deleteManagedPath($destination, $relativePath, $operation);
+        }
+
+        File::ensureDirectoryExists($destination);
+
+        $this->syncDirectoryContents($source, $destination, $relativePath, $operation);
+    }
+
+    /**
+     * Recursively sync directory contents and remove stale entries afterwards.
+     */
+    private function syncDirectoryContents(
+        string $sourceDirectory,
+        string $destinationDirectory,
+        string $relativePath,
+        string $operation
+    ): void {
+        foreach ($this->listDirectoryEntries($sourceDirectory) as $entry) {
+            $sourcePath = "{$sourceDirectory}/{$entry}";
+            $destinationPath = "{$destinationDirectory}/{$entry}";
+            $entryRelativePath = trim("{$relativePath}/{$entry}", '/');
+
+            if (is_dir($sourcePath)) {
+                if (is_file($destinationPath)) {
+                    $this->deleteManagedPath($destinationPath, $entryRelativePath, $operation);
+                }
+
+                File::ensureDirectoryExists($destinationPath);
+                $this->syncDirectoryContents($sourcePath, $destinationPath, $entryRelativePath, $operation);
+
+                continue;
+            }
+
+            if (is_dir($destinationPath)) {
+                $this->deleteManagedPath($destinationPath, $entryRelativePath, $operation);
+            }
+
+            $this->copyManagedFile($sourcePath, $destinationPath, $entryRelativePath, $operation);
+        }
+
+        foreach ($this->listDirectoryEntries($destinationDirectory) as $entry) {
+            $sourcePath = "{$sourceDirectory}/{$entry}";
+
+            if (file_exists($sourcePath)) {
+                continue;
+            }
+
+            $destinationPath = "{$destinationDirectory}/{$entry}";
+            $entryRelativePath = trim("{$relativePath}/{$entry}", '/');
+
+            $this->deleteManagedPath($destinationPath, $entryRelativePath, $operation);
+        }
+    }
+
+    /**
+     * Copy a managed root-level file into place.
+     */
+    private function syncManagedFile(
+        string $source,
+        string $destination,
+        string $relativePath,
+        string $operation
+    ): void {
+        if (is_dir($destination)) {
+            $this->deleteManagedPath($destination, $relativePath, $operation);
+        }
+
+        $this->copyManagedFile($source, $destination, $relativePath, $operation);
+    }
+
+    /**
+     * Copy a file and fail loudly if the filesystem operation does not succeed.
+     */
+    private function copyManagedFile(
+        string $source,
+        string $destination,
+        string $relativePath,
+        string $operation
+    ): void {
+        File::ensureDirectoryExists(dirname($destination));
+
+        if (! File::copy($source, $destination)) {
+            throw new RuntimeException(
+                "Failed to copy file [{$relativePath}] during {$operation}."
+            );
+        }
+    }
+
+    /**
+     * Delete a managed path and fail if the live install cannot be updated safely.
+     */
+    private function deleteManagedPath(string $path, string $relativePath, string $operation): void
+    {
+        if (is_dir($path)) {
+            if (! File::deleteDirectory($path)) {
+                throw new RuntimeException(
+                    "Failed to remove directory [{$relativePath}] during {$operation}."
+                );
+            }
+
+            return;
+        }
+
+        if (file_exists($path) && ! File::delete($path)) {
+            throw new RuntimeException(
+                "Failed to remove file [{$relativePath}] during {$operation}."
+            );
+        }
+    }
+
+    /**
+     * Return direct children for a directory, including dotfiles.
+     *
+     * @return array<int, string>
+     */
+    private function listDirectoryEntries(string $path): array
+    {
+        $entries = scandir($path);
+
+        if ($entries === false) {
+            throw new RuntimeException("Failed to read directory [{$path}] during deployment sync.");
+        }
+
+        return array_values(array_filter($entries, static fn (string $entry) => $entry !== '.' && $entry !== '..'));
     }
 
     /**

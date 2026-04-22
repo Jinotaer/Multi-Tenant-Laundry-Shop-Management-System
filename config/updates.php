@@ -131,4 +131,24 @@ return [
         'run_queue_restart' => env('RUN_QUEUE_RESTART', true),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | External Updater (Option B)
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for the out-of-process updater that applies staged
+    | releases after Apache is stopped. See updater/apply.bat.
+    |
+    */
+
+    'updater' => [
+        'enabled' => env('UPDATER_ENABLED', true),
+        'php_binary' => env('UPDATER_PHP_BIN', PHP_BINARY),
+        'composer_binary' => env('UPDATER_COMPOSER_BIN', 'composer'),
+        'npm_binary' => env('UPDATER_NPM_BIN', 'npm'),
+        'apache_service' => env('UPDATER_APACHE_SERVICE', 'Apache2.4'),
+        'apache_start_bat' => env('UPDATER_APACHE_START_BAT', 'C:\\xampp\\apache_start.bat'),
+        'min_free_space_mb' => env('UPDATER_MIN_FREE_SPACE_MB', 500),
+    ],
+
 ];
