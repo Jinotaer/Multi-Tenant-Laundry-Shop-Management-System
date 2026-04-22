@@ -148,12 +148,26 @@ class UpdateController extends Controller
             // Step 6: Run optional smoke test command.
             $smokeTestResult = $this->runOptionalSmokeTest();
 
-            // Step 7: Update version record
-            \Illuminate\Support\Facades\DB::transaction(function () use ($tenant, $release) {
-                $tenant->updates()->where('is_current', true)->update(['is_current' => false]);
-    
+            // Step 7: Update version record. The transaction must run on the
+            // central connection because TenantUpdate forces that connection
+            // (see TenantUpdate::getConnectionName). Without an explicit
+            // connection, DB::transaction wraps the tenant DB while the writes
+            // commit independently to central — if the second write fails, the
+            // first commits anyway and the tenant ends up with no is_current
+            // row, so currentVersion() falls back to its default and the UI
+            // appears to "not update".
+            $centralConnection = config('tenancy.database.central_connection');
+            \Illuminate\Support\Facades\DB::connection($centralConnection)->transaction(function () use ($tenant, $release) {
+                $tenant->updates()
+                    ->where('tenant_id', $tenant->getKey())
+                    ->where('is_current', true)
+                    ->update(['is_current' => false]);
+
                 $tenant->updates()->updateOrCreate(
-                    ['app_release_id' => $release->id],
+                    [
+                        'tenant_id' => $tenant->getKey(),
+                        'app_release_id' => $release->id,
+                    ],
                     [
                         'status' => 'updated',
                         'is_current' => true,
@@ -161,6 +175,22 @@ class UpdateController extends Controller
                     ]
                 );
             });
+
+            // Verify the write actually landed before reporting success — if
+            // the relation comes back empty here, something silently failed
+            // and we should surface it instead of showing a misleading
+            // success message.
+            $verifyCurrent = $tenant->updates()
+                ->where('is_current', true)
+                ->where('app_release_id', $release->id)
+                ->exists();
+
+            if (! $verifyCurrent) {
+                throw new \RuntimeException(
+                    "Version record write succeeded silently but no current row exists for {$release->version_tag}. " .
+                    'Check the tenant_updates table on the central connection.'
+                );
+            }
 
             // Step 8: Exit maintenance mode only after successful completion.
             if ($maintenanceModeEntered) {
