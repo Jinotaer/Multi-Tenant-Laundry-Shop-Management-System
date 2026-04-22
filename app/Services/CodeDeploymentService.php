@@ -44,12 +44,13 @@ class CodeDeploymentService
             
             // Extract archive
             $extractPath = $this->extractArchive($archivePath, $versionTag);
+            $manifest = $this->buildDeploymentManifest($extractPath);
             
             // Backup current code
-            $backupPath = $this->backupCurrentCode($versionTag);
+            $backupPath = $this->backupCurrentCode($manifest);
             
             // Deploy new code
-            $this->deployCode($extractPath);
+            $this->deployCode($extractPath, $manifest);
             
             // Run post-deployment tasks
             $this->runPostDeploymentTasks();
@@ -113,6 +114,12 @@ class CodeDeploymentService
     private function extractArchive(string $archivePath, string $versionTag): string
     {
         $extractPath = "{$this->tempPath}/extract_{$versionTag}";
+
+        if (File::exists($extractPath)) {
+            File::deleteDirectory($extractPath);
+        }
+
+        File::makeDirectory($extractPath, 0755, true);
         
         $zip = new ZipArchive();
         if ($zip->open($archivePath) !== true) {
@@ -134,7 +141,7 @@ class CodeDeploymentService
     /**
      * Backup current code before deployment.
      */
-    private function backupCurrentCode(string $versionTag): string
+    private function backupCurrentCode(array $manifest): string
     {
         $timestamp = now()->format('Y-m-d_His');
         $backupPath = storage_path("app/deployments/backups/code_backup_{$timestamp}");
@@ -142,7 +149,7 @@ class CodeDeploymentService
         File::makeDirectory($backupPath, 0755, true);
         
         // Backup directories that are replaced during deployment
-        $criticalDirs = $this->deploymentDirectories();
+        $criticalDirs = $manifest['directories'];
         
         foreach ($criticalDirs as $dir) {
             $source = base_path($dir);
@@ -153,8 +160,8 @@ class CodeDeploymentService
             }
         }
         
-        // Backup root-level files that affect dependencies and builds
-        foreach ($this->deploymentFiles() as $file) {
+        // Backup managed root-level files from the deployment manifest
+        foreach ($manifest['files'] as $file) {
             $source = base_path($file);
             $destination = "{$backupPath}/{$file}";
 
@@ -169,12 +176,9 @@ class CodeDeploymentService
     /**
      * Deploy new code to application directory.
      */
-    private function deployCode(string $sourcePath): void
+    private function deployCode(string $sourcePath, array $manifest): void
     {
-        // Directories to deploy
-        $deployDirs = $this->deploymentDirectories();
-        
-        foreach ($deployDirs as $dir) {
+        foreach ($manifest['directories'] as $dir) {
             $source = "{$sourcePath}/{$dir}";
             $destination = base_path($dir);
             
@@ -188,16 +192,21 @@ class CodeDeploymentService
             }
             
             // Copy new directory
-            File::copyDirectory($source, $destination);
+            if (!File::copyDirectory($source, $destination)) {
+                throw new RuntimeException("Failed to copy directory [{$dir}] during deployment.");
+            }
         }
         
         // Sync root-level files
-        foreach ($this->deploymentFiles() as $file) {
+        foreach ($manifest['files'] as $file) {
             $source = "{$sourcePath}/{$file}";
             $destination = base_path($file);
 
             if (File::exists($source)) {
-                File::copy($source, $destination);
+                if (!File::copy($source, $destination)) {
+                    throw new RuntimeException("Failed to copy file [{$file}] during deployment.");
+                }
+
                 continue;
             }
 
@@ -319,9 +328,9 @@ class CodeDeploymentService
     {
         try {
             // Restore from backup
-            $deployDirs = $this->deploymentDirectories();
+            $manifest = $this->buildDeploymentManifest($backupPath);
             
-            foreach ($deployDirs as $dir) {
+            foreach ($manifest['directories'] as $dir) {
                 $source = "{$backupPath}/{$dir}";
                 $destination = base_path($dir);
                 
@@ -333,16 +342,21 @@ class CodeDeploymentService
                     File::deleteDirectory($destination);
                 }
                 
-                File::copyDirectory($source, $destination);
+                if (!File::copyDirectory($source, $destination)) {
+                    throw new RuntimeException("Failed to restore directory [{$dir}] during rollback.");
+                }
             }
             
             // Restore root-level files
-            foreach ($this->deploymentFiles() as $file) {
+            foreach ($manifest['files'] as $file) {
                 $source = "{$backupPath}/{$file}";
                 $destination = base_path($file);
 
                 if (File::exists($source)) {
-                    File::copy($source, $destination);
+                    if (!File::copy($source, $destination)) {
+                        throw new RuntimeException("Failed to restore file [{$file}] during rollback.");
+                    }
+
                     continue;
                 }
 
@@ -408,42 +422,72 @@ class CodeDeploymentService
     }
 
     /**
-     * Directories managed by code deployment.
+     * Resolve the deployment manifest from a release or backup root.
      *
-     * @return array<int, string>
+     * @return array{directories: array<int, string>, files: array<int, string>}
      */
-    private function deploymentDirectories(): array
+    private function buildDeploymentManifest(string $rootPath): array
     {
+        $directories = [];
+        $files = [];
+
+        foreach (scandir($rootPath) ?: [] as $entry) {
+            if ($entry === '.' || $entry === '..') {
+                continue;
+            }
+
+            if ($this->shouldIgnoreDeploymentEntry($entry)) {
+                continue;
+            }
+
+            $fullPath = "{$rootPath}/{$entry}";
+
+            if (is_dir($fullPath)) {
+                $directories[] = $entry;
+                continue;
+            }
+
+            if (is_file($fullPath)) {
+                $files[] = $entry;
+            }
+        }
+
+        sort($directories);
+        sort($files);
+
+        if ($directories === [] && $files === []) {
+            throw new RuntimeException("Deployment archive [{$rootPath}] did not contain any deployable files.");
+        }
+
+        Log::info('Resolved deployment manifest', [
+            'root' => $rootPath,
+            'directories' => $directories,
+            'files' => $files,
+        ]);
+
         return [
-            'app',
-            'bootstrap',
-            'config',
-            'database',
-            'routes',
-            'resources',
-            'tests',
-            'public',
+            'directories' => $directories,
+            'files' => $files,
         ];
     }
 
     /**
-     * Root-level files managed by code deployment.
-     *
-     * @return array<int, string>
+     * Ignore local-only or unsafe repository roots during deployment.
      */
-    private function deploymentFiles(): array
+    private function shouldIgnoreDeploymentEntry(string $entry): bool
     {
-        return [
-            'artisan',
-            'composer.json',
-            'composer.lock',
-            'package.json',
-            'package-lock.json',
-            'vite.config.js',
-            'postcss.config.js',
-            'tailwind.config.js',
-            'phpunit.xml',
-            'boost.json',
-        ];
+        if (str_starts_with($entry, '.env')) {
+            return true;
+        }
+
+        return in_array($entry, [
+            '.git',
+            '.github',
+            '.idea',
+            '.vscode',
+            'node_modules',
+            'storage',
+            'vendor',
+        ], true);
     }
 }
