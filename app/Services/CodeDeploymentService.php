@@ -689,6 +689,11 @@ class CodeDeploymentService
 
         if ($this->shouldRunNpmBuild()) {
             $steps[] = $this->shellStep($this->npmInstallCommand());
+            $steps[] = [
+                'type' => 'check',
+                'command' => 'verify frontend dependencies',
+            ];
+            $steps[] = $this->shellStep($this->npmAuditFixCommand());
             $steps[] = $this->shellStep('npm run build');
             $steps[] = [
                 'type' => 'check',
@@ -798,13 +803,30 @@ class CodeDeploymentService
      */
     private function runDeploymentCheck(string $command): void
     {
-        if ($command !== 'verify public/build/manifest.json') {
-            throw new RuntimeException("Unknown deployment check [{$command}].");
+        if ($command === 'verify frontend dependencies') {
+            $requiredFiles = [
+                base_path('node_modules/tailwindcss/lib/css/preflight.css'),
+                base_path('node_modules/laravel-vite-plugin/dist/dev-server-index.html'),
+            ];
+
+            foreach ($requiredFiles as $path) {
+                if (! File::exists($path)) {
+                    throw new RuntimeException("Frontend dependency verification failed: missing [{$path}] after npm install.");
+                }
+            }
+
+            return;
         }
 
-        if (! File::exists(public_path('build/manifest.json'))) {
-            throw new RuntimeException('Vite build manifest missing after build.');
+        if ($command === 'verify public/build/manifest.json') {
+            if (! File::exists(public_path('build/manifest.json'))) {
+                throw new RuntimeException('Vite build manifest missing after build.');
+            }
+
+            return;
         }
+
+        throw new RuntimeException("Unknown deployment check [{$command}].");
     }
 
     /**
@@ -856,6 +878,14 @@ class CodeDeploymentService
         return File::exists(base_path('package-lock.json'))
             ? 'npm ci --no-audit --no-fund'
             : 'npm install --no-audit --no-fund';
+    }
+
+    /**
+     * Build the optional npm audit fix command used during deployment.
+     */
+    private function npmAuditFixCommand(): string
+    {
+        return 'npm audit fix --no-fund';
     }
 
     /**

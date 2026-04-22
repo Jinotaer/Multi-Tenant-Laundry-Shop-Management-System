@@ -42,6 +42,13 @@ function invokeManagedFileSync(
     $method->invoke($service, $source, $destination, $relativePath, $operation);
 }
 
+function invokeDeploymentCheck(CodeDeploymentService $service, string $command): void
+{
+    $method = new ReflectionMethod($service, 'runDeploymentCheck');
+    $method->setAccessible(true);
+    $method->invoke($service, $command);
+}
+
 test('deployment manifest includes deployable release roots and excludes local-only paths', function () {
     $root = storage_path('framework/testing/deployment-manifest-' . Str::random(12));
 
@@ -168,6 +175,8 @@ test('deployment command plan runs install and build steps before recaching and 
         'php artisan view:clear',
         'composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader',
         'npm ci --no-audit --no-fund',
+        'verify frontend dependencies',
+        'npm audit fix --no-fund',
         'npm run build',
         'verify public/build/manifest.json',
         'php artisan migrate --force',
@@ -197,4 +206,36 @@ test('tenant scoped deployment command plan excludes central-only commands', fun
         'php artisan route:cache',
         'php artisan view:cache',
     ]);
+});
+
+test('frontend dependency verification fails when required npm files are missing', function () {
+    $tailwindPreflight = base_path('node_modules/tailwindcss/lib/css/preflight.css');
+    $viteDevServerIndex = base_path('node_modules/laravel-vite-plugin/dist/dev-server-index.html');
+    $tailwindBackup = null;
+    $viteBackup = null;
+
+    try {
+        if (File::exists($tailwindPreflight)) {
+            $tailwindBackup = File::get($tailwindPreflight);
+            File::delete($tailwindPreflight);
+        }
+
+        if (File::exists($viteDevServerIndex)) {
+            $viteBackup = File::get($viteDevServerIndex);
+            File::delete($viteDevServerIndex);
+        }
+
+        expect(fn () => invokeDeploymentCheck(app(CodeDeploymentService::class), 'verify frontend dependencies'))
+            ->toThrow(RuntimeException::class, 'Frontend dependency verification failed');
+    } finally {
+        if ($tailwindBackup !== null) {
+            File::ensureDirectoryExists(dirname($tailwindPreflight));
+            File::put($tailwindPreflight, $tailwindBackup);
+        }
+
+        if ($viteBackup !== null) {
+            File::ensureDirectoryExists(dirname($viteDevServerIndex));
+            File::put($viteDevServerIndex, $viteBackup);
+        }
+    }
 });
