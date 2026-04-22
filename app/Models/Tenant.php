@@ -173,12 +173,16 @@ class Tenant extends BaseTenant implements TenantWithDatabase
 
     /**
      * Get the current active version tag for this tenant.
+     *
+     * Returns 'v0.0.0' (not 'v1.0.0') when no current update row exists, so
+     * that ANY released version compares as newer and the version display
+     * surfaces an obviously-not-real value instead of a misleading "v1.0.0".
      */
     public function currentVersion(): string
     {
         $currentUpdate = $this->updates()->where('is_current', true)->with('release')->first();
 
-        return $currentUpdate ? $currentUpdate->release->version_tag : 'v1.0.0';
+        return $currentUpdate?->release?->version_tag ?? 'v0.0.0';
     }
 
     public function isEnabled(): bool

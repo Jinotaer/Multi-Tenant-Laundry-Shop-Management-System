@@ -3,7 +3,9 @@
     "allow": [
       "Bash(c:/xampp/php/php.exe -l c:/xampp/htdocs/Laundry-Shop-Management/app/Services/CodeDeploymentService.php)",
       "Bash(c:/xampp/php/php.exe c:/xampp/htdocs/Laundry-Shop-Management/artisan test --filter=CodeDeploymentServiceTest)",
-      "Bash(c:/xampp/php/php.exe vendor/bin/pest tests/Unit/CodeDeploymentServiceTest.php)"
+      "Bash(c:/xampp/php/php.exe vendor/bin/pest tests/Unit/CodeDeploymentServiceTest.php)",
+      "Bash(xargs head *)",
+      "Bash(c:/xampp/php/php.exe c:/xampp/htdocs/Laundry-Shop-Management/artisan schedule:list)"
     ]
   }
 }

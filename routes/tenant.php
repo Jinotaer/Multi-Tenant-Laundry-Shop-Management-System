@@ -444,6 +444,9 @@ Route::middleware([
                 Route::get('/updates', [UpdateController::class, 'index'])
                     ->middleware('permission:updates.view')
                     ->name('tenant.updates.index');
+                Route::post('/updates/check', [UpdateController::class, 'checkForUpdates'])
+                    ->middleware('permission:updates.view')
+                    ->name('tenant.updates.check');
                 Route::post('/updates/{release}/apply', [UpdateController::class, 'update'])
                     ->middleware('permission:updates.apply')
                     ->name('tenant.updates.apply');

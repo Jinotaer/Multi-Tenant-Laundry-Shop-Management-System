@@ -351,6 +351,32 @@ class UpdateController extends Controller
     }
 
     /**
+     * Trigger an on-demand GitHub release sync. Tenants click "Check for
+     * Updates" to refresh the available-releases list without waiting for
+     * the every-10-minute scheduled sync. The actual fetching is delegated
+     * to GitHubReleaseService::syncReleases(true).
+     */
+    public function checkForUpdates(Request $request)
+    {
+        try {
+            $synced = $this->releaseService->syncReleases(true);
+        } catch (\Throwable $e) {
+            \Log::error('Manual GitHub release sync failed.', [
+                'tenant_id' => tenant()?->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return back()->with('error', 'Could not check for updates: ' . $e->getMessage());
+        }
+
+        if ($synced) {
+            return back()->with('success', 'Checked GitHub for new releases. Refreshing the list now.');
+        }
+
+        return back()->with('error', 'Could not reach GitHub right now. We will retry automatically in the background.');
+    }
+
+    /**
      * Run pending migrations.
      */
     public function runMigrations(Request $request)

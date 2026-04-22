@@ -56,6 +56,15 @@
                                 {{ $availableUpdates->count() }} {{ Str::plural('update', $availableUpdates->count()) }} available
                             </span>
                         @endif
+                        <form action="{{ route('tenant.updates.check') }}" method="POST" class="inline">
+                            @csrf
+                            <button type="submit" class="inline-flex items-center gap-2 px-3 py-2 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 border border-blue-200 dark:border-blue-800 rounded-md font-medium text-xs text-blue-700 dark:text-blue-300 uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition ease-in-out duration-150">
+                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                                </svg>
+                                Check for Updates
+                            </button>
+                        </form>
                         <button onclick="window.location.reload()" class="inline-flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-md font-medium text-xs text-gray-700 dark:text-slate-300 uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition ease-in-out duration-150">
                             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
@@ -200,11 +209,38 @@
                 return;
             }
 
+            const hidePanel = () => {
+                panel.classList.add('hidden');
+                forms.forEach((form) => {
+                    const btn = form.querySelector('button[type="submit"]');
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.classList.remove('opacity-70', 'cursor-wait');
+                        if (btn.dataset.originalText) {
+                            btn.textContent = btn.dataset.originalText;
+                            delete btn.dataset.originalText;
+                        }
+                    }
+                });
+            };
+
+            // If the user navigates back to this page (browser back/forward
+            // cache restore), the spinner from the previous attempt may still
+            // be visible. Reset on every pageshow.
+            window.addEventListener('pageshow', hidePanel);
+
             forms.forEach((form) => {
-                form.addEventListener('submit', () => {
+                form.addEventListener('submit', (event) => {
+                    // The form has onsubmit="return confirm(...)" which sets
+                    // event.defaultPrevented when the user cancels. Don't show
+                    // the spinner for cancelled submissions.
+                    if (event.defaultPrevented) {
+                        return;
+                    }
+
                     const label = form.dataset.actionLabel || 'Processing update';
                     title.textContent = label;
-                    message.textContent = 'This may take a minute. Please keep this page open.';
+                    message.textContent = 'This may take a few minutes. Please keep this page open and do not refresh.';
                     panel.classList.remove('hidden');
 
                     const submitButton = form.querySelector('button[type="submit"]');
@@ -214,6 +250,24 @@
                         submitButton.dataset.originalText = submitButton.textContent.trim();
                         submitButton.textContent = 'Processing...';
                     }
+
+                    // Soft warning after 90s so the user knows the request is
+                    // genuinely still running (composer/npm/migrate take time)
+                    // and the page isn't frozen.
+                    window.setTimeout(() => {
+                        if (!panel.classList.contains('hidden')) {
+                            message.textContent = 'Still working. Long-running steps (composer install, npm build, migrations) can take several minutes — leave this tab open.';
+                        }
+                    }, 90_000);
+
+                    // Hard fallback at 10 minutes — if no response by then,
+                    // tell the user to check the Update Center after refresh.
+                    window.setTimeout(() => {
+                        if (!panel.classList.contains('hidden')) {
+                            title.textContent = 'No response yet';
+                            message.textContent = 'The update is taking longer than expected. After this finishes, refresh this page to see the result. If the page never returns, check the server logs.';
+                        }
+                    }, 600_000);
                 });
             });
         })();
