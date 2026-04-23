@@ -256,7 +256,7 @@ class UpdateController extends Controller
 
             // Build the artisan command using the exact PHP binary that is
             // running this request — no PATH resolution needed.
-            $php     = PHP_BINARY;
+            $php     = $this->resolvePhpCliBinary();
             $artisan = base_path('artisan');
             $logFile = storage_path('logs/artisan-update.log');
 
@@ -760,6 +760,55 @@ class UpdateController extends Controller
         $store = (string) config('updates.tenant_maintenance.cache_store', config('cache.default'));
 
         return Cache::store($store);
+    }
+
+    /**
+     * Resolve the PHP CLI binary (php.exe).
+     *
+     * Under Apache mod_php on Windows, PHP_BINARY points to httpd.exe, not
+     * php.exe — using it to run `php artisan ...` silently spawns another
+     * Apache instead of running the command. This checks PHP_BINARY first,
+     * then falls back to $(dirname PHP_BINARY)/../php/php.exe (XAMPP layout),
+     * then a hardcoded XAMPP path, then a config override.
+     */
+    private function resolvePhpCliBinary(): string
+    {
+        $override = (string) config('updates.updater.php_binary', '');
+        if ($override !== ''
+            && strtolower(basename($override)) === (PHP_OS_FAMILY === 'Windows' ? 'php.exe' : 'php')
+            && is_file($override)) {
+            return $override;
+        }
+
+        $current = PHP_BINARY;
+        $expectedBasename = PHP_OS_FAMILY === 'Windows' ? 'php.exe' : 'php';
+
+        if (strtolower(basename($current)) === $expectedBasename && is_file($current)) {
+            return $current;
+        }
+
+        if (PHP_OS_FAMILY === 'Windows') {
+            $candidates = [
+                dirname($current) . '\\..\\php\\php.exe',
+                'C:\\xampp\\php\\php.exe',
+                'C:\\wamp64\\bin\\php\\php.exe',
+                'C:\\Program Files\\PHP\\php.exe',
+            ];
+        } else {
+            $candidates = ['/usr/bin/php', '/usr/local/bin/php'];
+        }
+
+        foreach ($candidates as $candidate) {
+            $resolved = realpath($candidate) ?: $candidate;
+            if (is_file($resolved)) {
+                return $resolved;
+            }
+        }
+
+        throw new \RuntimeException(
+            'Could not locate the PHP CLI binary (php.exe). '
+            . 'Set UPDATER_PHP_BIN in .env to the absolute path of php.exe.'
+        );
     }
 
     /**
