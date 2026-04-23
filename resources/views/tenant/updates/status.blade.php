@@ -1,99 +1,96 @@
 <x-tenant-layout>
-    <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 dark:text-slate-100 leading-tight">
-            Updating to {{ $release->version_tag }}
-        </h2>
-    </x-slot>
+    <div class="space-y-5">
+        <x-tenant-header title="Updating to {{ $release->version_tag }}" description="Do not close this tab while the update is in progress." />
 
-    <div class="py-12">
-        <div class="max-w-2xl mx-auto sm:px-6 lg:px-8 space-y-6">
+        @if (session('error'))
+            <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
+                {{ session('error') }}
+            </div>
+        @endif
 
-            {{-- Server-side status (shown on first load / after Apache restart) --}}
-            @if(session('error'))
-                <div class="rounded-lg bg-red-50 p-4 text-sm text-red-700 border border-red-200 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
-                    {{ session('error') }}
-                </div>
-            @endif
+        {{-- Finalize form — submitted automatically by JS when updater reports success --}}
+        <form id="finalize-form" action="{{ route('tenant.updates.finalize', $release->id) }}" method="POST" class="hidden">
+            @csrf
+        </form>
 
-            {{-- Finalize form — submitted automatically by JS when updater reports success --}}
-            <form id="finalize-form"
-                  action="{{ route('tenant.updates.finalize', $release->id) }}"
-                  method="POST"
-                  class="hidden">
-                @csrf
-            </form>
+        {{-- Progress card --}}
+        <div class="tenant-panel p-6">
 
-            {{-- Progress card --}}
-            <div class="p-6 bg-white dark:bg-slate-900 shadow sm:rounded-lg">
-
-                {{-- Waiting / in-progress state --}}
-                <div id="state-running">
-                    <div class="flex items-center gap-4 mb-6">
-                        <div class="flex-shrink-0">
-                            <svg id="spinner-icon" class="h-10 w-10 animate-spin text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-                            </svg>
-                        </div>
-                        <div>
-                            <p class="font-semibold text-gray-900 dark:text-slate-100" id="stage-title">
-                                Update in progress&hellip;
-                            </p>
-                            <p class="text-sm text-gray-500 dark:text-slate-400 mt-0.5" id="stage-message">
-                                The updater is starting. Apache may briefly stop — this page will resume polling automatically.
-                            </p>
-                        </div>
-                    </div>
-
-                    <div class="h-2 overflow-hidden rounded-full bg-blue-100 dark:bg-blue-900/40">
-                        <div class="h-full animate-pulse rounded-full bg-blue-500 dark:bg-blue-400" id="progress-bar" style="width: 20%"></div>
-                    </div>
-
-                    <p class="mt-3 text-xs text-gray-400 dark:text-slate-500" id="network-hint">
-                        Keep this tab open. The page will update automatically when the process completes.
-                    </p>
-                </div>
-
-                {{-- Success state (hidden until JS detects it) --}}
-                <div id="state-success" class="hidden text-center py-4">
-                    <svg class="mx-auto h-12 w-12 text-green-500 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <p class="mt-3 font-semibold text-gray-900 dark:text-slate-100">
-                        Update complete!
-                    </p>
-                    <p class="mt-1 text-sm text-gray-500 dark:text-slate-400">
-                        Finalising version record&hellip;
-                    </p>
-                </div>
-
-                {{-- Failed state (hidden until JS detects it) --}}
-                <div id="state-failed" class="hidden">
-                    <div class="flex items-center gap-3 mb-4">
-                        <svg class="h-8 w-8 text-red-500 dark:text-red-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+            {{-- Running state --}}
+            <div id="state-running">
+                <div class="flex items-start gap-4">
+                    <div class="mt-0.5 shrink-0">
+                        <svg id="spinner-icon" class="h-9 w-9 animate-spin text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
                         </svg>
-                        <p class="font-semibold text-red-700 dark:text-red-400">Update failed — previous version restored</p>
                     </div>
-                    <p class="text-sm text-gray-600 dark:text-slate-400 mb-2">Error details:</p>
-                    <pre id="error-detail" class="text-xs bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded p-3 overflow-x-auto text-red-700 dark:text-red-300 whitespace-pre-wrap"></pre>
-                    <div class="mt-4">
-                        <a href="{{ route('tenant.updates.index') }}"
-                           class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-md font-medium text-sm text-gray-700 dark:text-slate-300 transition">
-                            Back to Update Center
-                        </a>
+                    <div class="min-w-0 flex-1">
+                        <p class="text-base font-bold text-slate-900 dark:text-slate-100" id="stage-title">
+                            Update in progress…
+                        </p>
+                        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400" id="stage-message">
+                            The updater is starting. Apache may briefly stop — this page will resume polling automatically.
+                        </p>
                     </div>
                 </div>
+
+                <div class="mt-5 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                    <div
+                        class="h-full animate-pulse rounded-full transition-all duration-500"
+                        id="progress-bar"
+                        style="width: 20%; background: var(--tenant-theme-accent);"
+                    ></div>
+                </div>
+
+                <p class="mt-3 text-xs text-slate-400 dark:text-slate-500" id="network-hint">
+                    Keep this tab open. The page will update automatically when the process completes.
+                </p>
             </div>
 
-            {{-- Step log (populated by JS from status.json history) --}}
-            <div class="p-4 sm:p-6 bg-white dark:bg-slate-900 shadow sm:rounded-lg">
-                <h3 class="text-sm font-semibold text-gray-700 dark:text-slate-300 mb-3">Progress log</h3>
-                <ol id="step-log" class="space-y-1 text-xs text-gray-500 dark:text-slate-400 font-mono">
-                    <li class="text-gray-400 dark:text-slate-500 italic">Waiting for first status…</li>
+            {{-- Success state --}}
+            <div id="state-success" class="hidden py-4 text-center">
+                <svg class="mx-auto h-12 w-12 text-emerald-500 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p class="mt-3 text-base font-bold text-slate-900 dark:text-slate-100">Update complete!</p>
+                <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Finalising version record…</p>
+            </div>
+
+            {{-- Failed state --}}
+            <div id="state-failed" class="hidden">
+                <div class="flex items-center gap-3">
+                    <svg class="h-8 w-8 shrink-0 text-red-500 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                    </svg>
+                    <p class="text-base font-bold text-red-700 dark:text-red-400">Update failed — previous version restored</p>
+                </div>
+                <p class="mt-3 text-sm text-slate-600 dark:text-slate-400">Error details:</p>
+                <pre id="error-detail" class="mt-2 overflow-x-auto whitespace-pre-wrap rounded-xl border border-red-200 bg-red-50 p-4 font-mono text-xs text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300"></pre>
+                <div class="mt-5">
+                    <a
+                        href="{{ route('tenant.updates.index') }}"
+                        class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white/80 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200"
+                    >
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+                        </svg>
+                        Back to Update Center
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        {{-- Step log --}}
+        <div class="overflow-hidden rounded-[28px] border border-slate-200 bg-white/92 shadow-sm dark:border-slate-800 dark:bg-slate-950/70">
+            <div class="border-b border-slate-200 px-6 py-4 dark:border-slate-800">
+                <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100">Progress Log</h3>
+            </div>
+            <div class="p-5">
+                <ol id="step-log" class="space-y-1.5 font-mono text-xs text-slate-500 dark:text-slate-400">
+                    <li class="italic text-slate-400 dark:text-slate-500">Waiting for first status…</li>
                 </ol>
             </div>
-
         </div>
     </div>
 
@@ -111,7 +108,6 @@
         const errorDetail  = document.getElementById('error-detail');
         const finalizeForm = document.getElementById('finalize-form');
 
-        // Approximate progress per stage so the bar moves even without timestamps.
         const STAGE_PROGRESS = {
             queued: 5, start: 8, preflight: 12, backup: 20,
             swap: 35, composer: 50, npm: 70, migrate: 85, cache: 92,
@@ -132,10 +128,7 @@
                 failedFetches = 0;
                 networkHint.textContent = 'Keep this tab open. The page will update automatically when the process completes.';
                 renderStatus(data);
-
-                if (data.state !== 'success' && data.state !== 'failed') {
-                    setTimeout(poll, 3000);
-                }
+                if (data.state !== 'success' && data.state !== 'failed') setTimeout(poll, 3000);
             })
             .catch(() => {
                 failedFetches++;
@@ -153,22 +146,17 @@
             const message = data.message || stage;
             const pct     = STAGE_PROGRESS[stage] || 20;
 
-            // Update progress bar
             progressBar.style.width = pct + '%';
 
-            // Append new history entries to the log
             if (Array.isArray(data.history)) {
                 data.history.forEach(entry => {
                     const key = entry.at + entry.stage;
                     if (loggedStages.has(key)) return;
                     loggedStages.add(key);
-
                     const li = document.createElement('li');
                     const ts = new Date(entry.at).toLocaleTimeString();
                     li.textContent = `[${ts}] ${entry.stage}: ${entry.message}`;
-                    if (stepLog.firstChild?.tagName === undefined || stepLog.querySelector('.italic')) {
-                        stepLog.innerHTML = '';
-                    }
+                    if (stepLog.querySelector('.italic')) stepLog.innerHTML = '';
                     stepLog.appendChild(li);
                 });
             }
@@ -177,7 +165,6 @@
                 stateRunning.classList.add('hidden');
                 stateSuccess.classList.remove('hidden');
                 stateFailed.classList.add('hidden');
-
                 if (!finalizeTriggered) {
                     finalizeTriggered = true;
                     setTimeout(() => finalizeForm.submit(), 1200);
@@ -193,7 +180,6 @@
                 return;
             }
 
-            // Still running
             stageTitle.textContent = stageLabelFor(stage);
             stageMessage.textContent = message;
         }
@@ -214,7 +200,6 @@
             }[stage] || 'Update in progress…';
         }
 
-        // Begin polling after a short delay to give the updater time to start.
         setTimeout(poll, 2000);
     })();
     </script>

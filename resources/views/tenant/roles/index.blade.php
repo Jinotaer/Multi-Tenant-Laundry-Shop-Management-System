@@ -5,7 +5,7 @@
         $showRoleCreateModal = $roleErrorBag->isNotEmpty() && old('form_context') === 'role-create';
     @endphp
 
-    <div class="space-y-4">
+    <div class="space-y-4 mb-10">
         <x-tenant-header title="Role Management" description="Configure staff roles and permissions.">
             @if (!empty($canCreateRoles) && $canCreateRoles)
                 <x-slot name="actions">
@@ -36,7 +36,7 @@
             </div>
         @endif
 
-        @if (! $hasRoleTables)
+        <!-- @if (! $hasRoleTables)
             <div class="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
                 Role tables are not available for this tenant yet. Run tenant migrations before creating roles.
             </div>
@@ -61,7 +61,7 @@
                             Add Role
                         </button>
                     </div>
-                @endif
+                @endif -->
             </div>
 
             @if ($roles->isEmpty())
