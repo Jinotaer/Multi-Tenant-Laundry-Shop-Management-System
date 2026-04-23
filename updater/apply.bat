@@ -27,8 +27,7 @@ REM If we are already running from TEMP, skip the self-copy and go straight
 REM to the PHP orchestrator. The marker env var is set on the re-invocation.
 if "%LAUNDRY_UPDATER_BOOTSTRAPPED%"=="1" goto run_php
 
-REM Build a unique temp directory name using date/time + random suffix.
-REM Note: wmic is deprecated/removed on Windows 11, so we use built-in vars.
+REM Build a unique temp directory name. Avoid wmic (deprecated on Windows 11).
 set "STAMP=%DATE:~-4,4%%DATE:~-7,2%%DATE:~-10,2%-%TIME:~0,2%%TIME:~3,2%%TIME:~6,2%-%RANDOM%"
 set "STAMP=%STAMP: =0%"
 set "TEMP_UPDATER=%TEMP%\laundry-updater-%STAMP%"
@@ -42,14 +41,17 @@ if errorlevel 1 (
     exit /b 3
 )
 
+REM Re-launch from the TEMP copy so the original updater/ dir can be overwritten.
+REM Use start directly on the bat file — avoids cmd /c quoting edge-cases.
 set "LAUNDRY_UPDATER_BOOTSTRAPPED=1"
-start "" /B cmd /c "%TEMP_UPDATER%\apply.bat" "%CONFIG_PATH%"
+start "" /B "%TEMP_UPDATER%\apply.bat" "%CONFIG_PATH%"
 exit /b 0
 
 :run_php
-REM Read PHP path from config using a tiny inline PHP that just echoes it.
-REM We bootstrap with whatever php is first on PATH; the real paths come from config.
-for /f "usebackq delims=" %%P in (`php -r "echo json_decode(file_get_contents('%CONFIG_PATH:\=\\%'), true)['php_binary'] ?? 'php';"`) do set "PHP_BIN=%%P"
+REM Read the PHP binary path from config.json using PowerShell (always available
+REM on Windows 10/11 regardless of PATH). PHP_BINARY is written as an absolute
+REM path by the webapp, so we don't need php on PATH to bootstrap here.
+for /f "usebackq delims=" %%P in (`powershell -NoProfile -Command "(Get-Content '%CONFIG_PATH:\=/%' -Raw | ConvertFrom-Json).php_binary"`) do set "PHP_BIN=%%P"
 
 if "%PHP_BIN%"=="" set "PHP_BIN=php"
 

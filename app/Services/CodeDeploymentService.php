@@ -118,6 +118,107 @@ class CodeDeploymentService
     }
 
     /**
+     * Deploy a GitHub release with per-stage progress callbacks.
+     *
+     * Replaces the external apply.bat/apply.php path. Because PHP on Windows
+     * does not hold open handles to .php files between requests, the live
+     * application can be overwritten without stopping Apache first.
+     *
+     * Migrations are intentionally excluded — the caller handles them so that
+     * tenant-scoped migrations can be run in the correct tenancy context.
+     *
+     * @param callable(string $stage, string $message): void $onProgress
+     * @return array{success: bool, backup_path: string|null, error?: string}
+     */
+    public function deployWithProgress(string $versionTag, callable $onProgress): array
+    {
+        set_time_limit(0);
+        $this->validateVersionTag($versionTag);
+
+        $repo  = config('services.github.repo');
+        $token = config('services.github.token');
+
+        if (! $repo) {
+            return ['success' => false, 'backup_path' => null, 'error' => 'GitHub repository not configured.'];
+        }
+
+        $backupPath     = null;
+        $archivePath    = null;
+        $extractRootPath = null;
+
+        try {
+            $onProgress('preflight', 'Downloading release archive from GitHub…');
+            $archivePath = $this->downloadRelease($repo, $versionTag, $token);
+
+            $onProgress('backup', 'Extracting release archive…');
+            $extracted       = $this->extractArchive($archivePath, $versionTag);
+            $extractRootPath = $extracted['root'];
+            $extractPath     = $extracted['source'];
+            $manifest        = $this->buildDeploymentManifest($extractPath);
+
+            if ((bool) config('updates.deployment.backup_before_deploy', true)) {
+                $onProgress('backup', 'Creating code backup of current files…');
+                $backupPath = $this->backupCurrentCode($manifest);
+            }
+
+            $onProgress('swap', 'Overwriting application files (no Apache restart required)…');
+            $this->deployCode($extractPath, $manifest);
+
+            // Clear stale caches before running composer so autoloader is clean.
+            $this->runWithoutTenantContext(function (): void {
+                foreach (self::ARTISAN_CLEAR_COMMANDS as $signature) {
+                    $this->runArtisanCommand($signature);
+                }
+            });
+
+            if ((bool) config('updates.deployment.run_composer_install', true)) {
+                $onProgress('composer', 'Installing PHP dependencies (composer install --no-dev)…');
+                $this->runRequiredShellCommand($this->composerInstallCommand());
+            }
+
+            if ($this->shouldRunNpmBuild()) {
+                $onProgress('npm', 'Installing Node.js dependencies…');
+                $this->runRequiredShellCommand($this->npmInstallCommand());
+                $this->runRequiredShellCommand($this->npmAuditFixCommand());
+                $onProgress('npm', 'Building frontend assets (npm run build)…');
+                $this->runRequiredShellCommand('npm run build');
+            }
+
+            $onProgress('cache', 'Rebuilding application caches…');
+            $this->runWithoutTenantContext(function (): void {
+                foreach (self::ARTISAN_CACHE_COMMANDS as $signature) {
+                    $this->runArtisanCommand($signature);
+                }
+            });
+
+            if ((bool) config('updates.deployment.run_queue_restart', true)) {
+                try {
+                    $this->runArtisanCommand('queue:restart');
+                } catch (\Throwable) {
+                    // Non-fatal — queue worker may not be running.
+                }
+            }
+
+            Log::info('deployWithProgress completed.', ['version' => $versionTag]);
+
+            return ['success' => true, 'backup_path' => $backupPath];
+
+        } catch (\Throwable $e) {
+            Log::error('deployWithProgress failed.', ['version' => $versionTag, 'error' => $e->getMessage()]);
+
+            return ['success' => false, 'backup_path' => $backupPath, 'error' => $e->getMessage()];
+
+        } finally {
+            if ($archivePath !== null && File::exists($archivePath)) {
+                File::delete($archivePath);
+            }
+            if ($extractRootPath !== null && File::exists($extractRootPath)) {
+                File::deleteDirectory($extractRootPath);
+            }
+        }
+    }
+
+    /**
      * Return the ordered commands/checks used after code files are updated.
      *
      * @return array<int, string>

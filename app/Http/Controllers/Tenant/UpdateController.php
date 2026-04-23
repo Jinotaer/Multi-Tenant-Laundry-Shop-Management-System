@@ -140,9 +140,9 @@ class UpdateController extends Controller
             // Step 3: Enter tenant-scoped maintenance mode.
             $maintenanceModeEntered = $this->enterTenantMaintenanceMode($tenant, $release->version_tag);
 
-            // Step 4: Deploy code via external updater (Option B) — returns immediately.
+            // Step 4: Launch artisan updater detached — returns immediately.
             if ($deployCode) {
-                return $this->launchExternalUpdate($request, $tenant, $release, $tenantBackupPath, $maintenanceModeEntered);
+                return $this->launchArtisanUpdate($request, $tenant, $release, $tenantBackupPath, $maintenanceModeEntered);
             }
 
             // --- No-deploy path: run tenant migrations and record the version ---
@@ -218,13 +218,13 @@ class UpdateController extends Controller
     }
 
     /**
-     * Stage the release and launch the external updater (apply.bat) detached.
+     * Launch `php artisan update:apply` detached and redirect to the status page.
      *
-     * This is the Option B code-deploy path. The HTTP request returns in
-     * seconds (just downloads + extracts the zip), then the browser is sent to
-     * the status page which polls status.json while Apache is restarted.
+     * Uses PHP_BINARY so there are no PATH issues. On Windows, Apache does not
+     * hold open handles to .php files between requests, so files can be safely
+     * overwritten without stopping Apache first.
      */
-    private function launchExternalUpdate(
+    private function launchArtisanUpdate(
         Request $request,
         $tenant,
         AppRelease $release,
@@ -232,11 +232,15 @@ class UpdateController extends Controller
         bool $maintenanceModeEntered
     ): \Illuminate\Http\RedirectResponse {
         try {
-            // Download and extract the release into storage/app/deployments/pending/
-            $staged = $this->deploymentService->stageUpdate($release->version_tag);
+            // Clear any stale status file from a previous failed run.
+            $statusFile = storage_path('app/deployments/status.json');
+            if (File::exists($statusFile)) {
+                File::delete($statusFile);
+            }
+            File::ensureDirectoryExists(storage_path('app/deployments'));
 
-            // Write an 'applying' row so the index page can show a banner if
-            // the user navigates away and returns while the updater is running.
+            // Mark as 'applying' so the index page shows an in-progress banner
+            // if the user navigates away while the update runs.
             $centralConnection = config('tenancy.database.central_connection');
             DB::connection($centralConnection)->transaction(function () use ($tenant, $release) {
                 $tenant->updates()
@@ -250,24 +254,40 @@ class UpdateController extends Controller
                 );
             });
 
-            // Launch apply.bat detached — returns in ~100 ms.
-            $this->deploymentService->applyStagedUpdate($staged['config_path']);
+            // Build the artisan command using the exact PHP binary that is
+            // running this request — no PATH resolution needed.
+            $php    = PHP_BINARY;
+            $artisan = base_path('artisan');
+            $args   = implode(' ', [
+                escapeshellarg($release->id),
+                escapeshellarg((string) $tenant->getKey()),
+            ]);
 
-            // Store the backup path so finalizeUpdate() can restore on failure.
+            if (PHP_OS_FAMILY === 'Windows') {
+                // start /B spawns detached; pclose returns in ~100 ms.
+                $command = "start \"LaundryUpdater\" /B \"{$php}\" \"{$artisan}\" update:apply {$args}";
+            } else {
+                $command = "\"{$php}\" \"{$artisan}\" update:apply {$args} > /dev/null 2>&1 &";
+            }
+
+            $handle = popen($command, 'r');
+            if ($handle === false) {
+                throw new \RuntimeException('Failed to launch update process.');
+            }
+            pclose($handle);
+
+            // Persist backup path so finalizeUpdate() can restore on failure.
             $request->session()->put('update_finalize', [
-                'release_id' => $release->id,
-                'version_tag' => $release->version_tag,
+                'release_id'         => $release->id,
+                'version_tag'        => $release->version_tag,
                 'tenant_backup_path' => $tenantBackupPath,
             ]);
 
-            Log::info("External updater launched for tenant {$tenant->id} → {$release->version_tag}", [
-                'pending_dir' => $staged['pending_dir'],
-            ]);
+            Log::info("Artisan updater launched for tenant {$tenant->id} → {$release->version_tag}");
 
             return redirect()->route('tenant.updates.status', ['release' => $release->id]);
 
         } catch (\Exception $e) {
-            // Stage or launch failed — updater was never started, code is untouched.
             if ($maintenanceModeEntered) {
                 $this->exitTenantMaintenanceMode($tenant);
             }
@@ -278,25 +298,25 @@ class UpdateController extends Controller
                 } catch (\Throwable) {}
             }
 
-            // If the DB transaction already cleared is_current, restore it on
-            // the most recent 'updated' row so currentVersion() shows the right version.
+            // Restore is_current on the most recent 'updated' row so
+            // currentVersion() reflects the actual running version.
             try {
                 $centralConnection = config('tenancy.database.central_connection');
-                $previousUpdate = $tenant->updates()
+                $previous = $tenant->updates()
                     ->where('status', 'updated')
                     ->latest('action_taken_at')
                     ->first();
-                if ($previousUpdate) {
+                if ($previous) {
                     DB::connection($centralConnection)
                         ->table('tenant_updates')
-                        ->where('id', $previousUpdate->id)
+                        ->where('id', $previous->id)
                         ->update(['is_current' => true]);
                 }
             } catch (\Throwable) {}
 
-            Log::error("Failed to stage/launch external update for tenant {$tenant->id}", [
+            Log::error("Failed to launch artisan update for tenant {$tenant->id}", [
                 'version' => $release->version_tag,
-                'error' => $e->getMessage(),
+                'error'   => $e->getMessage(),
             ]);
 
             return back()->with('error', 'Update failed to start: ' . $e->getMessage());
