@@ -27,9 +27,10 @@ REM If we are already running from TEMP, skip the self-copy and go straight
 REM to the PHP orchestrator. The marker env var is set on the re-invocation.
 if "%LAUNDRY_UPDATER_BOOTSTRAPPED%"=="1" goto run_php
 
-REM Build a unique temp directory name using date/time components.
-for /f "tokens=2 delims==" %%A in ('wmic os get localdatetime /value ^| find "="') do set "DT=%%A"
-set "STAMP=%DT:~0,14%"
+REM Build a unique temp directory name using date/time + random suffix.
+REM Note: wmic is deprecated/removed on Windows 11, so we use built-in vars.
+set "STAMP=%DATE:~-4,4%%DATE:~-7,2%%DATE:~-10,2%-%TIME:~0,2%%TIME:~3,2%%TIME:~6,2%-%RANDOM%"
+set "STAMP=%STAMP: =0%"
 set "TEMP_UPDATER=%TEMP%\laundry-updater-%STAMP%"
 
 echo [apply.bat] Copying updater to %TEMP_UPDATER%
