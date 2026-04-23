@@ -16,10 +16,22 @@ class SubscriptionPlanController extends Controller
      */
     public function index(): View
     {
-        $plans = SubscriptionPlan::orderBy('sort_order')->orderBy('name')->get();
+        $plans = SubscriptionPlan::query()
+            ->withCount('tenants')
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
+
+        $planSummary = [
+            'total' => $plans->count(),
+            'active' => $plans->where('is_active', true)->count(),
+            'assigned_shops' => (int) $plans->sum('tenants_count'),
+            'default_name' => $plans->firstWhere('is_default', true)?->name,
+        ];
 
         return view('admin.subscription-plans.index', [
             'plans' => $plans,
+            'planSummary' => $planSummary,
         ]);
     }
 
@@ -106,7 +118,7 @@ class SubscriptionPlanController extends Controller
     {
         if ($plan->tenants()->exists()) {
             return redirect()->route('admin.subscription-plans.index')
-                ->with('error', "Cannot delete '{$plan->name}' — it still has active shops assigned.");
+                ->with('error', "Cannot delete '{$plan->name}' - it still has active shops assigned.");
         }
 
         $name = $plan->name;

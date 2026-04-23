@@ -3,25 +3,6 @@
 @endphp
 
 <x-tenant-layout>
-    <x-slot name="header">
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-                <h2 class="font-semibold text-xl text-gray-800 leading-tight">Analytics</h2>
-                <p class="mt-1 text-sm text-gray-500">Track revenue, order volume, customer value, and service demand.</p>
-            </div>
-
-            <div class="flex flex-wrap gap-2">
-                @foreach (['7d' => 'Last 7 Days', '30d' => 'Last 30 Days', '90d' => 'Last 90 Days'] as $key => $label)
-                    <a
-                        href="{{ route('tenant.analytics.index', ['period' => $key]) }}"
-                        class="rounded-md px-3 py-2 text-sm {{ $period === $key ? $theme['primary_bg'].' text-white' : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50' }}"
-                    >
-                        {{ $label }}
-                    </a>
-                @endforeach
-            </div>
-        </div>
-    </x-slot>
     @php
         $maxRevenue = max($timeline->pluck('revenue')->all() ?: [1]);
         $maxOrders = max($timeline->pluck('orders')->all() ?: [1]);
@@ -33,7 +14,23 @@
         };
     @endphp
 
-    <div class="space-y-6">
+    <div class="space-y-5">
+        <x-tenant-header title="Analytics" description="Track revenue, order volume, customer value, and service demand.">
+            <x-slot name="actions">
+                <div class="flex flex-wrap gap-2">
+                    @foreach (['7d' => 'Last 7 Days', '30d' => 'Last 30 Days', '90d' => 'Last 90 Days'] as $key => $label)
+                        <a
+                            href="{{ route('tenant.analytics.index', ['period' => $key]) }}"
+                            class="rounded-md px-3 py-2 text-sm {{ $period === $key ? $theme['primary_bg'].' text-white' : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700' }}"
+                        >
+                            {{ $label }}
+                        </a>
+                    @endforeach
+                </div>
+            </x-slot>
+        </x-tenant-header>
+
+        <div class="space-y-6">
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <div class="rounded-xl bg-white p-5 shadow-sm">
                 <p class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">Revenue</p>
@@ -195,5 +192,6 @@
                 @endif
             </div>
         </section>
+        </div>
     </div>
 </x-tenant-layout>

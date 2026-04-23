@@ -1,8 +1,4 @@
 <x-tenant-layout>
-    <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">Services & Pricing</h2>
-    </x-slot>
-
     @php
         $theme = tenant()->getThemePreset();
         $currentUser = auth()->user();
@@ -16,28 +12,29 @@
     @endphp
 
     <div class="space-y-4">
+        <x-tenant-header title="Services & Pricing" description="Configure your laundry services and pricing.">
+            @if ($canCreateServices)
+                <x-slot name="actions">
+                    <button
+                        type="button"
+                        x-data
+                        x-on:click="$dispatch('open-modal', 'service-create-modal')"
+                        class="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold text-white shadow-sm transition"
+                        style="background: var(--tenant-theme-accent);">
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                        Add Service
+                    </button>
+                </x-slot>
+            @endif
+        </x-tenant-header>
+
         @if (session('success'))
             <div class="rounded-lg bg-green-50 p-4 text-sm text-green-700 border border-green-200">{{ session('success') }}</div>
         @endif
 
-        <div class="flex items-center justify-between">
-            <div>
-                <p class="text-sm text-gray-500">Configure your laundry services and pricing.</p>
-                <p class="mt-1 text-xs text-gray-400">
-                    {{ $pricingMode === 'advanced' ? 'Advanced pricing is enabled: per-kilo, per-load, per-piece, and flat-rate services are available.' : 'Simple pricing is enabled: this shop is limited to per-kilo services.' }}
-                </p>
-            </div>
-            @if ($canCreateServices)
-                <button
-                    type="button"
-                    x-data
-                    x-on:click="$dispatch('open-modal', 'service-create-modal')"
-                    class="inline-flex items-center gap-2 rounded-md {{ $theme['primary_bg'] }} {{ $theme['primary_hover'] }} px-4 py-2 text-sm font-medium text-white shadow-sm transition">
-                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-                    Add Service
-                </button>
-            @endif
-        </div>
+        <p class="text-xs text-gray-400 dark:text-slate-500">
+            {{ $pricingMode === 'advanced' ? 'Advanced pricing is enabled: per-kilo, per-load, per-piece, and flat-rate services are available.' : 'Simple pricing is enabled: this shop is limited to per-kilo services.' }}
+        </p>
 
         <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
             @if ($services->isEmpty())

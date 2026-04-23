@@ -1,8 +1,6 @@
 <x-admin-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('Settings') }}
-        </h2>
+        <x-admin-header title="Settings" description="Manage your account settings." />
     </x-slot>
 
     @php $theme = app(\App\Services\ThemeService::class)->getAdminTheme(); @endphp

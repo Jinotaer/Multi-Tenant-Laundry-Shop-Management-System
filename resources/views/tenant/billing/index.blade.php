@@ -1,18 +1,12 @@
 <x-tenant-layout>
-    <x-slot name="header">
-        <div class="flex items-center justify-between gap-4">
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                {{ __('Billing & Invoices') }}
-            </h2>
-        </div>
-    </x-slot>
-
     @php
         $currentUser = auth()->user();
         $canDownloadBilling = $currentUser !== null && ($currentUser->isOwner() || $currentUser->hasPermission('billing.download'));
     @endphp
 
     <div class="space-y-6">
+        <x-tenant-header title="Billing & Invoices" description="View and download your subscription invoices." />
+
         <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div class="tenant-panel overflow-hidden p-6">
                 <p class="text-sm font-medium text-gray-500 dark:text-slate-400">Total Invoices</p>

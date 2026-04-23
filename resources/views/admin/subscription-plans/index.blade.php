@@ -1,120 +1,277 @@
 <x-admin-layout>
-    <x-slot name="header">
-        <div class="flex items-center justify-between">
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                {{ __('Subscription Plans') }}
-            </h2>
-        </div>
-    </x-slot>
-    <div class="flex justify-end">
-        <a href="{{ route('admin.subscription-plans.create') }}" class="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest transition ease-in-out duration-150">
-            <svg class="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-            {{ __('Create Plan') }}
-        </a>
-    </div>
-    @php $theme = app(\App\Services\ThemeService::class)->getAdminTheme(); @endphp
+    @php
+        $featureLibraryCount = $plans
+            ->flatMap(fn ($plan) => $plan->features ?? [])
+            ->filter()
+            ->unique()
+            ->count();
+    @endphp
 
-    @if (session('error'))
-        <div class="mb-4 rounded-md bg-red-50 p-4">
-            <p class="text-sm font-medium text-red-800">{{ session('error') }}</p>
-        </div>
-    @endif
+    <style>
+        .subscription-plans-page .plan-card {
+            position: relative;
+            overflow: hidden;
+            background: rgb(255 255 255 / 0.92);
+        }
 
-    @if ($plans->isEmpty())
-        <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-            <div class="p-12 text-center">
-                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" /></svg>
-                <h3 class="mt-2 text-sm font-semibold text-gray-900">No subscription plans</h3>
-                <p class="mt-1 text-sm text-gray-500">Get started by creating your first pricing plan.</p>
-                <div class="mt-6">
-                    <a href="{{ route('admin.subscription-plans.create') }}" class="inline-flex items-center px-4 py-2 {{ $theme['primary_bg'] }} {{ $theme['primary_hover'] }} border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest transition ease-in-out duration-150">
-                        <svg class="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-                        {{ __('Create Plan') }}
-                    </a>
-                </div>
+        .dark .subscription-plans-page .plan-card {
+            background: rgb(15 23 42 / 0.92);
+        }
+
+        .subscription-plans-page .plan-card::after {
+            content: '';
+            position: absolute;
+            top: -4rem;
+            right: -4rem;
+            height: 8rem;
+            width: 8rem;
+            border-radius: 9999px;
+            background: var(--tenant-theme-accent-soft);
+            opacity: 0.7;
+            pointer-events: none;
+        }
+
+        .subscription-plans-page .plan-card > * {
+            position: relative;
+            z-index: 1;
+        }
+    </style>
+
+    <div class="subscription-plans-page space-y-6">
+        @if (session('success'))
+            <div class="tenant-alert border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200">
+                {{ session('success') }}
             </div>
-        </div>
-    @else
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            @foreach ($plans as $plan)
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg relative {{ !$plan->is_active ? 'opacity-60' : '' }}">
-                    @if ($plan->is_default)
-                        <div class="absolute top-3 right-3">
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Default</span>
-                        </div>
-                    @endif
+        @endif
 
-                    @if (!$plan->is_active)
-                        <div class="absolute top-3 {{ $plan->is_default ? 'right-20' : 'right-3' }}">
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">Inactive</span>
-                        </div>
-                    @endif
+        @if (session('error'))
+            <div class="tenant-alert border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
+                {{ session('error') }}
+            </div>
+        @endif
 
-                    <div class="p-6">
-                        <h3 class="text-lg font-semibold text-gray-900">{{ $plan->name }}</h3>
+        <x-admin-header title="Subscription Plans" description="Manage and configure subscription plans for shops.">
+            <x-slot name="actions">
+                <a
+                    href="{{ route('admin.subscription-plans.create') }}"
+                    class="tenant-primary-action inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold shadow-sm"
+                >
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
+                    Create Plan
+                </a>
+            </x-slot>
+        </x-admin-header>
 
-                        <div class="mt-2">
-                            @if ($plan->isFree())
-                                <span class="text-3xl font-bold text-gray-900">Free</span>
-                            @else
-                                <span class="text-3xl font-bold text-gray-900">₱{{ number_format((float) $plan->price, 0) }}</span>
-                                <span class="text-sm text-gray-500">/{{ $plan->billing_cycle }}</span>
-                            @endif
-                        </div>
+        <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div class="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950/70">
+                <p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Total Plans</p>
+                <p class="mt-1.5 text-xl font-black tracking-tight text-slate-900 dark:text-slate-100">
+                    {{ number_format($planSummary['total'] ?? 0) }}
+                </p>
+            </div>
 
-                        @if ($plan->description)
-                            <p class="mt-2 text-sm text-gray-500">{{ $plan->description }}</p>
-                        @endif
+            <div class="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950/70">
+                <p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Active Plans</p>
+                <p class="mt-1.5 text-xl font-black tracking-tight text-emerald-600 dark:text-emerald-300">
+                    {{ number_format($planSummary['active'] ?? 0) }}
+                </p>
+            </div>
 
-                        <div class="mt-4 space-y-2 border-t border-gray-100 pt-4">
-                            <div class="flex items-center text-sm">
-                                <svg class="mr-2 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg>
-                                <span class="text-gray-600">Staff: <strong>{{ $plan->staff_limit_display }}</strong></span>
-                            </div>
-                            <div class="flex items-center text-sm">
-                                <svg class="mr-2 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" /></svg>
-                                <span class="text-gray-600">Customers: <strong>{{ $plan->customer_limit_display }}</strong></span>
-                            </div>
-                            <div class="flex items-center text-sm">
-                                <svg class="mr-2 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" /></svg>
-                                <span class="text-gray-600">Orders/month: <strong>{{ $plan->order_limit_display }}</strong></span>
-                            </div>
-                        </div>
+            <div class="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950/70">
+                <p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Assigned Shops</p>
+                <p class="mt-1.5 text-xl font-black tracking-tight text-slate-900 dark:text-slate-100">
+                    {{ number_format($planSummary['assigned_shops'] ?? 0) }}
+                </p>
+            </div>
 
-                        @if (!empty($plan->features))
-                            <div class="mt-4 border-t border-gray-100 pt-4">
-                                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Features</p>
-                                <div class="flex flex-wrap gap-1">
-                                    @foreach ($plan->features as $feature)
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ $theme['badge_bg'] }} {{ $theme['badge_text'] }}">
-                                            {{ config("themes.features.{$feature}.label", ucwords(str_replace('_', ' ', $feature))) }}
-                                        </span>
-                                    @endforeach
+            <div class="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950/70">
+                <p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Feature Library</p>
+                <p class="mt-1.5 text-xl font-black tracking-tight text-slate-900 dark:text-slate-100">
+                    {{ number_format($featureLibraryCount) }}
+                </p>
+            </div>
+        </section>
+
+        @if ($plans->isEmpty())
+            <section class="rounded-[28px] border border-slate-200 bg-white/92 p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950/92 sm:p-8">
+                <div class="rounded-2xl border border-dashed border-slate-300 px-6 py-12 text-center dark:border-slate-700">
+                    <svg class="mx-auto h-12 w-12 text-slate-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3.75 6.75h16.5M3.75 17.25h16.5M6.75 3.75h10.5A2.25 2.25 0 0119.5 6v12a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 18V6a2.25 2.25 0 012.25-2.25z" />
+                    </svg>
+                    <p class="mt-4 text-base font-semibold text-slate-900 dark:text-slate-100">No subscription plans yet.</p>
+                    <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                        Create your first pricing plan to start assigning shops to tiers.
+                    </p>
+                    <div class="mt-6">
+                        <a
+                            href="{{ route('admin.subscription-plans.create') }}"
+                            class="tenant-primary-action inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold shadow-sm"
+                        >
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                            </svg>
+                            Create Plan
+                        </a>
+                    </div>
+                </div>
+            </section>
+        @else
+            <section class="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
+                @foreach ($plans as $plan)
+                    @php
+                        $featureLabels = collect($plan->features ?? [])
+                            ->map(fn ($feature) => config("themes.features.{$feature}.label", ucwords(str_replace('_', ' ', $feature))))
+                            ->values();
+
+                        $billingCycleLabel = match ($plan->billing_cycle) {
+                            'monthly' => 'month',
+                            'yearly' => 'year',
+                            default => strtolower((string) $plan->billing_cycle),
+                        };
+
+                        $statusTone = match (true) {
+                            ! $plan->is_active => [
+                                'icon' => 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300',
+                                'strip' => 'from-slate-400 to-slate-500',
+                            ],
+                            $plan->is_default => [
+                                'icon' => 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-200',
+                                'strip' => 'from-emerald-400 to-teal-500',
+                            ],
+                            $plan->isFree() => [
+                                'icon' => 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-200',
+                                'strip' => 'from-blue-400 to-indigo-500',
+                            ],
+                            default => [
+                                'icon' => 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-200',
+                                'strip' => 'from-indigo-400 to-violet-500',
+                            ],
+                        };
+                    @endphp
+
+                    <article class="plan-card flex h-full flex-col rounded-[28px] border border-slate-200 shadow-sm dark:border-slate-800 {{ ! $plan->is_active ? 'opacity-80' : '' }}">
+                        <div class="h-1.5 w-full bg-gradient-to-r {{ $statusTone['strip'] }}"></div>
+
+                        <div class="flex flex-1 flex-col p-5 sm:p-6">
+                            <div class="flex items-start justify-between gap-4">
+                                <div class="min-w-0">
+                                    <div class="flex flex-wrap gap-2">
+                                        @if ($plan->is_default)
+                                            <span class="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-200">
+                                                Default
+                                            </span>
+                                        @endif
+
+                                        @if (! $plan->is_active)
+                                            <span class="inline-flex items-center rounded-full bg-slate-200 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                                                Inactive
+                                            </span>
+                                        @endif
+                                    </div>
+
+                                    <h2 class="mt-4 text-lg font-black tracking-tight text-slate-900 dark:text-slate-100">
+                                        {{ $plan->name }}
+                                    </h2>
+
+                                    <div class="mt-3 flex flex-wrap items-end gap-2">
+                                        @if ($plan->isFree())
+                                            <span class="text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100">Free</span>
+                                        @else
+                                            <span class="text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100">
+                                                PHP {{ number_format((float) $plan->price, 0) }}
+                                            </span>
+                                            <span class="pb-1 text-xs text-slate-500 dark:text-slate-400">/ {{ $billingCycleLabel }}</span>
+                                        @endif
+                                    </div>
+                                </div>
+
+                                <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl {{ $statusTone['icon'] }}">
+                                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4.5 6.75A2.25 2.25 0 016.75 4.5h10.5a2.25 2.25 0 012.25 2.25v10.5A2.25 2.25 0 0117.25 19.5H6.75A2.25 2.25 0 014.5 17.25V6.75z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8.25 9.75h7.5M8.25 13.5h4.5" />
+                                    </svg>
                                 </div>
                             </div>
-                        @endif
 
-                        <div class="mt-4 text-xs text-gray-400">
-                            {{ $plan->tenants()->count() }} shop(s) on this plan
+                            @if ($plan->description)
+                                <p class="mt-3 text-xs leading-6 text-slate-600 dark:text-slate-300">
+                                    {{ $plan->description }}
+                                </p>
+                            @endif
+
+                            <div class="mt-5 grid gap-3 sm:grid-cols-3">
+                                <div class="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-3.5 dark:border-slate-800 dark:bg-slate-950/50">
+                                    <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Staff</p>
+                                    <p class="mt-1.5 text-xs font-semibold text-slate-900 dark:text-slate-100">{{ $plan->staff_limit_display }}</p>
+                                </div>
+
+                                <div class="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-3.5 dark:border-slate-800 dark:bg-slate-950/50">
+                                    <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Customers</p>
+                                    <p class="mt-1.5 text-xs font-semibold text-slate-900 dark:text-slate-100">{{ $plan->customer_limit_display }}</p>
+                                </div>
+
+                                <div class="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-3.5 dark:border-slate-800 dark:bg-slate-950/50">
+                                    <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Orders / Month</p>
+                                    <p class="mt-1.5 text-xs font-semibold text-slate-900 dark:text-slate-100">{{ $plan->order_limit_display }}</p>
+                                </div>
+                            </div>
+
+                            <div class="mt-5 border-t border-slate-200 pt-4 dark:border-slate-800">
+                                <p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Features</p>
+
+                                @if ($featureLabels->isNotEmpty())
+                                    <div class="mt-3 flex flex-wrap gap-2">
+                                        @foreach ($featureLabels as $label)
+                                            <span class="inline-flex items-center rounded-lg bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-200">
+                                                {{ $label }}
+                                            </span>
+                                        @endforeach
+                                    </div>
+                                @endif
+                            </div>
                         </div>
-                    </div>
 
-                    <div class="h-16"></div> <!-- Spacer to prevent content overlapping with the fixed footer -->
-                    <div class="absolute bottom-0 left-0 right-0 bg-gray-50 border-t border-gray-100 px-6 py-3 flex items-center justify-between">
-                        <a href="{{ route('admin.subscription-plans.edit', $plan) }}" class="text-sm font-medium text-indigo-600 hover:text-indigo-900">Edit</a>
+                        <div class="border-t border-slate-200 px-5 py-4 dark:border-slate-800 sm:px-6">
+                            <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                                <div class="min-w-0">
+                                    <p class="text-xs font-semibold text-slate-900 dark:text-slate-100">
+                                        {{ number_format($plan->tenants_count) }} shop(s) on this plan
+                                    </p>
+                                </div>
 
-                        @if ($plan->tenants()->count() === 0)
-                            <form method="POST" action="{{ route('admin.subscription-plans.destroy', $plan) }}" class="inline">
-                                @csrf
-                                @method('DELETE')
-                                <button type="submit" class="text-sm font-medium text-red-600 hover:text-red-900" onclick="return confirm('Delete this plan? This cannot be undone.')">Delete</button>
-                            </form>
-                        @else
-                            <span class="text-xs text-gray-400">In use — cannot delete</span>
-                        @endif
-                    </div>
-                </div>
-            @endforeach
-        </div>
-    @endif
+                                <div class="flex flex-wrap items-center gap-3">
+                                    <a
+                                        href="{{ route('admin.subscription-plans.edit', $plan) }}"
+                                        class="inline-flex items-center rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                                    >
+                                        Edit Plan
+                                    </a>
+
+                                    @if ($plan->tenants_count === 0)
+                                        <form method="POST" action="{{ route('admin.subscription-plans.destroy', $plan) }}">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button
+                                                type="submit"
+                                                class="inline-flex items-center rounded-xl bg-rose-600 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-rose-700"
+                                                onclick="return confirm('Delete this plan? This cannot be undone.')"
+                                            >
+                                                Delete
+                                            </button>
+                                        </form>
+                                    @else
+                                        <span class="text-[11px] font-medium text-slate-400 dark:text-slate-500">
+                                            In use - cannot delete
+                                        </span>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+                @endforeach
+            </section>
+        @endif
+    </div>
 </x-admin-layout>

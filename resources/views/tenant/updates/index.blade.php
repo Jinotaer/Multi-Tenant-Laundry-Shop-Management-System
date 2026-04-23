@@ -1,11 +1,6 @@
 <x-tenant-layout>
-    <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 dark:text-slate-100 leading-tight">
-            {{ __('Update Center') }}
-        </h2>
-    </x-slot>
-
-    <div class="py-12">
+    <div class="space-y-5">
+        <x-tenant-header title="Update Center" description="View the latest platform updates and features." />
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
             
             @if (session('success'))
@@ -17,6 +12,19 @@
             @if (session('error'))
                 <div class="rounded-lg bg-red-50 p-4 text-sm text-red-700 border border-red-200 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
                     {{ session('error') }}
+                </div>
+            @endif
+
+            @if(isset($applyingUpdate) && $applyingUpdate)
+                <div class="rounded-lg bg-yellow-50 p-4 text-sm text-yellow-800 border border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-800 dark:text-yellow-300 flex items-center justify-between gap-4">
+                    <div>
+                        <p class="font-semibold">Update in progress</p>
+                        <p class="mt-1">An update to <strong>{{ $applyingUpdate->release->version_tag }}</strong> is currently applying. Check the status page to see progress.</p>
+                    </div>
+                    <a href="{{ route('tenant.updates.status', $applyingUpdate->release->id) }}"
+                       class="flex-shrink-0 inline-flex items-center gap-1 px-3 py-1.5 bg-yellow-100 hover:bg-yellow-200 dark:bg-yellow-900/40 dark:hover:bg-yellow-900/60 border border-yellow-300 dark:border-yellow-700 rounded-md text-xs font-medium text-yellow-800 dark:text-yellow-300 transition">
+                        View status &rarr;
+                    </a>
                 </div>
             @endif
 
@@ -105,7 +113,7 @@
                             </div>
                             <div class="flex-shrink-0">
                                 @if($tenantCanDeployCode)
-                                    <form action="{{ route('tenant.updates.apply', $release->id) }}" method="POST" class="js-update-action" data-action-label="Updating to {{ $release->version_tag }}" onsubmit="return confirm('A backup will be created before updating. Continue?');">
+                                    <form action="{{ route('tenant.updates.apply', $release->id) }}" method="POST" class="js-update-action" data-action-label="Updating to {{ $release->version_tag }}" data-confirm="A backup will be created before updating. This will restart the server briefly. Continue?">
                                         @csrf
                                         <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition ease-in-out duration-150">
                                             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -200,74 +208,54 @@
 
     <script>
         (() => {
-            const forms = document.querySelectorAll('.js-update-action');
-            const panel = document.getElementById('update-progress');
-            const title = document.getElementById('update-progress-title');
+            const forms   = document.querySelectorAll('.js-update-action');
+            const panel   = document.getElementById('update-progress');
+            const title   = document.getElementById('update-progress-title');
             const message = document.getElementById('update-progress-message');
 
-            if (!forms.length || !panel || !title || !message) {
-                return;
-            }
+            if (!forms.length || !panel || !title || !message) return;
 
             const hidePanel = () => {
                 panel.classList.add('hidden');
                 forms.forEach((form) => {
                     const btn = form.querySelector('button[type="submit"]');
-                    if (btn) {
-                        btn.disabled = false;
-                        btn.classList.remove('opacity-70', 'cursor-wait');
-                        if (btn.dataset.originalText) {
-                            btn.textContent = btn.dataset.originalText;
-                            delete btn.dataset.originalText;
-                        }
+                    if (!btn) return;
+                    btn.disabled = false;
+                    btn.classList.remove('opacity-70', 'cursor-wait');
+                    if (btn.dataset.originalText) {
+                        btn.textContent = btn.dataset.originalText;
+                        delete btn.dataset.originalText;
                     }
                 });
             };
 
-            // If the user navigates back to this page (browser back/forward
-            // cache restore), the spinner from the previous attempt may still
-            // be visible. Reset on every pageshow.
+            // Hide spinner on bfcache restore (browser back/forward).
             window.addEventListener('pageshow', hidePanel);
 
             forms.forEach((form) => {
                 form.addEventListener('submit', (event) => {
-                    // The form has onsubmit="return confirm(...)" which sets
-                    // event.defaultPrevented when the user cancels. Don't show
-                    // the spinner for cancelled submissions.
-                    if (event.defaultPrevented) {
+                    // Confirm in JS so we can call event.preventDefault() on
+                    // cancel — inline onsubmit="return confirm()" does NOT set
+                    // event.defaultPrevented, which would leave the spinner
+                    // visible after the user clicks "Cancel".
+                    const confirmMsg = form.dataset.confirm;
+                    if (confirmMsg && !confirm(confirmMsg)) {
+                        event.preventDefault();
                         return;
                     }
 
                     const label = form.dataset.actionLabel || 'Processing update';
                     title.textContent = label;
-                    message.textContent = 'This may take a few minutes. Please keep this page open and do not refresh.';
+                    message.textContent = 'Staging the update — you will be redirected to the progress page shortly.';
                     panel.classList.remove('hidden');
 
-                    const submitButton = form.querySelector('button[type="submit"]');
-                    if (submitButton) {
-                        submitButton.disabled = true;
-                        submitButton.classList.add('opacity-70', 'cursor-wait');
-                        submitButton.dataset.originalText = submitButton.textContent.trim();
-                        submitButton.textContent = 'Processing...';
+                    const btn = form.querySelector('button[type="submit"]');
+                    if (btn) {
+                        btn.disabled = true;
+                        btn.classList.add('opacity-70', 'cursor-wait');
+                        btn.dataset.originalText = btn.textContent.trim();
+                        btn.textContent = 'Starting…';
                     }
-
-                    // Soft warning after 90s so the user knows the request is
-                    // genuinely still running (composer/npm/migrate take time)
-                    // and the page isn't frozen.
-                    window.setTimeout(() => {
-                        if (!panel.classList.contains('hidden')) {
-                            message.textContent = 'Still working. Long-running steps (composer install, npm build, migrations) can take several minutes — leave this tab open.';
-                        }
-                    }, 90_000);
-
-                    // Hard fallback at 10 minutes — if no response by then,
-                    // tell the user to check the Update Center after refresh.
-                    window.setTimeout(() => {
-                        if (!panel.classList.contains('hidden')) {
-                            title.textContent = 'No response yet';
-                            message.textContent = 'The update is taking longer than expected. After this finishes, refresh this page to see the result. If the page never returns, check the server logs.';
-                        }
-                    }, 600_000);
                 });
             });
         })();

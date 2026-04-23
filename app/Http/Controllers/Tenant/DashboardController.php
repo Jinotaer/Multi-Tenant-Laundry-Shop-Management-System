@@ -81,6 +81,48 @@ class DashboardController extends Controller
             ->sum('total_amount');
         $staffCount = User::where('role', 'staff')->count();
 
+        // Last 7 days revenue for chart
+        $weeklyRevenueRaw = Order::where('payment_status', 'paid')
+            ->where('paid_at', '>=', now()->subDays(6)->startOfDay())
+            ->selectRaw('DATE(paid_at) as day_date, SUM(total_amount) as revenue')
+            ->groupBy('day_date')
+            ->orderBy('day_date')
+            ->get()
+            ->keyBy('day_date');
+
+        $weeklyRevenueDays = [];
+        for ($i = 6; $i >= 0; $i--) {
+            $date = now()->subDays($i);
+            $weeklyRevenueDays[] = [
+                'label' => $date->format('D'),
+                'amount' => (float) ($weeklyRevenueRaw[$date->format('Y-m-d')]->revenue ?? 0),
+            ];
+        }
+
+        // Top services by order count
+        $topServices = Order::selectRaw('service_id, COUNT(*) as order_count, SUM(total_amount) as total_revenue')
+            ->with('service:id,name')
+            ->whereNotNull('service_id')
+            ->groupBy('service_id')
+            ->orderByDesc('order_count')
+            ->limit(4)
+            ->get();
+
+        // Orders by hour today (for peak hours bar chart)
+        $ordersByHourRaw = Order::selectRaw('HOUR(created_at) as hr, COUNT(*) as cnt')
+            ->whereDate('created_at', today())
+            ->groupBy('hr')
+            ->get()
+            ->keyBy('hr');
+
+        $peakHours = [];
+        foreach ([8, 10, 12, 14, 16, 18] as $hr) {
+            $peakHours[] = [
+                'label' => $hr < 12 ? ($hr . 'AM') : (($hr === 12 ? '12' : ($hr - 12)) . 'PM'),
+                'count' => (int) ($ordersByHourRaw[$hr]->cnt ?? 0),
+            ];
+        }
+
         return view('tenant.dashboard', [
             'user' => $user,
             'shopName' => tenant('data')['shop_name'] ?? tenant('id'),
@@ -92,6 +134,9 @@ class DashboardController extends Controller
             'todayRevenue' => $todayRevenue,
             'monthlyRevenue' => $monthlyRevenue,
             'staffCount' => $staffCount,
+            'weeklyRevenueDays' => $weeklyRevenueDays,
+            'topServices' => $topServices,
+            'peakHours' => $peakHours,
         ]);
     }
 }

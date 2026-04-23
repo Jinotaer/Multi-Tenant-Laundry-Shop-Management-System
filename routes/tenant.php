@@ -447,6 +447,15 @@ Route::middleware([
                 Route::post('/updates/check', [UpdateController::class, 'checkForUpdates'])
                     ->middleware('permission:updates.view')
                     ->name('tenant.updates.check');
+                Route::get('/updates/{release}/status', [UpdateController::class, 'updateStatus'])
+                    ->middleware('permission:updates.view')
+                    ->name('tenant.updates.status');
+                Route::get('/updates/{release}/poll', [UpdateController::class, 'pollStatus'])
+                    ->middleware('permission:updates.view')
+                    ->name('tenant.updates.poll');
+                Route::post('/updates/{release}/finalize', [UpdateController::class, 'finalizeUpdate'])
+                    ->middleware('permission:updates.apply')
+                    ->name('tenant.updates.finalize');
                 Route::post('/updates/{release}/apply', [UpdateController::class, 'update'])
                     ->middleware('permission:updates.apply')
                     ->name('tenant.updates.apply');

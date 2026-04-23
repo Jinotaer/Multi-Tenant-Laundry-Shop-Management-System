@@ -1,113 +1,210 @@
 <x-admin-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('All Shops') }}
-        </h2>
+        <x-admin-header title="All Shops" description="Manage tenant subscriptions and payments."/>
     </x-slot>
 
-    <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                <div class="p-6 text-gray-900">
-                    @if ($tenants->isEmpty())
-                        <p class="text-gray-500">No shops registered yet.</p>
-                    @else
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200">
-                                <thead class="bg-gray-50">
-                                    <tr>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shop Name</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Owner</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Domain</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Plan</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="bg-white divide-y divide-gray-200">
-                                    @foreach ($tenants as $tenant)
-                                        <tr>
-                                            <td class="px-6 py-4 whitespace-nowrap">
-                                                <div class="text-sm font-medium text-gray-900">{{ $tenant->registration->shop_name ?? str($tenant->id)->replace('-', ' ')->title() }}</div>
-                                            </td>
-                                            <td class="px-6 py-4 whitespace-nowrap">
-                                                @if ($tenant->registration)
-                                                    <div class="text-sm text-gray-900">{{ $tenant->registration->owner_name }}</div>
-                                                    <div class="text-xs text-gray-400">{{ $tenant->registration->owner_email }}</div>
-                                                @else
-                                                    <span class="text-sm text-gray-400">N/A</span>
-                                                @endif
-                                            </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                @foreach ($tenant->domains as $domain)
-                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                        {{ $domain->domain }}
-                                                    </span>
-                                                @endforeach
-                                            </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                @if ($tenant->subscriptionPlan)
-                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">{{ $tenant->subscriptionPlan->name }}</span>
-                                                @else
-                                                    <span class="text-gray-400">—</span>
-                                                @endif
-                                            </td>
-                                            <td class="px-6 py-4 whitespace-nowrap">
-                                                @if ($tenant->isEnabled())
-                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Enabled</span>
-                                                @else
-                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Disabled</span>
-                                                @endif
-                                            </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $tenant->created_at->format('M d, Y') }}</td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                                <div class="flex items-center space-x-3">
-                                                    <a href="{{ route('admin.tenants.show', $tenant) }}" class="text-indigo-600 hover:text-indigo-900">View</a>
+    <style>
+        .tenant-index-page .tenant-shell {
+            background: rgb(255 255 255 / 0.92);
+        }
 
-                                                    <form method="POST" action="{{ route('admin.tenants.toggle-status', $tenant) }}" class="inline">
-                                                        @csrf
-                                                        @method('PATCH')
-                                                        @if ($tenant->isEnabled())
-                                                            <button type="submit" class="text-yellow-600 hover:text-yellow-900" onclick="return confirm('Disable this shop? Users will not be able to access it.')">Disable</button>
-                                                        @else
-                                                            <button type="submit" class="text-green-600 hover:text-green-900" onclick="return confirm('Enable this shop?')">Enable</button>
-                                                        @endif
-                                                    </form>
-                                                    <x-modal name="delete-tenant-{{ $tenant->id }}" focusable>
-                                                        <form method="POST" action="{{ route('admin.tenants.destroy', $tenant) }}" class="p-6">
-                                                            @csrf
-                                                            @method('DELETE')
+        .dark .tenant-index-page .tenant-shell {
+            background: rgb(15 23 42 / 0.92);
+        }
 
-                                                            <h2 class="text-lg font-medium text-gray-900">
-                                                                {{ __('Are you sure you want to delete this shop?') }}
-                                                            </h2>
+        .tenant-index-page .tenant-table thead th {
+            letter-spacing: 0.18em;
+        }
 
-                                                            <p class="mt-1 text-sm text-gray-600">
-                                                                {{ __('This will permanently delete all data for') }} <strong>{{ $tenant->data['shop_name'] ?? $tenant->id }}</strong>.
-                                                            </p>
+        .tenant-index-page .tenant-action-row {
+            display: inline-flex;
+            flex-wrap: nowrap;
+            gap: 0.5rem;
+            align-items: center;
+            white-space: nowrap;
+        }
+    </style>
 
-                                                            <div class="mt-6 flex justify-end">
-                                                                <x-secondary-button x-on:click="$dispatch('close')">
-                                                                    {{ __('Cancel') }}
-                                                                </x-secondary-button>
+    <div class="tenant-index-page space-y-6">
+        @if (session('success'))
+            <div class="tenant-alert border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200">
+                {{ session('success') }}
+            </div>
+        @endif
 
-                                                                <x-danger-button class="ms-3">
-                                                                    {{ __('Delete Shop') }}
-                                                                </x-danger-button>
-                                                            </div>
-                                                        </form>
-                                                    </x-modal>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
+        @if (session('error'))
+            <div class="tenant-alert border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
+                {{ session('error') }}
+            </div>
+        @endif
+
+        <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div class="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950/70">
+                <p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Total Shops</p>
+                <p class="mt-1.5 text-xl font-black tracking-tight text-slate-900 dark:text-slate-100">
+                    {{ number_format($tenantSummary['total'] ?? 0) }}
+                </p>
+            </div>
+
+            <div class="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950/70">
+                <p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Enabled Access</p>
+                <p class="mt-1.5 text-xl font-black tracking-tight text-emerald-600 dark:text-emerald-300">
+                    {{ number_format($tenantSummary['enabled'] ?? 0) }}
+                </p>
+            </div>
+
+            <div class="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950/70">
+                <p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Paid Subscriptions</p>
+                <p class="mt-1.5 text-xl font-black tracking-tight text-indigo-600 dark:text-indigo-300">
+                    {{ number_format($tenantSummary['paid'] ?? 0) }}
+                </p>
+            </div>
+
+            <div class="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950/70">
+                <p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">On Trial</p>
+                <p class="mt-1.5 text-xl font-black tracking-tight text-amber-600 dark:text-amber-300">
+                    {{ number_format($tenantSummary['trial'] ?? 0) }}
+                </p>
+            </div>
+        </section>
+
+        <section class="tenant-shell overflow-hidden rounded-[28px] border border-slate-200 shadow-sm dark:border-slate-800">
+            @if ($tenants->isEmpty())
+                <div class="p-8 sm:p-10">
+                    <div class="rounded-2xl border border-dashed border-slate-300 px-6 py-12 text-center dark:border-slate-700">
+                        <p class="text-base font-semibold text-slate-900 dark:text-slate-100">No shops available yet.</p>
+                        <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                            Approved registrations will appear here once a tenant workspace is created.
+                        </p>
+                        <div class="mt-6">
+                            <a
+                                href="{{ route('admin.registrations.index') }}"
+                                class="tenant-primary-action inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold shadow-sm"
+                            >
+                                Review Registrations
+                            </a>
                         </div>
-
-                        <div class="mt-4">
-                            {{ $tenants->links() }}
-                        </div>
-                    @endif
+                    </div>
                 </div>
+            @else
+                <div class="flex items-center justify-between gap-4 border-b border-slate-200 px-5 py-4 dark:border-slate-800 sm:px-8">
+                    <div>
+                        <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">Shop Directory</h2>
+                        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                            {{ number_format($tenants->total()) }} approved shop{{ $tenants->total() === 1 ? '' : 's' }}
+                        </p>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto px-5 pb-5 pt-4 sm:px-8 sm:pb-8">
+                    <table class="tenant-table min-w-[1080px] border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 text-left dark:bg-slate-950/60">
+                                <th class="px-6 py-4 text-[10px] font-semibold uppercase text-slate-500 dark:text-slate-400">Shop Name</th>
+                                <th class="px-6 py-4 text-[10px] font-semibold uppercase text-slate-500 dark:text-slate-400">Owner</th>
+                                <th class="px-6 py-4 text-[10px] font-semibold uppercase text-slate-500 dark:text-slate-400">Domain</th>
+                                <th class="px-6 py-4 text-[10px] font-semibold uppercase text-slate-500 dark:text-slate-400">Plan</th>
+                                <th class="px-6 py-4 text-[10px] font-semibold uppercase text-slate-500 dark:text-slate-400">Status</th>
+                                <th class="px-6 py-4 text-[10px] font-semibold uppercase text-slate-500 dark:text-slate-400">Created</th>
+                                <th class="px-6 py-4 text-[10px] font-semibold uppercase text-slate-500 dark:text-slate-400">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($tenants as $tenant)
+                                @php
+                                    $shopName = $tenant->registration->shop_name ?? str((string) $tenant->id)->replace('-', ' ')->title();
+                                    $ownerName = $tenant->registration->owner_name ?? 'N/A';
+                                    $ownerEmail = $tenant->registration->owner_email;
+                                    $primaryDomain = $tenant->domains->first()?->domain ?? ($tenant->id.'.localhost');
+                                    $extraDomainCount = max(0, $tenant->domains->count() - 1);
+                                    $planClasses = match (true) {
+                                        ! $tenant->subscriptionPlan => 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
+                                        $tenant->subscriptionPlan->isFree() => 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-200',
+                                        default => 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-200',
+                                    };
+                                    $statusClasses = $tenant->isEnabled()
+                                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-200'
+                                        : 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-200';
+                                    $billingLabel = match (true) {
+                                        $tenant->is_paid => 'Paid',
+                                        $tenant->isOnTrial() => 'Trial',
+                                        $tenant->needsRenewal() => 'Renewal due',
+                                        default => 'Free',
+                                    };
+                                @endphp
+
+                                <tr class="border-t border-slate-200 transition hover:bg-slate-50/70 dark:border-slate-800 dark:hover:bg-slate-950/40">
+                                    <td class="px-6 py-5 align-top">
+                                        <p class="text-sm font-semibold text-slate-900 dark:text-slate-100">{{ $shopName }}</p>
+                                    </td>
+
+                                    <td class="px-6 py-5 align-top">
+                                        <p class="text-sm text-slate-900 dark:text-slate-100">{{ $ownerName }}</p>
+                                        @if ($ownerEmail)
+                                            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">{{ $ownerEmail }}</p>
+                                        @endif
+                                    </td>
+
+                                    <td class="px-6 py-5 align-top">
+                                        <span class="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700 dark:bg-blue-500/15 dark:text-blue-200">
+                                            {{ $primaryDomain }}
+                                        </span>
+                                        @if ($extraDomainCount > 0)
+                                            <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                                                +{{ $extraDomainCount }} more domain{{ $extraDomainCount === 1 ? '' : 's' }}
+                                            </p>
+                                        @endif
+                                    </td>
+
+                                    <td class="px-6 py-5 align-top">
+                                        <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium {{ $planClasses }}">
+                                            {{ $tenant->subscriptionPlan?->name ?? 'No plan' }}
+                                        </span>
+                                    </td>
+
+                                    <td class="px-6 py-5 align-top">
+                                        <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold {{ $statusClasses }}">
+                                            {{ $tenant->isEnabled() ? 'Enabled' : 'Disabled' }}
+                                        </span>
+                                        <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">{{ $billingLabel }}</p>
+                                    </td>
+
+                                    <td class="px-6 py-5 align-top">
+                                        <p class="text-sm text-slate-700 dark:text-slate-200">{{ $tenant->created_at->format('M d, Y') }}</p>
+                                    </td>
+
+                                    <td class="px-6 py-5 align-top">
+                                        <div class="tenant-action-row">
+                                            <a
+                                                href="{{ route('admin.tenants.show', $tenant) }}"
+                                                class="inline-flex items-center rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                                            >
+                                                View
+                                            </a>
+
+                                            <form method="POST" action="{{ route('admin.tenants.toggle-status', $tenant) }}">
+                                                @csrf
+                                                @method('PATCH')
+                                                <button
+                                                    type="submit"
+                                                    class="inline-flex items-center rounded-xl px-3.5 py-2 text-xs font-semibold text-white transition {{ $tenant->isEnabled() ? 'bg-amber-500 hover:bg-amber-600' : 'bg-emerald-600 hover:bg-emerald-700' }}"
+                                                    onclick="return confirm('{{ $tenant->isEnabled() ? 'Disable this shop? Users will not be able to access it.' : 'Enable this shop?' }}')"
+                                                >
+                                                    {{ $tenant->isEnabled() ? 'Disable' : 'Enable' }}
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="border-t border-slate-200 px-5 py-4 dark:border-slate-800 sm:px-8">
+                    {{ $tenants->links() }}
+                </div>
+            @endif
+        </section>
     </div>
 </x-admin-layout>

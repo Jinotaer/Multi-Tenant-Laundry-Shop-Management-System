@@ -1,10 +1,4 @@
 <x-tenant-layout>
-    <x-slot name="header">
-        <h2 class="font-semibold text-xl leading-tight text-gray-800 dark:text-slate-100">
-            {{ __('Layout') }}
-        </h2>
-    </x-slot>
-
     @php
         $theme = app(\App\Services\ThemeService::class)->getTenantTheme();
         $settingSections = [
@@ -144,6 +138,7 @@
     @include('tenant.settings.partials.tabs')
 
     <div class="space-y-8">
+        <x-tenant-header title="Layout" description="Customize your dashboard layout and appearance." />
         @if ($canManageWorkspaceDefaults || $canManagePersonalPreferences)
             <section class="tenant-panel overflow-hidden">
                 <div class="border-b border-gray-200 px-6 py-5 dark:border-slate-800">

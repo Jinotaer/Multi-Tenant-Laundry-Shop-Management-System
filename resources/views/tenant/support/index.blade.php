@@ -1,13 +1,11 @@
 <x-tenant-layout>
-    <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 dark:text-slate-100 leading-tight">Customer Support</h2>
-    </x-slot>
-
     @php
         $showCreateTicketModal = $errors->isNotEmpty() && old('form_context') === 'support-ticket-create';
     @endphp
 
     <div class="space-y-4">
+        <x-tenant-header title="Customer Support" description="Submit and track your support tickets." />
+
         @if (session('success'))
             <div class="rounded-lg bg-green-50 p-4 text-sm text-green-700 border border-green-200 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400">
                 {{ session('success') }}

@@ -1,38 +1,33 @@
 <x-tenant-layout>
-    <x-slot name="header">
-        <div class="flex items-center justify-between">
-            <div>
-                <h2 class="font-semibold text-xl text-gray-800 leading-tight">Reports</h2>
-            </div>
-
-        </div>
-    </x-slot>
-
     @php
         $theme = tenant()->getThemePreset();
         $currentUser = auth()->user();
         $canExportReports = $currentUser !== null && ($currentUser->isOwner() || $currentUser->hasPermission('reports.export'));
     @endphp
-    <div class="flex justify-end p-4">
-        <div class="flex flex-wrap items-center justify-end gap-2">
-            @if ($canExportReports)
-                <a href="{{ route('tenant.reports.export-excel', array_merge(['period' => $period], request()->only(['start_date', 'end_date']))) }}"
-                    class="px-3 py-1.5 text-sm rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">
-                    Export Excel
-                </a>
-                <a href="{{ route('tenant.reports.export-pdf', array_merge(['period' => $period], request()->only(['start_date', 'end_date']))) }}" target="_blank"
-                    class="px-3 py-1.5 text-sm rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">
-                    Print / Save PDF
-                </a>
-            @endif
-            @foreach (['week' => 'This Week', 'month' => 'This Month', 'year' => 'This Year', 'all' => 'All Time'] as $key => $label)
-                <a href="{{ route('tenant.reports.index', ['period' => $key]) }}"
-                    class="px-3 py-1.5 text-sm rounded-md {{ $period === $key ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50' }}">
-                    {{ $label }}
-                </a>
-            @endforeach
-        </div>
-    </div>
+
+    <div class="space-y-4">
+        <x-tenant-header title="Reports" description="View business reports and summaries.">
+            <x-slot name="actions">
+                <div class="flex flex-wrap items-center gap-2">
+                    @if ($canExportReports)
+                        <a href="{{ route('tenant.reports.export-excel', array_merge(['period' => $period], request()->only(['start_date', 'end_date']))) }}"
+                            class="px-3 py-1.5 text-sm rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
+                            Export Excel
+                        </a>
+                        <a href="{{ route('tenant.reports.export-pdf', array_merge(['period' => $period], request()->only(['start_date', 'end_date']))) }}" target="_blank"
+                            class="px-3 py-1.5 text-sm rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
+                            Print / Save PDF
+                        </a>
+                    @endif
+                    @foreach (['week' => 'This Week', 'month' => 'This Month', 'year' => 'This Year', 'all' => 'All Time'] as $key => $label)
+                        <a href="{{ route('tenant.reports.index', ['period' => $key]) }}"
+                            class="px-3 py-1.5 text-sm rounded-md {{ $period === $key ? 'bg-gray-900 text-white dark:bg-slate-100 dark:text-slate-900' : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700' }}">
+                            {{ $label }}
+                        </a>
+                    @endforeach
+                </div>
+            </x-slot>
+        </x-tenant-header>
 
     {{-- Custom Date Range Filter --}}
     <div class="px-4 pb-4">
@@ -253,5 +248,6 @@
                 </table>
             </div>
         </div>
+    </div>
     </div>
 </x-tenant-layout>

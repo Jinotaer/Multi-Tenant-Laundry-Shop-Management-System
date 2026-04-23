@@ -5,7 +5,8 @@
       "Bash(c:/xampp/php/php.exe c:/xampp/htdocs/Laundry-Shop-Management/artisan test --filter=CodeDeploymentServiceTest)",
       "Bash(c:/xampp/php/php.exe vendor/bin/pest tests/Unit/CodeDeploymentServiceTest.php)",
       "Bash(xargs head *)",
-      "Bash(c:/xampp/php/php.exe c:/xampp/htdocs/Laundry-Shop-Management/artisan schedule:list)"
+      "Bash(c:/xampp/php/php.exe c:/xampp/htdocs/Laundry-Shop-Management/artisan schedule:list)",
+      "Bash(grep -n 'slot\\\\|header\\\\|$slot\\\\|main\\\\|content' c:/xampp/htdocs/Laundry-Shop-Management/resources/views/layouts/tenant.blade.php)"
     ]
   }
 }

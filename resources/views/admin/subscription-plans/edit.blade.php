@@ -1,11 +1,10 @@
 <x-admin-layout>
     <x-slot name="header">
-        <div class="flex items-center justify-between">
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                {{ __('Edit Plan:') }} {{ $plan->name }}
-            </h2>
-            <a href="{{ route('admin.subscription-plans.index') }}" class="text-sm text-gray-600 hover:text-gray-900">&larr; Back to plans</a>
-        </div>
+        <x-admin-header title="Edit Plan: {{ $plan->name }}" description="Modify pricing plan details.">
+            <x-slot name="actions">
+                <a href="{{ route('admin.subscription-plans.index') }}" class="text-sm text-gray-600 hover:text-gray-900 font-semibold">&larr; Back to plans</a>
+            </x-slot>
+        </x-admin-header>
     </x-slot>
 
     <form method="POST" action="{{ route('admin.subscription-plans.update', $plan) }}">

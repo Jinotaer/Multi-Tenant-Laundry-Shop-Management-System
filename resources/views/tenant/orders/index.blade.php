@@ -1,10 +1,4 @@
 <x-tenant-layout>
-    <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('Orders') }}
-        </h2>
-    </x-slot>
-
     @php
         $theme = tenant()->getThemePreset();
         $showOrderCreateModal = ($errors->isNotEmpty() && old('form_context') === 'order-create')
@@ -14,6 +8,7 @@
     @endphp
 
     <div class="space-y-4">
+        <x-tenant-header title="Orders" description="Manage and track all laundry orders." />
 
         {{-- Flash --}}
         @if (session('success'))

@@ -90,7 +90,7 @@ class SubscriptionPlan extends Model
             return 'Free';
         }
 
-        return '₱'.number_format((float) $this->price, 2).'/'.$this->billing_cycle;
+        return 'PHP '.number_format((float) $this->price, 2).'/'.$this->billing_cycle;
     }
 
     /**

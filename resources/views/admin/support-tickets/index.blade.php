@@ -1,6 +1,6 @@
 <x-admin-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 dark:text-slate-100 leading-tight">Support Tickets</h2>
+        <x-admin-header title="Support Tickets" description="Manage shop support inquiries." />
     </x-slot>
 
     <div class="space-y-4">

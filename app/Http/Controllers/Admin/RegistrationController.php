@@ -21,9 +21,28 @@ class RegistrationController extends Controller
 {
     public function index(): View
     {
-        $registrations = TenantRegistration::latest()->paginate(15);
+        $registrations = TenantRegistration::query()
+            ->with('subscriptionPlan')
+            ->latest()
+            ->paginate(15);
 
-        return view('admin.registrations.index', compact('registrations'));
+        $registrationSummary = [
+            'total' => TenantRegistration::count(),
+            'pending' => TenantRegistration::where('status', 'pending')->count(),
+            'approved' => TenantRegistration::where('status', 'approved')->count(),
+            'rejected' => TenantRegistration::where('status', 'rejected')->count(),
+        ];
+
+        $approvedTenantIds = Tenant::query()
+            ->whereIn('id', TenantRegistration::where('status', 'approved')->pluck('subdomain'))
+            ->pluck('id')
+            ->all();
+
+        return view('admin.registrations.index', compact(
+            'registrations',
+            'registrationSummary',
+            'approvedTenantIds',
+        ));
     }
 
     public function approve(TenantRegistration $registration, GitHubReleaseService $releaseService): RedirectResponse

@@ -1,9 +1,6 @@
 <x-tenant-layout>
-    <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 dark:text-slate-100 leading-tight">Settings</h2>
-    </x-slot>
-
     <div class="space-y-6">
+        <x-tenant-header title="Settings" description="Configure your payment gateway settings." />
         {{-- Settings Navigation Tabs --}}
         <div class="bg-white shadow-sm rounded-2xl dark:bg-slate-800 p-2">
             <nav class="flex gap-2" aria-label="Settings">

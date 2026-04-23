@@ -1,9 +1,6 @@
 <x-tenant-layout>
-    <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">Notifications</h2>
-    </x-slot>
-
     <div class="space-y-6">
+        <x-tenant-header title="Notifications" description="Recent in-app alerts for order updates and loyalty activity." />
         <div class="flex items-center justify-between">
             <div>
                 <p class="text-sm text-gray-500">Recent in-app alerts for order updates and loyalty activity.</p>

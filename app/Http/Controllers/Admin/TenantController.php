@@ -22,13 +22,26 @@ class TenantController extends Controller
         // prevents hand‑created or orphaned tenants (e.g. from failed/no approval)
         // from appearing in the list. Having the filter here keeps the behaviour
         // consistent with the admin's expectations.
+        $approvedTenants = Tenant::query()->approved();
+
+        $tenantSummary = [
+            'total' => (clone $approvedTenants)->count(),
+            'enabled' => (clone $approvedTenants)->where('is_enabled', true)->count(),
+            'paid' => (clone $approvedTenants)->where('is_paid', true)->count(),
+            'trial' => (clone $approvedTenants)
+                ->whereNotNull('trial_ends_at')
+                ->where('trial_ends_at', '>', now())
+                ->count(),
+        ];
+
         $tenants = Tenant::with(['domains', 'registration', 'subscriptionPlan'])
-            ->whereHas('registration', fn ($q) => $q->where('status', 'approved'))
+            ->approved()
             ->latest()
             ->paginate(15);
 
         return view('admin.tenants.index', [
             'tenants' => $tenants,
+            'tenantSummary' => $tenantSummary,
         ]);
     }
 

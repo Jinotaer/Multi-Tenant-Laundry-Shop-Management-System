@@ -858,32 +858,90 @@
                     <!-- class="{{ $topbarWrapperClass }}" -->
                     <div :class="topbarSurfaceClass">
                         <!-- class="{{ $topbarSurfaceClass }}" -->
-                        <div :class="topbarInnerClass">
-                            <button x-show="!isTop" x-on:click="sidebarOpen = true" class="-m-2.5 p-2.5 text-gray-700 dark:text-slate-100 lg:hidden">
-                                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" /></svg>
+                        <div class="flex items-center gap-3">
+
+                            {{-- Mobile: hamburger to open sidebar --}}
+                            <button x-show="!isTop" x-on:click="sidebarOpen = true"
+                                    class="-m-2.5 p-2.5 text-gray-600 dark:text-slate-400 lg:hidden"
+                                    aria-label="Open menu">
+                                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/>
+                                </svg>
                             </button>
 
-                            <div :class="topbarTitleClass">
-                                @isset($header)
-                                    <div class="mt-1 min-w-0" :class="isRight ? 'text-right' : ''">
-                                        {{ $header }}
-                                    </div>
-                                @else
-                                    <p class="mt-1 text-lg font-semibold text-gray-900 dark:text-slate-100">{{ $shopName }}</p>
-                                @endisset
+                            {{-- Mobile: shop name (sidebar is hidden on small screens) --}}
+                            <div class="flex-1 min-w-0 lg:hidden">
+                                <span class="text-base font-extrabold tracking-tight truncate"
+                                      style="color: var(--tenant-theme-accent);">{{ $shopName }}</span>
                             </div>
 
-                            @auth
-                                <div :class="topbarUserClass">
-                                    <div class="flex h-9 w-9 items-center justify-center rounded-full" style="background-color: var(--tenant-theme-accent-soft);">
-                                        <span class="text-sm font-medium" style="color: var(--tenant-theme-accent);">{{ substr($currentUser->name, 0, 1) }}</span>
-                                    </div>
-                                    <div class="min-w-0">
-                                        <p class="truncate text-sm font-medium text-gray-900 dark:text-slate-100">{{ $currentUser->name }}</p>
-                                        <p class="text-xs text-gray-500 dark:text-slate-400">{{ ucfirst($currentUser->role) }}</p>
-                                    </div>
-                                </div>
-                            @endauth
+                            {{-- Desktop: search bar --}}
+                            <div class="hidden lg:flex flex-1 max-w-md">
+                                <form action="{{ route('tenant.orders.index') }}" method="GET"
+                                      class="relative w-full" role="search">
+                                    <svg class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-slate-500"
+                                         fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                              d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/>
+                                    </svg>
+                                    <input type="search" name="search"
+                                           placeholder="Search orders, customers…"
+                                           class="w-full rounded-full border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 pl-10 pr-4 py-2 text-sm text-gray-600 dark:text-slate-300 placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 transition-all"
+                                           style="--tw-ring-color: var(--tenant-theme-accent-soft-strong); border-color: inherit;"
+                                           onfocus="this.style.borderColor='var(--tenant-theme-accent)'"
+                                           onblur="this.style.borderColor=''"/>
+                                </form>
+                            </div>
+
+                            {{-- Right: actions + profile --}}
+                            <div class="flex items-center gap-1 ml-auto">
+
+                                {{-- Notification bell --}}
+                                <button type="button" aria-label="Notifications"
+                                        class="p-2 rounded-full text-gray-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors">
+                                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                              d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"/>
+                                    </svg>
+                                </button>
+
+                                {{-- Help / support --}}
+                                @if($showSupportShortcut)
+                                    <a href="{{ route('tenant.support.index') }}" aria-label="Support"
+                                       class="hidden sm:flex p-2 rounded-full text-gray-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors">
+                                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round"
+                                                  d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z"/>
+                                        </svg>
+                                    </a>
+                                @else
+                                    <button type="button" aria-label="Help"
+                                            class="hidden sm:flex p-2 rounded-full text-gray-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors">
+                                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round"
+                                                  d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z"/>
+                                        </svg>
+                                    </button>
+                                @endif
+
+                                {{-- Divider --}}
+                                <div class="hidden sm:block h-6 w-px bg-gray-200 dark:bg-slate-700 mx-1.5"></div>
+
+                                {{-- Profile button --}}
+                                @auth
+                                    <a href="{{ route('tenant.settings.profile') }}"
+                                       class="flex items-center gap-2 rounded-full border border-gray-200 dark:border-slate-700 pl-1 pr-3 py-1 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors">
+                                        <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
+                                             style="background: var(--tenant-theme-accent-soft); color: var(--tenant-theme-accent);">
+                                            {{ substr($currentUser->name, 0, 1) }}
+                                        </div>
+                                        <span class="hidden sm:block max-w-[120px] truncate text-sm font-semibold text-gray-600 dark:text-slate-300">
+                                            {{ $currentUser->name }}
+                                        </span>
+                                    </a>
+                                @endauth
+
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -894,6 +952,10 @@
                             <p class="text-sm font-medium">{{ session('success') }}</p>
                         </div>
                     @endif
+
+                    @isset($header)
+                        <div class="mb-5">{{ $header }}</div>
+                    @endisset
 
                     {{ $slot }}
                 </main>

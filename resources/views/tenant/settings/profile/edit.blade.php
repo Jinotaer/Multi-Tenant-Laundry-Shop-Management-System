@@ -1,10 +1,4 @@
 <x-tenant-layout>
-    <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 dark:text-slate-100 leading-tight">
-            {{ __('Settings') }}
-        </h2>
-    </x-slot>
-
     @php 
         $theme = app(\App\Services\ThemeService::class)->getTenantTheme();
         $user = auth()->user();
@@ -12,6 +6,8 @@
     @endphp
 
     <div class="space-y-6">
+        <x-tenant-header title="Settings" description="Manage your account and shop settings." />
+
         {{-- Settings Navigation Tabs --}}
         @if ($isOwner)
             <div class="bg-white shadow-sm rounded-2xl dark:bg-slate-800 p-2">

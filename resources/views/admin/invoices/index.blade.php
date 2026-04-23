@@ -1,23 +1,9 @@
 <x-admin-layout>
     <x-slot name="header">
-        <div class="flex justify-between items-center">
-            <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-                Billing & Invoices
-            </h2>
-            <div class="flex gap-2">
-                <form method="POST" action="{{ route('admin.invoices.generate-all') }}" class="inline">
-                    @csrf
-                    <x-secondary-button type="submit" onclick="return confirm('Generate invoices for all paid subscriptions without invoices?')">
-                        Generate Missing Invoices
-                    </x-secondary-button>
-                </form>
-                <a href="{{ route('admin.invoices.export', request()->query()) }}">
-                    <x-secondary-button type="button">
-                        Export CSV
-                    </x-secondary-button>
-                </a>
-            </div>
-        </div>
+        <x-admin-header title="Billing & Invoices" description="Manage tenant subscriptions and payments." :actions=" [
+            ['type' => 'form', 'method' => 'POST', 'action' => route('admin.invoices.generate-all'), 'confirm' => 'Generate invoices for all paid subscriptions without invoices?', 'label' => 'Generate Missing Invoices', 'icon' => 'heroicon-o-plus'],
+            ['type' => 'button', 'href' => route('admin.invoices.export', request()->query()), 'label' => 'Export CSV', 'icon' => 'heroicon-o-download', 'color' => 'secondary']
+        ]" />
     </x-slot>
 
     <div class="space-y-6">

@@ -1,8 +1,6 @@
 <x-admin-layout>
     <x-slot name="header">
-        <h2 class="text-xl font-semibold leading-tight text-gray-800">
-            {{ __('Layout') }}
-        </h2>
+        <x-admin-header title="Admin Layout" description="Customize the admin shell, theme, and dashboard ordering for this account." />
     </x-slot>
 
     @php

@@ -1,12 +1,4 @@
 <x-tenant-layout>
-    <x-slot name="header">
-        <div class="flex items-center justify-between">
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                Expense Tracking
-            </h2>
-        </div>
-    </x-slot>
-
     @php
         $theme = app(\App\Services\ThemeService::class)->getTenantTheme();
         $currentUser = auth()->user();
@@ -17,20 +9,24 @@
             || request()->boolean('create');
     @endphp
 
-    @if ($canCreateExpenses)
-        <div class="flex justify-end p-4">
-            <button
-                type="button"
-                x-data
-                x-on:click="$dispatch('open-modal', 'expense-create-modal')"
-                class="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest transition ease-in-out duration-150">
-                <svg class="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                </svg>
-                Record Expense
-            </button>
-        </div>
-    @endif
+    <div class="space-y-4">
+        <x-tenant-header title="Expense Tracking" description="Track and manage business expenses.">
+            @if ($canCreateExpenses)
+                <x-slot name="actions">
+                    <button
+                        type="button"
+                        x-data
+                        x-on:click="$dispatch('open-modal', 'expense-create-modal')"
+                        class="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold text-white shadow-sm transition"
+                        style="background: var(--tenant-theme-accent);">
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                        </svg>
+                        Record Expense
+                    </button>
+                </x-slot>
+            @endif
+        </x-tenant-header>
     <!-- Summary Cards -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
@@ -169,4 +165,5 @@
             'showExpenseCreateModal' => $showExpenseCreateModal,
         ])
     @endif
+    </div>
 </x-tenant-layout>

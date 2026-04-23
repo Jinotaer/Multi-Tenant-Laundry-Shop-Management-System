@@ -1,10 +1,4 @@
 <x-tenant-layout>
-    <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('Customers') }}
-        </h2>
-    </x-slot>
-
     @php
         $theme = tenant()->getThemePreset();
         $showCustomerCreateModal = ($errors->isNotEmpty() && old('form_context') === 'customer-create')
@@ -17,6 +11,8 @@
     @endphp
 
     <div class="space-y-4">
+        <x-tenant-header title="Customers" description="View and manage your customer records." />
+
         @if (session('success'))
             <div class="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-700">
                 {{ session('success') }}

@@ -1,8 +1,6 @@
 <x-admin-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('Create Subscription Plan') }}
-        </h2>
+        <x-admin-header title="Create Subscription Plan" description="Add a new platform pricing tier." />
     </x-slot>
 
     <form method="POST" action="{{ route('admin.subscription-plans.store') }}">

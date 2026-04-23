@@ -8,8 +8,11 @@ use App\Services\CodeDeploymentService;
 use App\Services\GitHubReleaseService;
 use App\Services\TenantBackupService;
 use App\Services\TenantMigrationService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 
 class UpdateController extends Controller
@@ -31,14 +34,14 @@ class UpdateController extends Controller
         if (!$tenant) {
             abort(500, 'Tenant context not initialized');
         }
-        
+
         $currentVersion = $tenant->currentVersion();
         $currentUpdate = $tenant->updates()->where('is_current', true)->with('release')->first();
         $currentVersionTag = $currentUpdate?->release?->version_tag ?? 'v0.0.0';
 
         // Sort by semantic version so tenants always see the true latest release first.
         $allReleases = $this->releaseService->sortReleasesDescending(AppRelease::all());
-        
+
         // Filter newer versions for updates
         $availableUpdates = $allReleases->filter(function ($release) use ($currentVersionTag) {
             $releaseVersion = $this->releaseService->normalizeVersion($release->version_tag);
@@ -54,12 +57,19 @@ class UpdateController extends Controller
             ->orderByDesc('created_at')
             ->get();
 
+        // Check for an in-progress (staged but not yet applied) update
+        $applyingUpdate = $tenant->updates()
+            ->where('status', 'applying')
+            ->with('release')
+            ->latest('action_taken_at')
+            ->first();
+
         // Check for pending migrations
         $hasPendingMigrations = false;
         try {
             $hasPendingMigrations = $this->migrationService->hasPendingMigrations($tenant);
         } catch (\Exception $e) {
-            \Log::warning('Failed to check pending migrations', ['error' => $e->getMessage()]);
+            Log::warning('Failed to check pending migrations', ['error' => $e->getMessage()]);
         }
 
         // Get available backups
@@ -67,7 +77,7 @@ class UpdateController extends Controller
         try {
             $backups = $this->backupService->listBackups($tenant->id);
         } catch (\Exception $e) {
-            \Log::warning('Failed to list backups', ['error' => $e->getMessage()]);
+            Log::warning('Failed to list backups', ['error' => $e->getMessage()]);
         }
 
         return view('tenant.updates.index', compact(
@@ -76,11 +86,20 @@ class UpdateController extends Controller
             'updateHistory',
             'hasPendingMigrations',
             'backups',
+            'applyingUpdate',
         ));
     }
 
     /**
      * Apply an update to the current tenant.
+     *
+     * When code deployment is enabled (Option B) the heavy lifting is handed
+     * off to the external updater: we stage the release (download + extract)
+     * within this request, launch apply.bat detached, and immediately redirect
+     * to the status page. This avoids HTTP timeouts during composer/npm/migrate.
+     *
+     * When code deployment is disabled the existing synchronous path runs:
+     * backup → maintenance mode → tenant migrations → version record.
      */
     public function update(Request $request, AppRelease $release)
     {
@@ -94,7 +113,6 @@ class UpdateController extends Controller
         $deployCode = $this->shouldDeployCode();
 
         try {
-            // Step 1: Validate before changing state.
             Log::info("Starting update for tenant {$tenant->id} to {$release->version_tag}");
 
             if ($this->releaseService->isNewerVersion($release->version_tag, $currentVersion) && ! $deployCode) {
@@ -110,10 +128,9 @@ class UpdateController extends Controller
 
             $this->validatePreflight($deployCode);
 
-            // Step 2: Create backup
-            
+            // Step 2: Create tenant DB backup
             $backupResult = $this->backupService->createBackup($tenant, 'pre_update');
-            
+
             if (!$backupResult['success']) {
                 throw new \Exception('Backup failed: ' . $backupResult['error']);
             }
@@ -123,15 +140,12 @@ class UpdateController extends Controller
             // Step 3: Enter tenant-scoped maintenance mode.
             $maintenanceModeEntered = $this->enterTenantMaintenanceMode($tenant, $release->version_tag);
 
-            // Step 4: Deploy code (if enabled)
+            // Step 4: Deploy code via external updater (Option B) — returns immediately.
             if ($deployCode) {
-                $deployResult = $this->deploymentService->deployFromGitHub($release->version_tag);
-                $codeBackupPath = $deployResult['backup_path'] ?? null;
-
-                if (!$deployResult['success']) {
-                    throw new \Exception('Code deployment failed: ' . $deployResult['error']);
-                }
+                return $this->launchExternalUpdate($request, $tenant, $release, $tenantBackupPath, $maintenanceModeEntered);
             }
+
+            // --- No-deploy path: run tenant migrations and record the version ---
 
             // Step 5: Run migrations
             $migrationAttempted = true;
@@ -148,49 +162,8 @@ class UpdateController extends Controller
             // Step 6: Run optional smoke test command.
             $smokeTestResult = $this->runOptionalSmokeTest();
 
-            // Step 7: Update version record. The transaction must run on the
-            // central connection because TenantUpdate forces that connection
-            // (see TenantUpdate::getConnectionName). Without an explicit
-            // connection, DB::transaction wraps the tenant DB while the writes
-            // commit independently to central — if the second write fails, the
-            // first commits anyway and the tenant ends up with no is_current
-            // row, so currentVersion() falls back to its default and the UI
-            // appears to "not update".
-            $centralConnection = config('tenancy.database.central_connection');
-            \Illuminate\Support\Facades\DB::connection($centralConnection)->transaction(function () use ($tenant, $release) {
-                $tenant->updates()
-                    ->where('tenant_id', $tenant->getKey())
-                    ->where('is_current', true)
-                    ->update(['is_current' => false]);
-
-                $tenant->updates()->updateOrCreate(
-                    [
-                        'tenant_id' => $tenant->getKey(),
-                        'app_release_id' => $release->id,
-                    ],
-                    [
-                        'status' => 'updated',
-                        'is_current' => true,
-                        'action_taken_at' => now(),
-                    ]
-                );
-            });
-
-            // Verify the write actually landed before reporting success — if
-            // the relation comes back empty here, something silently failed
-            // and we should surface it instead of showing a misleading
-            // success message.
-            $verifyCurrent = $tenant->updates()
-                ->where('is_current', true)
-                ->where('app_release_id', $release->id)
-                ->exists();
-
-            if (! $verifyCurrent) {
-                throw new \RuntimeException(
-                    "Version record write succeeded silently but no current row exists for {$release->version_tag}. " .
-                    'Check the tenant_updates table on the central connection.'
-                );
-            }
+            // Step 7: Update version record on the central connection.
+            $this->commitVersionRecord($tenant, $release);
 
             // Step 8: Exit maintenance mode only after successful completion.
             if ($maintenanceModeEntered) {
@@ -204,15 +177,6 @@ class UpdateController extends Controller
                 "Successfully updated to version {$release->version_tag}. " .
                 "Backup created: {$backupResult['backup_name']}. " .
                 "Migrations run: " . count($migrationResult['migrations'] ?? []);
-
-            if (! $deployCode) {
-                $reason = (bool) config('updates.auto_deploy_code', false)
-                    ? 'to keep other tenant stores unaffected'
-                    : 'because AUTO_DEPLOY_CODE is disabled';
-
-                $successMessage .= ' Shared application code was not deployed on this server ' . $reason . '. ' .
-                    'Deploy the latest release code on this device to access new feature pages and controllers.';
-            }
 
             if ($smokeTestResult['executed']) {
                 $successMessage .= ' Smoke test passed.';
@@ -240,17 +204,369 @@ class UpdateController extends Controller
             Log::error("Update failed for tenant {$tenant->id}", [
                 'version' => $release->version_tag,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
-            $errorMessage =
-                'Update failed: ' . $e->getMessage() . '. Please contact support if the issue persists.';
+            $errorMessage = 'Update failed: ' . $e->getMessage() . '. Please contact support if the issue persists.';
 
             if ($maintenanceModeEntered) {
                 $errorMessage .= ' This store remains in maintenance mode until the update is verified.';
             }
 
             return back()->with('error', $errorMessage);
+        }
+    }
+
+    /**
+     * Stage the release and launch the external updater (apply.bat) detached.
+     *
+     * This is the Option B code-deploy path. The HTTP request returns in
+     * seconds (just downloads + extracts the zip), then the browser is sent to
+     * the status page which polls status.json while Apache is restarted.
+     */
+    private function launchExternalUpdate(
+        Request $request,
+        $tenant,
+        AppRelease $release,
+        string $tenantBackupPath,
+        bool $maintenanceModeEntered
+    ): \Illuminate\Http\RedirectResponse {
+        try {
+            // Download and extract the release into storage/app/deployments/pending/
+            $staged = $this->deploymentService->stageUpdate($release->version_tag);
+
+            // Write an 'applying' row so the index page can show a banner if
+            // the user navigates away and returns while the updater is running.
+            $centralConnection = config('tenancy.database.central_connection');
+            DB::connection($centralConnection)->transaction(function () use ($tenant, $release) {
+                $tenant->updates()
+                    ->where('tenant_id', $tenant->getKey())
+                    ->where('is_current', true)
+                    ->update(['is_current' => false]);
+
+                $tenant->updates()->updateOrCreate(
+                    ['tenant_id' => $tenant->getKey(), 'app_release_id' => $release->id],
+                    ['status' => 'applying', 'is_current' => false, 'action_taken_at' => now()]
+                );
+            });
+
+            // Launch apply.bat detached — returns in ~100 ms.
+            $this->deploymentService->applyStagedUpdate($staged['config_path']);
+
+            // Store the backup path so finalizeUpdate() can restore on failure.
+            $request->session()->put('update_finalize', [
+                'release_id' => $release->id,
+                'version_tag' => $release->version_tag,
+                'tenant_backup_path' => $tenantBackupPath,
+            ]);
+
+            Log::info("External updater launched for tenant {$tenant->id} → {$release->version_tag}", [
+                'pending_dir' => $staged['pending_dir'],
+            ]);
+
+            return redirect()->route('tenant.updates.status', ['release' => $release->id]);
+
+        } catch (\Exception $e) {
+            // Stage or launch failed — updater was never started, code is untouched.
+            if ($maintenanceModeEntered) {
+                $this->exitTenantMaintenanceMode($tenant);
+            }
+
+            if ($tenantBackupPath) {
+                try {
+                    $this->backupService->restoreBackup($tenant, $tenantBackupPath);
+                } catch (\Throwable) {}
+            }
+
+            // If the DB transaction already cleared is_current, restore it on
+            // the most recent 'updated' row so currentVersion() shows the right version.
+            try {
+                $centralConnection = config('tenancy.database.central_connection');
+                $previousUpdate = $tenant->updates()
+                    ->where('status', 'updated')
+                    ->latest('action_taken_at')
+                    ->first();
+                if ($previousUpdate) {
+                    DB::connection($centralConnection)
+                        ->table('tenant_updates')
+                        ->where('id', $previousUpdate->id)
+                        ->update(['is_current' => true]);
+                }
+            } catch (\Throwable) {}
+
+            Log::error("Failed to stage/launch external update for tenant {$tenant->id}", [
+                'version' => $release->version_tag,
+                'error' => $e->getMessage(),
+            ]);
+
+            return back()->with('error', 'Update failed to start: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Show the live-progress status page while the external updater runs.
+     */
+    public function updateStatus(Request $request, AppRelease $release)
+    {
+        $tenant = tenant();
+        $statusFile = storage_path('app/deployments/status.json');
+
+        $status = null;
+        if (File::exists($statusFile)) {
+            $decoded = json_decode(File::get($statusFile), true);
+            if (is_array($decoded)) {
+                $status = $decoded;
+            }
+        }
+
+        $finalizeData = $request->session()->get('update_finalize');
+
+        return view('tenant.updates.status', compact('release', 'status', 'finalizeData'));
+    }
+
+    /**
+     * JSON polling endpoint read by the status page JS.
+     * Returns the current contents of status.json, or a 'pending' state when
+     * the updater hasn't written anything yet.
+     */
+    public function pollStatus(Request $request, AppRelease $release): JsonResponse
+    {
+        $statusFile = storage_path('app/deployments/status.json');
+
+        if (! File::exists($statusFile)) {
+            return response()->json([
+                'state' => 'pending',
+                'stage' => 'queued',
+                'message' => 'Update is queued — waiting for the updater to start.',
+            ]);
+        }
+
+        $decoded = json_decode(File::get($statusFile), true);
+
+        if (! is_array($decoded)) {
+            return response()->json([
+                'state' => 'pending',
+                'stage' => 'queued',
+                'message' => 'Reading updater status…',
+            ]);
+        }
+
+        return response()->json($decoded);
+    }
+
+    /**
+     * Finalise a completed external update: write the version record and clear
+     * maintenance mode. Called automatically by the status page JS after the
+     * updater reports success.
+     */
+    public function finalizeUpdate(Request $request, AppRelease $release)
+    {
+        $tenant = tenant();
+        $statusFile = storage_path('app/deployments/status.json');
+
+        // Verify the updater actually finished successfully before touching DB.
+        if (File::exists($statusFile)) {
+            $status = json_decode(File::get($statusFile), true);
+            if (is_array($status) && ($status['state'] ?? '') === 'failed') {
+                $errorMsg = $status['message'] ?? 'Unknown error';
+                Log::error("Finalize requested but updater reported failure for tenant {$tenant->id}", [
+                    'version' => $release->version_tag,
+                    'updater_message' => $errorMsg,
+                ]);
+                return redirect()->route('tenant.updates.status', ['release' => $release->id])
+                    ->with('error', "Update failed: {$errorMsg}");
+            }
+        }
+
+        $finalizeData = $request->session()->get('update_finalize', []);
+
+        try {
+            // Update version record on the central connection.
+            $this->commitVersionRecord($tenant, $release);
+
+            // Clear maintenance mode.
+            $this->exitTenantMaintenanceMode($tenant);
+
+            // Tidy up status file and session.
+            if (File::exists($statusFile)) {
+                File::delete($statusFile);
+            }
+            $request->session()->forget('update_finalize');
+
+            Log::info("Tenant {$tenant->id} finalized update to {$release->version_tag}");
+
+            return redirect()->route('tenant.updates.index')
+                ->with('success', "Successfully updated to {$release->version_tag}!");
+
+        } catch (\Exception $e) {
+            // If finalizing the version record fails, try to restore the tenant
+            // DB backup so the shop's data is consistent with the old code.
+            $tenantBackupPath = $finalizeData['tenant_backup_path'] ?? null;
+            if ($tenantBackupPath) {
+                try {
+                    $this->backupService->restoreBackup($tenant, $tenantBackupPath);
+                } catch (\Throwable) {}
+            }
+
+            Log::error("Failed to finalize update for tenant {$tenant->id}", [
+                'version' => $release->version_tag,
+                'error' => $e->getMessage(),
+            ]);
+
+            return redirect()->route('tenant.updates.index')
+                ->with('error', 'Update completed but version record failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Restore from backup.
+     */
+    public function createBackup(Request $request)
+    {
+        $tenant = tenant();
+
+        try {
+            $result = $this->backupService->createBackup($tenant, 'manual');
+
+            if ($result['success']) {
+                return back()->with('success',
+                    "Backup created successfully: {$result['backup_name']}. " .
+                    "Size: " . round($result['size'] / 1024 / 1024, 2) . " MB"
+                );
+            }
+
+            return back()->with('error', 'Backup failed: ' . $result['error']);
+
+        } catch (\Exception $e) {
+            return back()->with('error', 'Backup failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Restore from backup.
+     */
+    public function restoreBackup(Request $request)
+    {
+        $request->validate([
+            'backup_path' => 'required|string',
+        ]);
+
+        $tenant = tenant();
+
+        try {
+            $result = $this->backupService->restoreBackup($tenant, $request->backup_path);
+
+            if ($result['success']) {
+                return back()->with('success', 'Backup restored successfully.');
+            }
+
+            return back()->with('error', 'Restore failed: ' . $result['error']);
+
+        } catch (\Exception $e) {
+            return back()->with('error', 'Restore failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Trigger an on-demand GitHub release sync.
+     */
+    public function checkForUpdates(Request $request)
+    {
+        try {
+            $synced = $this->releaseService->syncReleases(true);
+        } catch (\Throwable $e) {
+            Log::error('Manual GitHub release sync failed.', [
+                'tenant_id' => tenant()?->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return back()->with('error', 'Could not check for updates: ' . $e->getMessage());
+        }
+
+        if ($synced) {
+            return back()->with('success', 'Checked GitHub for new releases. Refreshing the list now.');
+        }
+
+        return back()->with('error', 'Could not reach GitHub right now. We will retry automatically in the background.');
+    }
+
+    /**
+     * Run pending migrations.
+     */
+    public function runMigrations(Request $request)
+    {
+        $tenant = tenant();
+        $currentUpdate = $tenant->updates()->where('is_current', true)->with('release')->first();
+        $currentVersion = $currentUpdate?->release?->version_tag ?? 'v0.0.0';
+
+        try {
+            $result = $this->migrationService->runMigrationsForVersion(
+                $tenant,
+                $currentVersion,
+                $currentVersion
+            );
+
+            if ($result['success']) {
+                return back()->with('success',
+                    'Migrations completed. ' . count($result['migrations']) . ' migrations run.'
+                );
+            }
+
+            return back()->with('error', 'Migrations failed: ' . $result['error']);
+
+        } catch (\Exception $e) {
+            return back()->with('error', 'Migrations failed: ' . $e->getMessage());
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Private helpers
+    // -------------------------------------------------------------------------
+
+    /**
+     * Write the is_current version record on the central DB connection.
+     *
+     * The transaction must use an explicit central connection because
+     * TenantUpdate forces that connection (see TenantUpdate::getConnectionName).
+     * Without an explicit connection, DB::transaction wraps the tenant DB while
+     * the writes commit independently to central — if the second write fails,
+     * the first commits anyway and the tenant ends up with no is_current row,
+     * so currentVersion() falls back to its sentinel value and the UI appears
+     * to "not update".
+     */
+    private function commitVersionRecord($tenant, AppRelease $release): void
+    {
+        $centralConnection = config('tenancy.database.central_connection');
+
+        DB::connection($centralConnection)->transaction(function () use ($tenant, $release) {
+            $tenant->updates()
+                ->where('tenant_id', $tenant->getKey())
+                ->where('is_current', true)
+                ->update(['is_current' => false]);
+
+            $tenant->updates()->updateOrCreate(
+                [
+                    'tenant_id' => $tenant->getKey(),
+                    'app_release_id' => $release->id,
+                ],
+                [
+                    'status' => 'updated',
+                    'is_current' => true,
+                    'action_taken_at' => now(),
+                ]
+            );
+        });
+
+        $verifyCurrent = $tenant->updates()
+            ->where('is_current', true)
+            ->where('app_release_id', $release->id)
+            ->exists();
+
+        if (! $verifyCurrent) {
+            throw new \RuntimeException(
+                "Version record write succeeded silently but no current row exists for {$release->version_tag}. " .
+                'Check the tenant_updates table on the central connection.'
+            );
         }
     }
 
@@ -262,8 +578,7 @@ class UpdateController extends Controller
         ?string $tenantBackupPath = null,
         ?string $codeBackupPath = null,
         bool $restoreCodeFirst = false
-    ): void
-    {
+    ): void {
         try {
             Log::info("Restoring failed version change for tenant {$tenant->id}", [
                 'restore_code_first' => $restoreCodeFirst,
@@ -296,112 +611,8 @@ class UpdateController extends Controller
             Log::info("Version recovery completed for tenant {$tenant->id}");
         } catch (\Exception $e) {
             Log::critical("Version recovery failed for tenant {$tenant->id}", [
-                'error' => $e->getMessage()
-            ]);
-        }
-    }
-
-    /**
-     * Create manual backup.
-     */
-    public function createBackup(Request $request)
-    {
-        $tenant = tenant();
-        
-        try {
-            $result = $this->backupService->createBackup($tenant, 'manual');
-            
-            if ($result['success']) {
-                return back()->with('success', 
-                    "Backup created successfully: {$result['backup_name']}. " .
-                    "Size: " . round($result['size'] / 1024 / 1024, 2) . " MB"
-                );
-            }
-            
-            return back()->with('error', 'Backup failed: ' . $result['error']);
-            
-        } catch (\Exception $e) {
-            return back()->with('error', 'Backup failed: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * Restore from backup.
-     */
-    public function restoreBackup(Request $request)
-    {
-        $request->validate([
-            'backup_path' => 'required|string'
-        ]);
-        
-        $tenant = tenant();
-        
-        try {
-            $result = $this->backupService->restoreBackup($tenant, $request->backup_path);
-            
-            if ($result['success']) {
-                return back()->with('success', 'Backup restored successfully.');
-            }
-            
-            return back()->with('error', 'Restore failed: ' . $result['error']);
-            
-        } catch (\Exception $e) {
-            return back()->with('error', 'Restore failed: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * Trigger an on-demand GitHub release sync. Tenants click "Check for
-     * Updates" to refresh the available-releases list without waiting for
-     * the every-10-minute scheduled sync. The actual fetching is delegated
-     * to GitHubReleaseService::syncReleases(true).
-     */
-    public function checkForUpdates(Request $request)
-    {
-        try {
-            $synced = $this->releaseService->syncReleases(true);
-        } catch (\Throwable $e) {
-            \Log::error('Manual GitHub release sync failed.', [
-                'tenant_id' => tenant()?->id,
                 'error' => $e->getMessage(),
             ]);
-
-            return back()->with('error', 'Could not check for updates: ' . $e->getMessage());
-        }
-
-        if ($synced) {
-            return back()->with('success', 'Checked GitHub for new releases. Refreshing the list now.');
-        }
-
-        return back()->with('error', 'Could not reach GitHub right now. We will retry automatically in the background.');
-    }
-
-    /**
-     * Run pending migrations.
-     */
-    public function runMigrations(Request $request)
-    {
-        $tenant = tenant();
-        $currentUpdate = $tenant->updates()->where('is_current', true)->with('release')->first();
-        $currentVersion = $currentUpdate?->release?->version_tag ?? 'v0.0.0';
-        
-        try {
-            $result = $this->migrationService->runMigrationsForVersion(
-                $tenant,
-                $currentVersion,
-                $currentVersion
-            );
-            
-            if ($result['success']) {
-                return back()->with('success', 
-                    'Migrations completed. ' . count($result['migrations']) . ' migrations run.'
-                );
-            }
-            
-            return back()->with('error', 'Migrations failed: ' . $result['error']);
-            
-        } catch (\Exception $e) {
-            return back()->with('error', 'Migrations failed: ' . $e->getMessage());
         }
     }
 
@@ -452,9 +663,7 @@ class UpdateController extends Controller
             throw new \RuntimeException('Smoke test failed: ' . trim(implode(PHP_EOL, $output)));
         }
 
-        Log::info('Smoke test command completed successfully.', [
-            'command' => $command,
-        ]);
+        Log::info('Smoke test command completed successfully.', ['command' => $command]);
 
         return ['executed' => true];
     }
@@ -551,5 +760,4 @@ class UpdateController extends Controller
 
         return true;
     }
-
 }

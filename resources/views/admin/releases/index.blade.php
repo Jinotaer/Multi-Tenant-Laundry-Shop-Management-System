@@ -1,83 +1,144 @@
 <x-admin-layout>
     <x-slot name="header">
-        <h2 class="text-xl font-semibold leading-tight text-gray-800">      
-            {{ __('App Releases') }}
-        </h2>
+        <x-admin-header title="App Releases" description="Track and manage platform version releases.">
+            <x-slot name="actions">
+                <form action="{{ route('admin.releases.sync') }}" method="POST">
+                    @csrf
+                    <button
+                        type="submit"
+                        class="tenant-primary-action inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold shadow-sm"
+                    >
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                        </svg>
+                        Sync from GitHub
+                    </button>
+                </form>
+            </x-slot>
+        </x-admin-header>
     </x-slot>
-    <div class="flex justify-end">
-        <form action="{{ route('admin.releases.sync') }}" method="POST">
-            @csrf
-            <button type="submit"
-                class="inline-flex items-center px-4 py-2 text-xs font-semibold tracking-widest text-white uppercase transition duration-150 ease-in-out bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 active:bg-blue-900 focus:outline-none focus:border-blue-900 focus:ring ring-blue-300 disabled:opacity-25">
-                Sync from GitHub
-            </button>
-        </form>
-    </div>
-    <div class="py-12">
-        <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
 
+    <div class="space-y-6">
+        @if (session('success'))
+            <div class="tenant-alert border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200">
+                {{ session('success') }}
+            </div>
+        @endif
 
-            <div class="overflow-hidden bg-white shadow-sm sm:rounded-lg">
-                <div class="p-6 bg-white border-b border-gray-200">
-                    <h3 class="mb-4 text-lg font-medium text-gray-900">Total Tenants: {{ $totalTenants }}</h3>
+        @if (session('error'))
+            <div class="tenant-alert border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
+                {{ session('error') }}
+            </div>
+        @endif
 
-                    <div class="relative overflow-x-auto shadow-md sm:rounded-lg">
-                        <table class="w-full text-sm text-left text-gray-500">
-                            <thead class="text-xs text-gray-700 uppercase bg-gray-50">
-                                <tr>
-                                    <th scope="col" class="px-6 py-3">Version</th>
-                                    <th scope="col" class="px-6 py-3">Name</th>
-                                    <th scope="col" class="px-6 py-3">Published</th>
-                                    <th scope="col" class="px-6 py-3">Active Tenants</th>
-                                    <th scope="col" class="px-6 py-3">Options</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @forelse($releases as $release)
-                                    <tr class="bg-white border-b hover:bg-gray-50">
-                                        <td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
-                                            {{ $release->version_tag }}
-                                            @if($release->is_prerelease)
-                                                <span
-                                                    class="bg-yellow-100 text-yellow-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded ml-2">Pre-release</span>
-                                            @endif
-                                        </td>
-                                        <td class="px-6 py-4">
-                                            {{ $release->name }}
-                                        </td>
-                                        <td class="px-6 py-4">
-                                            {{ $release->published_at ? $release->published_at->format('M d, Y') : 'N/A' }}
-                                        </td>
-                                        <td class="px-6 py-4">
-                                            <div class="w-full bg-gray-200 rounded-full h-2.5 mb-1">
-                                                @php $percentage = $totalTenants > 0 ? ($release->active_tenants_count / $totalTenants) * 100 : 0; @endphp
-                                                <div class="bg-blue-600 h-2.5 rounded-full"
-                                                    style="width: {{ $percentage }}%"></div>
-                                            </div>
-                                            <span class="text-xs text-gray-500">{{ $release->active_tenants_count }} /
-                                                {{ $totalTenants }} ({{ round($percentage, 1) }}%)</span>
-                                        </td>
-                                        <td class="px-6 py-4 flex space-x-3">
-                                            <a href="{{ route('admin.releases.show', $release->id) }}"
-                                                class="font-medium text-blue-600 hover:underline">View</a>
-                                        </td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="5" class="px-6 py-4 text-center text-gray-500">
-                                            No releases found. Click 'Sync from GitHub' above to fetch releases.
-                                        </td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
+        <section class="grid gap-3 sm:grid-cols-3">
+            <div class="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950/70">
+                <p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Total Releases</p>
+                <p class="mt-1.5 text-xl font-black tracking-tight text-slate-900 dark:text-slate-100">
+                    {{ number_format($releases->total()) }}
+                </p>
+            </div>
 
-                    <div class="mt-4">
-                        {{ $releases->links() }}
+            <div class="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950/70">
+                <p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Active Tenants</p>
+                <p class="mt-1.5 text-xl font-black tracking-tight text-indigo-600 dark:text-indigo-300">
+                    {{ number_format($totalTenants) }}
+                </p>
+            </div>
+
+            <div class="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950/70">
+                <p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Latest Version</p>
+                <p class="mt-1.5 text-xl font-black tracking-tight text-emerald-600 dark:text-emerald-300">
+                    {{ $releases->first()?->version_tag ?? '—' }}
+                </p>
+            </div>
+        </section>
+
+        <section class="overflow-hidden rounded-[28px] border border-slate-200 bg-white/92 shadow-sm dark:border-slate-800 dark:bg-slate-950/70">
+            @if ($releases->isEmpty())
+                <div class="px-8 py-12 text-center">
+                    <div class="rounded-2xl border border-dashed border-slate-300 px-6 py-12 dark:border-slate-700">
+                        <svg class="mx-auto h-12 w-12 text-slate-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <p class="mt-4 text-base font-semibold text-slate-900 dark:text-slate-100">No releases found.</p>
+                        <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                            Click "Sync from GitHub" to fetch the latest releases.
+                        </p>
                     </div>
                 </div>
-            </div>
-        </div>
+            @else
+                <div class="overflow-x-auto">
+                    <table class="min-w-full border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 text-left dark:bg-slate-950/60">
+                                <th class="px-6 py-4 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Version</th>
+                                <th class="px-6 py-4 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Name</th>
+                                <th class="px-6 py-4 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Published</th>
+                                <th class="px-6 py-4 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Adoption</th>
+                                <th class="px-6 py-4 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($releases as $release)
+                                @php
+                                    $percentage = $totalTenants > 0 ? ($release->active_tenants_count / $totalTenants) * 100 : 0;
+                                @endphp
+                                <tr class="border-t border-slate-200 transition hover:bg-slate-50/70 dark:border-slate-800 dark:hover:bg-slate-950/40">
+                                    <td class="px-6 py-5">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-sm font-bold text-slate-900 dark:text-slate-100">{{ $release->version_tag }}</span>
+                                            @if ($release->is_prerelease)
+                                                <span class="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-700 dark:bg-amber-500/15 dark:text-amber-200">
+                                                    Pre-release
+                                                </span>
+                                            @endif
+                                        </div>
+                                    </td>
+
+                                    <td class="px-6 py-5">
+                                        <span class="text-sm text-slate-600 dark:text-slate-300">{{ $release->name ?: '—' }}</span>
+                                    </td>
+
+                                    <td class="px-6 py-5">
+                                        <span class="text-sm text-slate-600 dark:text-slate-300">
+                                            {{ $release->published_at ? $release->published_at->format('M d, Y') : 'N/A' }}
+                                        </span>
+                                    </td>
+
+                                    <td class="px-6 py-5">
+                                        <div class="w-40">
+                                            <div class="h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                                                <div
+                                                    class="h-full rounded-full"
+                                                    style="width: {{ $percentage }}%; background: var(--tenant-theme-accent);"
+                                                ></div>
+                                            </div>
+                                            <p class="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+                                                {{ $release->active_tenants_count }} / {{ $totalTenants }}
+                                                <span class="font-semibold">({{ round($percentage, 1) }}%)</span>
+                                            </p>
+                                        </div>
+                                    </td>
+
+                                    <td class="px-6 py-5 text-right">
+                                        <a
+                                            href="{{ route('admin.releases.show', $release->id) }}"
+                                            class="inline-flex items-center rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                                        >
+                                            View
+                                        </a>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="border-t border-slate-200 px-6 py-4 dark:border-slate-800">
+                    {{ $releases->links() }}
+                </div>
+            @endif
+        </section>
     </div>
 </x-admin-layout>

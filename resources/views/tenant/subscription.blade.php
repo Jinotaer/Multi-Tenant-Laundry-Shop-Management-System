@@ -1,15 +1,8 @@
 <x-tenant-layout>
-    <x-slot name="header">
-        <div class="flex items-center justify-between">
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                {{ __('Subscription & Usage') }}
-            </h2>
-        </div>
-    </x-slot>
-
     @php $theme = tenant()->getThemePreset(); @endphp
 
     <div class="space-y-6">
+        <x-tenant-header title="Subscription & Usage" description="Manage your plan, billing cycle, and feature usage." />
 
         {{-- Grace Period Warning --}}
         @if($tenant->isInGracePeriod())

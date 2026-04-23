@@ -1,8 +1,4 @@
 <x-tenant-layout>
-    <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">Role Management</h2>
-    </x-slot>
-
     @php
         $theme = tenant()->getThemePreset();
         $roleErrorBag = $errors->getBag('role');
@@ -10,6 +6,24 @@
     @endphp
 
     <div class="space-y-4">
+        <x-tenant-header title="Role Management" description="Configure staff roles and permissions.">
+            @if (!empty($canCreateRoles) && $canCreateRoles)
+                <x-slot name="actions">
+                    <button
+                        type="button"
+                        x-data
+                        x-on:click="$dispatch('open-modal', 'role-create-modal')"
+                        class="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold text-white shadow-sm transition"
+                        style="background: var(--tenant-theme-accent);">
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                        </svg>
+                        Add Role
+                    </button>
+                </x-slot>
+            @endif
+        </x-tenant-header>
+
         @if (session('success'))
             <div class="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-700">
                 {{ session('success') }}
