@@ -256,18 +256,25 @@ class UpdateController extends Controller
 
             // Build the artisan command using the exact PHP binary that is
             // running this request — no PATH resolution needed.
-            $php    = PHP_BINARY;
+            $php     = PHP_BINARY;
             $artisan = base_path('artisan');
-            $args   = implode(' ', [
-                escapeshellarg($release->id),
-                escapeshellarg((string) $tenant->getKey()),
-            ]);
+            $logFile = storage_path('logs/artisan-update.log');
 
             if (PHP_OS_FAMILY === 'Windows') {
-                // start /B spawns detached; pclose returns in ~100 ms.
-                $command = "start \"LaundryUpdater\" /B \"{$php}\" \"{$artisan}\" update:apply {$args}";
+                // Write a .bat launcher so I/O is captured and quoting is trivial.
+                // start "" /B launches it detached; pclose returns in ~100 ms.
+                $batFile    = storage_path('app/deployments/run-update.bat');
+                $batContent = "@echo off\r\n"
+                    . "\"{$php}\" \"{$artisan}\" update:apply"
+                    . " \"{$release->id}\" \"{$tenant->getKey()}\""
+                    . " >> \"{$logFile}\" 2>&1\r\n";
+                File::put($batFile, $batContent);
+                $command = "start \"\" /B \"{$batFile}\"";
             } else {
-                $command = "\"{$php}\" \"{$artisan}\" update:apply {$args} > /dev/null 2>&1 &";
+                $command = "\"{$php}\" \"{$artisan}\" update:apply"
+                    . " " . escapeshellarg((string) $release->id)
+                    . " " . escapeshellarg((string) $tenant->getKey())
+                    . " >> " . escapeshellarg($logFile) . " 2>&1 &";
             }
 
             $handle = popen($command, 'r');
