@@ -19,6 +19,14 @@ class ApplyUpdate extends Command
         CodeDeploymentService $deployment,
         TenantMigrationService $migration,
     ): int {
+        // Diagnostic marker: proves the artisan command was reached and DI
+        // resolved (CodeDeploymentService and TenantMigrationService injected).
+        // Pairs with the bat-level marker written by UpdateController.
+        @file_put_contents(
+            storage_path('app/deployments/cli-entered.txt'),
+            '[cli] entered handle() at ' . now()->toIso8601String() . PHP_EOL
+        );
+
         $statusFile = storage_path('app/deployments/status.json');
         $history    = [];
 

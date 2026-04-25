@@ -311,22 +311,45 @@ class UpdateController extends Controller
             ];
             @file_put_contents($statusFile, json_encode($bootPayload));
 
+            // Diagnostic markers so post-mortem can pinpoint which link in
+            // controller → bat → php artisan → command::handle() actually ran.
+            // Each step writes a separate file; whichever is the LAST to appear
+            // tells you where the launch died.
+            $markerDir   = storage_path('app/deployments');
+            $batMarker   = $markerDir . DIRECTORY_SEPARATOR . 'bat-launched.txt';
+            $cliMarker   = $markerDir . DIRECTORY_SEPARATOR . 'cli-entered.txt';
+            @unlink($batMarker);
+            @unlink($cliMarker);
+
             if (PHP_OS_FAMILY === 'Windows') {
                 // Write a .bat launcher so I/O is captured and quoting is trivial.
                 // start "" /B launches it detached; pclose returns in ~100 ms.
                 $batFile    = storage_path('app/deployments/run-update.bat');
                 $batContent = "@echo off\r\n"
+                    . "echo [bat] launched at %DATE% %TIME% >> \"{$logFile}\"\r\n"
+                    . "echo [bat] launched at %DATE% %TIME% > \"{$batMarker}\"\r\n"
                     . "\"{$php}\" \"{$artisan}\" update:apply"
                     . " \"{$release->id}\" \"{$tenant->getKey()}\""
-                    . " >> \"{$logFile}\" 2>&1\r\n";
+                    . " >> \"{$logFile}\" 2>&1\r\n"
+                    . "echo [bat] artisan exited with %ERRORLEVEL% at %DATE% %TIME% >> \"{$logFile}\"\r\n";
                 File::put($batFile, $batContent);
                 $command = "start \"\" /B \"{$batFile}\"";
             } else {
-                $command = "\"{$php}\" \"{$artisan}\" update:apply"
+                $command = "( echo '[bat] launched at '\\$(date -Iseconds) >> " . escapeshellarg($logFile) . "; "
+                    . "echo '[bat] launched at '\\$(date -Iseconds) > " . escapeshellarg($batMarker) . "; "
+                    . "\"{$php}\" \"{$artisan}\" update:apply"
                     . " " . escapeshellarg((string) $release->id)
                     . " " . escapeshellarg((string) $tenant->getKey())
-                    . " >> " . escapeshellarg($logFile) . " 2>&1 &";
+                    . " >> " . escapeshellarg($logFile) . " 2>&1 ) &";
             }
+
+            Log::info('Spawning update process', [
+                'tenant'  => $tenant->getKey(),
+                'release' => $release->id,
+                'php'     => $php,
+                'command' => $command,
+                'log'     => $logFile,
+            ]);
 
             $handle = popen($command, 'r');
             if ($handle === false) {
