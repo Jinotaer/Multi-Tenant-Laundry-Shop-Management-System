@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Sample1Controller;
+use App\Http\Controllers\SampleXController;
 use App\Http\Controllers\Tenant\AnalyticsController;
 use App\Http\Controllers\Tenant\Auth\ForgotPasswordController;
 use App\Http\Controllers\Tenant\Auth\LoginController;
@@ -272,6 +273,11 @@ Route::middleware([
                 // Sample1 demonstration resource (auto-seeded on update)
                 Route::resource('sample1s', Sample1Controller::class)
                     ->names('tenant.sample1s');
+
+                // SampleX demonstration resource (auto-seeded on update)
+                Route::resource('samplexs', SampleXController::class)
+                    ->parameters(['samplexs' => 'sampleX'])
+                    ->names('tenant.samplexs');
 
                 // Expense Tracking (Premium only)
                 Route::middleware('feature:expense_tracking')->group(function () {
