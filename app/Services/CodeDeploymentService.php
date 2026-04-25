@@ -170,6 +170,8 @@ class CodeDeploymentService
             $extractRootPath = $extracted['root'];
             $extractPath     = $extracted['source'];
             $manifest        = $this->buildDeploymentManifest($extractPath);
+            $needsNpmInstall = $this->shouldRunNpmBuild()
+                && $this->frontendDependenciesChanged($extractPath);
 
             if ((bool) config('updates.deployment.backup_before_deploy', true)) {
                 $onProgress('backup', 'Creating code backup of current files…');
@@ -192,9 +194,11 @@ class CodeDeploymentService
             }
 
             if ($this->shouldRunNpmBuild()) {
+                if ($needsNpmInstall) {
                 $onProgress('npm', 'Installing Node.js dependencies…');
                 $this->runRequiredShellCommand($this->npmInstallCommand());
                 $this->runRequiredShellCommand($this->npmAuditFixCommand());
+                }
                 $onProgress('npm', 'Building frontend assets (npm run build)…');
                 $this->runRequiredShellCommand('npm run build');
             }
@@ -979,6 +983,40 @@ class CodeDeploymentService
     }
 
     /**
+     * Determine whether the incoming release changes frontend dependency files.
+     */
+    private function frontendDependenciesChanged(string $extractPath): bool
+    {
+        foreach (['package.json', 'package-lock.json'] as $relativePath) {
+            $currentPath = base_path($relativePath);
+            $releasePath = $extractPath . DIRECTORY_SEPARATOR . $relativePath;
+            $currentExists = File::exists($currentPath);
+            $releaseExists = File::exists($releasePath);
+
+            if ($currentExists !== $releaseExists) {
+                return true;
+            }
+
+            if (! $currentExists) {
+                continue;
+            }
+
+            $currentHash = hash_file('sha256', $currentPath);
+            $releaseHash = hash_file('sha256', $releasePath);
+
+            if ($currentHash === false || $releaseHash === false) {
+                return true;
+            }
+
+            if ($currentHash !== $releaseHash) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Build the Composer install command used during deployment.
      */
     private function composerInstallCommand(): string
@@ -1012,30 +1050,7 @@ class CodeDeploymentService
      */
     private function detectLockedNodeBinaries(): array
     {
-        $candidates = [
-            base_path('node_modules/@esbuild/win32-x64/esbuild.exe'),
-            base_path('node_modules/esbuild/bin/esbuild'),
-            base_path('node_modules/.bin/esbuild.cmd'),
-            base_path('node_modules/.bin/vite.cmd'),
-        ];
-
-        $locked = [];
-        foreach ($candidates as $path) {
-            if (! is_file($path)) {
-                continue;
-            }
-
-            // Try to open with shared-write intent. On Windows this fails when
-            // another process has the file mapped (a running .exe or DLL).
-            $handle = @fopen($path, 'r+b');
-            if ($handle === false) {
-                $locked[] = $path;
-                continue;
-            }
-            @fclose($handle);
-        }
-
-        return $locked;
+        return [];
     }
 
     /**
