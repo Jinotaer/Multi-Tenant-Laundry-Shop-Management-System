@@ -19,12 +19,6 @@ class ApplyUpdate extends Command
         CodeDeploymentService $deployment,
         TenantMigrationService $migration,
     ): int {
-        $releaseId = (int) $this->argument('release_id');
-        $tenantId  = (string) $this->argument('tenant_id');
-
-        $release = AppRelease::find($releaseId);
-        $tenant  = Tenant::find($tenantId);
-
         $statusFile = storage_path('app/deployments/status.json');
         $history    = [];
 
@@ -36,6 +30,18 @@ class ApplyUpdate extends Command
             }
             @file_put_contents($statusFile, json_encode($payload));
         };
+
+        // Heartbeat as the very first action: tells the poll endpoint that the
+        // CLI reached the command handler (Laravel boot + DI succeeded). If the
+        // status page never advances past "booting", the failure is between
+        // this line and the next $write below — usually a model/DB issue.
+        $write('booting', 'Updater CLI booted — resolving release and tenant…');
+
+        $releaseId = (int) $this->argument('release_id');
+        $tenantId  = (string) $this->argument('tenant_id');
+
+        $release = AppRelease::find($releaseId);
+        $tenant  = Tenant::find($tenantId);
 
         if (! $release || ! $tenant) {
             $write('start', 'Release or tenant not found.', 'failed', "No record for release_id={$releaseId} tenant_id={$tenantId}.");

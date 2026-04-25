@@ -81,6 +81,22 @@
             </div>
         </div>
 
+        {{-- Stall warning --}}
+        <div
+            id="stall-warning"
+            class="hidden overflow-hidden rounded-2xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-700/60 dark:bg-amber-900/20"
+        >
+            <div class="flex items-start gap-3">
+                <svg class="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                </svg>
+                <div class="min-w-0 flex-1 text-sm">
+                    <p class="font-semibold text-amber-900 dark:text-amber-200">The updater seems slow to respond</p>
+                    <p id="stall-detail" class="mt-0.5 text-amber-800 dark:text-amber-300">No progress update for a while. Check the log below for the actual error.</p>
+                </div>
+            </div>
+        </div>
+
         {{-- Step log --}}
         <div class="overflow-hidden rounded-[28px] border border-slate-200 bg-white/92 shadow-sm dark:border-slate-800 dark:bg-slate-950/70">
             <div class="border-b border-slate-200 px-6 py-4 dark:border-slate-800">
@@ -92,6 +108,17 @@
                 </ol>
             </div>
         </div>
+
+        {{-- Updater log tail (shown when stalled or failed) --}}
+        <details
+            id="log-tail-container"
+            class="hidden overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900"
+        >
+            <summary class="cursor-pointer select-none px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800/60">
+                Updater CLI log (last lines)
+            </summary>
+            <pre id="log-tail" class="max-h-80 overflow-auto border-t border-slate-200 bg-slate-900 p-4 font-mono text-[11px] leading-relaxed text-slate-100 dark:border-slate-700"></pre>
+        </details>
     </div>
 
     <script>
@@ -109,10 +136,16 @@
         const finalizeForm = document.getElementById('finalize-form');
 
         const STAGE_PROGRESS = {
-            queued: 5, start: 8, preflight: 12, backup: 20,
+            queued: 3, launching: 5, booting: 7,
+            start: 10, preflight: 14, backup: 22,
             swap: 35, composer: 50, npm: 70, migrate: 85, cache: 92,
             rollback: 40, finalize: 100,
         };
+
+        const stallWarning   = document.getElementById('stall-warning');
+        const stallDetail    = document.getElementById('stall-detail');
+        const logTailBox     = document.getElementById('log-tail-container');
+        const logTail        = document.getElementById('log-tail');
 
         let failedFetches  = 0;
         let loggedStages   = new Set();
@@ -161,6 +194,22 @@
                 });
             }
 
+            // Stall / log-tail rendering — always update, regardless of state.
+            if (data.log_tail) {
+                logTail.textContent = data.log_tail;
+                logTailBox.classList.remove('hidden');
+            }
+
+            if (data.stalled) {
+                stallWarning.classList.remove('hidden');
+                if (typeof data.stalled_for === 'number') {
+                    stallDetail.textContent = `No progress update for ${data.stalled_for}s. The CLI may be stuck during boot or composer install — see the log below.`;
+                }
+                if (logTailBox) logTailBox.open = true;
+            } else {
+                stallWarning.classList.add('hidden');
+            }
+
             if (state === 'success') {
                 stateRunning.classList.add('hidden');
                 stateSuccess.classList.remove('hidden');
@@ -177,6 +226,7 @@
                 stateSuccess.classList.add('hidden');
                 stateFailed.classList.remove('hidden');
                 errorDetail.textContent = message + (data.error ? '\n\n' + data.error : '');
+                if (logTailBox) logTailBox.open = true;
                 return;
             }
 
@@ -187,6 +237,8 @@
         function stageLabelFor(stage) {
             return {
                 queued:    'Queued — waiting for updater…',
+                launching: 'Launching updater process…',
+                booting:   'Booting updater CLI…',
                 start:     'Starting update…',
                 preflight: 'Running preflight checks…',
                 backup:    'Creating code backup…',

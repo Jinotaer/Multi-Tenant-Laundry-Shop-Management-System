@@ -947,12 +947,6 @@
                 </div>
 
                 <main class="px-4 pb-6 sm:px-6 lg:px-8">
-                    @if (session('success'))
-                        <div class="tenant-alert mb-4 border border-green-200 bg-green-50 p-4 text-green-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200">
-                            <p class="text-sm font-medium">{{ session('success') }}</p>
-                        </div>
-                    @endif
-
                     @isset($header)
                         <div class="mb-5">{{ $header }}</div>
                     @endisset

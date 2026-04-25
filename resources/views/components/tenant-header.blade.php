@@ -1,13 +1,16 @@
 @props([
     'title',
     'description' => null,
+    'subtitle' => null,
 ])
+
+@php $headerCaption = $description ?? $subtitle; @endphp
 
 <div class="flex items-end justify-between">
     <div>
         <h2 class="text-2xl font-bold text-gray-900 dark:text-slate-100 tracking-tight">{{ $title }}</h2>
-        @if($description)
-            <p class="mt-0.5 text-sm text-gray-500 dark:text-slate-400">{{ $description }}</p>
+        @if($headerCaption)
+            <p class="mt-0.5 text-sm text-gray-500 dark:text-slate-400">{{ $headerCaption }}</p>
         @endif
     </div>
 

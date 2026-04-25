@@ -3,7 +3,10 @@
     "allow": [
       "Read(//c//**)",
       "Read(//c/xampp/php/**)",
-      "Bash(\"C:/xampp/php/php.exe\" -r \"echo PHP_BINARY;\")"
+      "Bash(\"C:/xampp/php/php.exe\" -r \"echo PHP_BINARY;\")",
+      "Bash(php artisan *)",
+      "Bash(vendor/bin/pest tests/Unit/Console/Commands/SmsTestCommandTest.php)",
+      "Bash(vendor/bin/pest tests/Feature/Tenant/NotificationAndLoyaltyFeatureTest.php --filter=\"sms\")"
     ]
   }
 }

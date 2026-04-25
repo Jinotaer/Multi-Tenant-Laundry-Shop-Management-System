@@ -91,6 +91,35 @@ class UpdateController extends Controller
     }
 
     /**
+     * Dedicated page listing all available updates for the current tenant.
+     */
+    public function available()
+    {
+        $tenant = tenant();
+
+        if (!$tenant) {
+            abort(500, 'Tenant context not initialized');
+        }
+
+        $currentUpdate = $tenant->updates()->where('is_current', true)->with('release')->first();
+        $currentVersionTag = $currentUpdate?->release?->version_tag ?? 'v0.0.0';
+
+        $allReleases = $this->releaseService->sortReleasesDescending(AppRelease::all());
+
+        $availableUpdates = $allReleases->filter(function ($release) use ($currentVersionTag) {
+            $releaseVersion = $this->releaseService->normalizeVersion($release->version_tag);
+            $currentVer = $this->releaseService->normalizeVersion($currentVersionTag);
+
+            return version_compare($releaseVersion, $currentVer, '>');
+        });
+
+        return view('tenant.updates.available', [
+            'availableUpdates' => $availableUpdates,
+            'currentVersion' => $currentVersionTag,
+        ]);
+    }
+
+    /**
      * Apply an update to the current tenant.
      *
      * When code deployment is enabled (Option B) the heavy lifting is handed
@@ -260,6 +289,28 @@ class UpdateController extends Controller
             $artisan = base_path('artisan');
             $logFile = storage_path('logs/artisan-update.log');
 
+            // Truncate the artisan log so poll responses only show output from
+            // this run, not the previous attempt.
+            @file_put_contents($logFile, '');
+
+            // Write an initial "launching" status BEFORE popen so the first poll
+            // sees real progress, not a bare "queued" message. The CLI will
+            // overwrite this within a few seconds; if it never does, the stall
+            // detector in pollStatus() will surface the log tail.
+            $launchedAtIso = now()->toIso8601String();
+            $bootPayload = [
+                'state'    => 'running',
+                'stage'    => 'launching',
+                'message'  => 'Launching updater process…',
+                'launched_at' => $launchedAtIso,
+                'history'  => [[
+                    'at'      => $launchedAtIso,
+                    'stage'   => 'launching',
+                    'message' => 'Controller launched the updater (awaiting CLI boot).',
+                ]],
+            ];
+            @file_put_contents($statusFile, json_encode($bootPayload));
+
             if (PHP_OS_FAMILY === 'Windows') {
                 // Write a .bat launcher so I/O is captured and quoting is trivial.
                 // start "" /B launches it detached; pclose returns in ~100 ms.
@@ -359,12 +410,20 @@ class UpdateController extends Controller
     public function pollStatus(Request $request, AppRelease $release): JsonResponse
     {
         $statusFile = storage_path('app/deployments/status.json');
+        $logFile    = storage_path('logs/artisan-update.log');
+
+        // Stall thresholds (seconds). A run that's been launched but has written
+        // no progress in STALL_WARNING is likely wedged during Laravel boot or
+        // composer; STALL_FAIL marks it as failed outright.
+        $stallWarning = 30;
+        $stallFail    = 180;
 
         if (! File::exists($statusFile)) {
             return response()->json([
                 'state' => 'pending',
                 'stage' => 'queued',
                 'message' => 'Update is queued — waiting for the updater to start.',
+                'log_tail' => $this->readUpdaterLogTail($logFile),
             ]);
         }
 
@@ -375,10 +434,72 @@ class UpdateController extends Controller
                 'state' => 'pending',
                 'stage' => 'queued',
                 'message' => 'Reading updater status…',
+                'log_tail' => $this->readUpdaterLogTail($logFile),
             ]);
         }
 
+        // Stall detection: if the updater is still "running" but the status file
+        // hasn't been touched for a while, surface the log tail so the operator
+        // can see the actual error instead of an endless spinner.
+        $state = (string) ($decoded['state'] ?? 'running');
+        if (in_array($state, ['running', 'pending'], true)) {
+            $mtime = @filemtime($statusFile) ?: time();
+            $ageSeconds = max(0, time() - $mtime);
+
+            if ($ageSeconds >= $stallFail) {
+                $decoded['state']    = 'failed';
+                $decoded['stage']    = 'rollback';
+                $decoded['message']  = 'The updater stopped responding. Check artisan-update.log for details.';
+                $decoded['error']    = 'Updater idle for ' . $ageSeconds . 's with no progress.';
+                $decoded['log_tail'] = $this->readUpdaterLogTail($logFile, 60);
+            } elseif ($ageSeconds >= $stallWarning) {
+                $decoded['stalled']      = true;
+                $decoded['stalled_for']  = $ageSeconds;
+                $decoded['log_tail']     = $this->readUpdaterLogTail($logFile);
+            }
+        }
+
         return response()->json($decoded);
+    }
+
+    /**
+     * Return the last $lines lines of the updater log (trimmed) so the poll
+     * endpoint can show the operator why the CLI isn't progressing.
+     */
+    private function readUpdaterLogTail(string $logFile, int $lines = 25): ?string
+    {
+        if (! File::exists($logFile)) {
+            return null;
+        }
+
+        try {
+            // Cap read size at 64KB regardless of lines requested — the log is
+            // append-only and we only need the recent tail.
+            $size  = @filesize($logFile) ?: 0;
+            $bytes = min($size, 64 * 1024);
+            $fp = @fopen($logFile, 'rb');
+            if ($fp === false) {
+                return null;
+            }
+            if ($size > $bytes) {
+                @fseek($fp, -$bytes, SEEK_END);
+            }
+            $tail = @stream_get_contents($fp);
+            @fclose($fp);
+
+            if (! is_string($tail) || $tail === '') {
+                return null;
+            }
+
+            $all = preg_split("/\r\n|\n|\r/", rtrim($tail));
+            if (! is_array($all)) {
+                return null;
+            }
+
+            return implode("\n", array_slice($all, -$lines));
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**

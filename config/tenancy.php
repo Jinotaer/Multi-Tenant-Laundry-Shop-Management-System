@@ -30,7 +30,10 @@ return [
      */
     'bootstrappers' => [
         Stancl\Tenancy\Bootstrappers\DatabaseTenancyBootstrapper::class,
-        Stancl\Tenancy\Bootstrappers\CacheTenancyBootstrapper::class,
+        // CacheTenancyBootstrapper requires a taggable cache store (redis/memcached/array).
+        // Disabled because CACHE_STORE=database does not support tagging, and this app's
+        // cached values (GitHub sync timestamp, rate-limit reset) are global, not per-tenant.
+        // Stancl\Tenancy\Bootstrappers\CacheTenancyBootstrapper::class,
         Stancl\Tenancy\Bootstrappers\FilesystemTenancyBootstrapper::class,
         Stancl\Tenancy\Bootstrappers\QueueTenancyBootstrapper::class,
         // Stancl\Tenancy\Bootstrappers\RedisTenancyBootstrapper::class, // Note: phpredis is needed

@@ -17,86 +17,177 @@ class SmsService
 
     public function __construct()
     {
-        $this->baseUrl = config('services.sms.base_url');
-        $this->endpoint = config('services.sms.endpoint');
+        $this->baseUrl = (string) config('services.sms.base_url');
+        $this->endpoint = (string) config('services.sms.endpoint');
         $this->token = config('services.sms.token');
-        $this->connectTimeout = config('services.sms.connect_timeout', 10);
-        $this->timeout = config('services.sms.timeout', 45);
-        $this->retryTimes = config('services.sms.retry_times', 2);
-        $this->retrySleepMs = config('services.sms.retry_sleep_ms', 2000);
+        $this->connectTimeout = (int) config('services.sms.connect_timeout', 10);
+        $this->timeout = (int) config('services.sms.timeout', 45);
+        $this->retryTimes = (int) config('services.sms.retry_times', 2);
+        $this->retrySleepMs = (int) config('services.sms.retry_sleep_ms', 2000);
     }
 
     /**
-     * Send SMS message.
+     * Send an SMS and return a structured result.
+     *
+     * @return array{success: bool, error: ?string, recipient: ?string, response: ?array}
      */
-    public function send(string $phoneNumber, string $message): bool
+    public function sendMessage(string $phoneNumber, string $message, array $context = []): array
     {
-        if (!$this->token) {
-            Log::warning('SMS API token not configured');
-            return false;
+        $recipient = $this->formatPhoneNumber($phoneNumber);
+
+        if ($recipient === null) {
+            Log::warning('SMS recipient rejected: invalid Philippine mobile number', [
+                'phone' => $phoneNumber,
+                'context' => $context,
+            ]);
+
+            return [
+                'success' => false,
+                'error' => 'Invalid Philippine mobile number format.',
+                'recipient' => null,
+                'response' => null,
+            ];
         }
 
-        // Format phone number (remove spaces, dashes, ensure +63 prefix)
-        $phoneNumber = $this->formatPhoneNumber($phoneNumber);
+        if (! $this->token) {
+            Log::warning('SMS API token not configured', [
+                'recipient' => $recipient,
+                'context' => $context,
+            ]);
+
+            return [
+                'success' => false,
+                'error' => 'SMS API token is not configured.',
+                'recipient' => $recipient,
+                'response' => null,
+            ];
+        }
+
+        if ($this->baseUrl === '' || $this->endpoint === '') {
+            Log::warning('SMS API endpoint not configured', [
+                'recipient' => $recipient,
+                'context' => $context,
+            ]);
+
+            return [
+                'success' => false,
+                'error' => 'SMS API endpoint is not configured.',
+                'recipient' => $recipient,
+                'response' => null,
+            ];
+        }
 
         try {
-            // SMS API PH format based on their API structure
             $response = Http::withHeaders([
                     'x-api-key' => $this->token,
                     'Content-Type' => 'application/json',
+                    'Accept' => 'application/json',
                 ])
                 ->timeout($this->timeout)
                 ->connectTimeout($this->connectTimeout)
-                ->retry($this->retryTimes, $this->retrySleepMs)
-                ->post($this->baseUrl . $this->endpoint, [
-                    'recipient' => $phoneNumber,
+                ->retry($this->retryTimes, $this->retrySleepMs, throw: false)
+                ->post(rtrim($this->baseUrl, '/').'/'.ltrim($this->endpoint, '/'), [
+                    'recipient' => $recipient,
                     'message' => $message,
                 ]);
 
+            $payload = $this->decodeResponse($response->body());
+
             if ($response->successful()) {
                 Log::info('SMS sent successfully', [
-                    'phone' => $phoneNumber,
-                    'message' => substr($message, 0, 50),
-                    'response' => $response->json(),
+                    'recipient' => $recipient,
+                    'message_preview' => substr($message, 0, 80),
+                    'context' => $context,
                 ]);
-                return true;
+
+                return [
+                    'success' => true,
+                    'error' => null,
+                    'recipient' => $recipient,
+                    'response' => $payload,
+                ];
             }
 
+            $error = is_array($payload) && isset($payload['error']) && is_string($payload['error'])
+                ? $payload['error']
+                : 'SMS provider returned HTTP '.$response->status().'.';
+
             Log::error('SMS sending failed', [
-                'phone' => $phoneNumber,
+                'recipient' => $recipient,
                 'status' => $response->status(),
                 'response' => $response->body(),
+                'context' => $context,
             ]);
-            return false;
 
-        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'error' => $error,
+                'recipient' => $recipient,
+                'response' => $payload,
+            ];
+
+        } catch (\Throwable $e) {
             Log::error('SMS sending exception', [
-                'phone' => $phoneNumber,
+                'recipient' => $recipient,
                 'error' => $e->getMessage(),
+                'context' => $context,
             ]);
-            return false;
+
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+                'recipient' => $recipient,
+                'response' => null,
+            ];
         }
     }
 
     /**
-     * Format phone number to international format.
+     * Backwards-compatible boolean send (used by legacy callers).
      */
-    protected function formatPhoneNumber(string $phoneNumber): string
+    public function send(string $phoneNumber, string $message): bool
     {
-        // Remove all non-numeric characters
-        $phoneNumber = preg_replace('/[^0-9]/', '', $phoneNumber);
+        return $this->sendMessage($phoneNumber, $message)['success'];
+    }
 
-        // If starts with 0, replace with +63
-        if (str_starts_with($phoneNumber, '0')) {
-            $phoneNumber = '+63' . substr($phoneNumber, 1);
+    /**
+     * Validate + normalize a Philippine mobile number to +639XXXXXXXXX.
+     * Returns null when the number is not a valid PH mobile format.
+     */
+    protected function formatPhoneNumber(string $phoneNumber): ?string
+    {
+        $digits = preg_replace('/\D+/', '', $phoneNumber) ?? '';
+
+        if ($digits === '') {
+            return null;
         }
 
-        // If doesn't start with +, add +63
-        if (!str_starts_with($phoneNumber, '+')) {
-            $phoneNumber = '+63' . $phoneNumber;
+        // Strip country code / trunk prefix so we're left with the 10-digit subscriber number.
+        if (str_starts_with($digits, '63')) {
+            $subscriber = substr($digits, 2);
+        } elseif (str_starts_with($digits, '0')) {
+            $subscriber = substr($digits, 1);
+        } else {
+            $subscriber = $digits;
         }
 
-        return $phoneNumber;
+        // PH mobile numbers are 10 digits and always start with 9.
+        if (! preg_match('/^9\d{9}$/', $subscriber)) {
+            return null;
+        }
+
+        return '+63'.$subscriber;
+    }
+
+    protected function decodeResponse(string $body): ?array
+    {
+        if ($body === '') {
+            return null;
+        }
+
+        $decoded = json_decode($body, true);
+
+        return is_array($decoded) ? $decoded : null;
     }
 
     /**
@@ -108,17 +199,13 @@ class SmsService
         string $orderNumber,
         string $status
     ): bool {
-        $message = "Hi {$customerName}! Your order #{$orderNumber} is now {$status}. ";
-        
-        $message .= match($status) {
-            'received' => 'We have received your laundry.',
-            'processing' => 'Your laundry is being processed.',
-            'ready' => 'Your laundry is ready for pickup!',
-            'completed' => 'Thank you for choosing our service!',
-            default => 'Status updated.',
-        };
+        $message = "LaundryTrack: Order {$orderNumber} is now {$status}.";
 
-        return $this->send($phoneNumber, $message);
+        return $this->sendMessage($phoneNumber, $message, [
+            'customer' => $customerName,
+            'order_number' => $orderNumber,
+            'status' => $status,
+        ])['success'];
     }
 
     /**
@@ -126,7 +213,7 @@ class SmsService
      */
     public function sendOrderStatusUpdate($customer, $order, string $statusLabel): bool
     {
-        if (!$customer->phone) {
+        if (! $customer || empty($customer->phone)) {
             return false;
         }
 
