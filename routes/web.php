@@ -27,9 +27,20 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-foreach (config('tenancy.central_domains') as $domain) {
+$centralDomains = config('tenancy.central_domains');
+$appUrlHost = parse_url((string) config('app.url'), PHP_URL_HOST);
+$primaryCentralDomain = in_array($appUrlHost, $centralDomains, true)
+    ? $appUrlHost
+    : ($centralDomains[0] ?? null);
+
+foreach ($centralDomains as $domain) {
+    $domainRouteNamePrefix = $domain === $primaryCentralDomain
+        ? ''
+        : 'central_domains.' . preg_replace('/[^A-Za-z0-9]+/', '_', $domain) . '.';
+
     Route::domain($domain)
         ->middleware('web')
+        ->name($domainRouteNamePrefix)
         ->group(function () {
             // Landing Page
             Route::get('/', WelcomeController::class)->name('home');
