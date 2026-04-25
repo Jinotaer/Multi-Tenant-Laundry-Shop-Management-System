@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Sample1Controller;
 use App\Http\Controllers\Tenant\AnalyticsController;
 use App\Http\Controllers\Tenant\Auth\ForgotPasswordController;
 use App\Http\Controllers\Tenant\Auth\LoginController;
@@ -267,6 +268,10 @@ Route::middleware([
                 // Promotions Demonstration Route
                 Route::get('/promotions', [\App\Http\Controllers\Tenant\PromotionController::class, 'index'])
                     ->name('tenant.promotions.index');
+
+                // Sample1 demonstration resource (auto-seeded on update)
+                Route::resource('sample1s', Sample1Controller::class)
+                    ->names('tenant.sample1s');
 
                 // Expense Tracking (Premium only)
                 Route::middleware('feature:expense_tracking')->group(function () {

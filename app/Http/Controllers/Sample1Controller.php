@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\sample;
-use App\Http\Requests\StoresampleRequest;
-use App\Http\Requests\UpdatesampleRequest;
+use App\Models\Sample1;
+use App\Http\Requests\StoreSample1Request;
+use App\Http\Requests\UpdateSample1Request;
 
-class SampleController extends Controller
+class Sample1Controller extends Controller
 {
     /**
      * Display a listing of the resource.
@@ -27,7 +27,7 @@ class SampleController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(StoresampleRequest $request)
+    public function store(StoreSample1Request $request)
     {
         //
     }
@@ -35,7 +35,7 @@ class SampleController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(sample $sample)
+    public function show(Sample1 $sample1)
     {
         //
     }
@@ -43,7 +43,7 @@ class SampleController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(sample $sample)
+    public function edit(Sample1 $sample1)
     {
         //
     }
@@ -51,7 +51,7 @@ class SampleController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(UpdatesampleRequest $request, sample $sample)
+    public function update(UpdateSample1Request $request, Sample1 $sample1)
     {
         //
     }
@@ -59,7 +59,7 @@ class SampleController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(sample $sample)
+    public function destroy(Sample1 $sample1)
     {
         //
     }
