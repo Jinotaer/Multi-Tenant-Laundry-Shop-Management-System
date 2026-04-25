@@ -324,10 +324,20 @@ class UpdateController extends Controller
             if (PHP_OS_FAMILY === 'Windows') {
                 // Write a .bat launcher so I/O is captured and quoting is trivial.
                 // start "" /B launches it detached; pclose returns in ~100 ms.
+                // `cd /d` to the app root so artisan's __DIR__-based bootstrap
+                // sees the right vendor/, .env, and bootstrap/app.php regardless
+                // of where the bat was launched from.
+                $appRoot    = base_path();
                 $batFile    = storage_path('app/deployments/run-update.bat');
                 $batContent = "@echo off\r\n"
-                    . "echo [bat] launched at %DATE% %TIME% >> \"{$logFile}\"\r\n"
+                    . "cd /d \"{$appRoot}\"\r\n"
+                    . "echo [bat] launched at %DATE% %TIME% (cwd=%CD%) >> \"{$logFile}\"\r\n"
                     . "echo [bat] launched at %DATE% %TIME% > \"{$batMarker}\"\r\n"
+                    . "\"{$php}\" -v >> \"{$logFile}\" 2>&1\r\n"
+                    . "if errorlevel 1 (\r\n"
+                    . "  echo [bat] FATAL: php.exe not runnable at \"{$php}\" >> \"{$logFile}\"\r\n"
+                    . "  exit /b 1\r\n"
+                    . ")\r\n"
                     . "\"{$php}\" \"{$artisan}\" update:apply"
                     . " \"{$release->id}\" \"{$tenant->getKey()}\""
                     . " >> \"{$logFile}\" 2>&1\r\n"
@@ -948,35 +958,83 @@ class UpdateController extends Controller
      *
      * Under Apache mod_php on Windows, PHP_BINARY points to httpd.exe, not
      * php.exe — using it to run `php artisan ...` silently spawns another
-     * Apache instead of running the command. This checks PHP_BINARY first,
-     * then falls back to $(dirname PHP_BINARY)/../php/php.exe (XAMPP layout),
-     * then a hardcoded XAMPP path, then a config override.
+     * Apache instead of running the command. Resolution order:
+     *   1. UPDATER_PHP_BIN config override
+     *   2. PHP_BINARY itself if it's already php.exe
+     *   3. PATH-based lookup (where php.exe / which php)
+     *   4. Common Windows install paths (XAMPP, WAMP, Laragon, Program Files)
+     *   5. Common Unix install paths
+     *
+     * Then verifies the resolved binary actually runs (`php -v`) so a wrong
+     * path fails immediately with a useful error instead of producing a silent
+     * "CLI never booted" stall three minutes later.
      */
     private function resolvePhpCliBinary(): string
     {
+        $resolved = $this->discoverPhpCliBinary();
+
+        // Preflight: can we actually invoke this binary? A failure here means
+        // the launch chain would silently die in the bat — better to throw now.
+        $cmd = escapeshellarg($resolved) . ' -v';
+        $output = [];
+        $exitCode = 0;
+        @exec($cmd . ' 2>&1', $output, $exitCode);
+        if ($exitCode !== 0) {
+            throw new \RuntimeException(
+                "Resolved PHP CLI binary [{$resolved}] failed preflight ({$cmd}): "
+                . implode("\n", $output) . ' '
+                . 'Set UPDATER_PHP_BIN in .env to the absolute path of a working php.exe.'
+            );
+        }
+
+        return $resolved;
+    }
+
+    private function discoverPhpCliBinary(): string
+    {
+        $isWindows = PHP_OS_FAMILY === 'Windows';
+        $expectedBasename = $isWindows ? 'php.exe' : 'php';
+
+        // 1. Explicit override.
         $override = (string) config('updates.updater.php_binary', '');
         if ($override !== ''
-            && strtolower(basename($override)) === (PHP_OS_FAMILY === 'Windows' ? 'php.exe' : 'php')
+            && strtolower(basename($override)) === $expectedBasename
             && is_file($override)) {
             return $override;
         }
 
+        // 2. Current PHP_BINARY if already the CLI.
         $current = PHP_BINARY;
-        $expectedBasename = PHP_OS_FAMILY === 'Windows' ? 'php.exe' : 'php';
-
         if (strtolower(basename($current)) === $expectedBasename && is_file($current)) {
             return $current;
         }
 
-        if (PHP_OS_FAMILY === 'Windows') {
+        // 3. PATH-based lookup. Covers Laragon, manual installs, anything on PATH.
+        $pathProbe = $isWindows ? 'where php.exe 2>NUL' : 'command -v php 2>/dev/null';
+        $output = [];
+        $exitCode = 0;
+        @exec($pathProbe, $output, $exitCode);
+        if ($exitCode === 0) {
+            foreach ($output as $line) {
+                $line = trim($line);
+                if ($line !== '' && is_file($line) && strtolower(basename($line)) === $expectedBasename) {
+                    return $line;
+                }
+            }
+        }
+
+        // 4. Hard-coded common install paths for the typical Windows stacks.
+        if ($isWindows) {
             $candidates = [
-                dirname($current) . '\\..\\php\\php.exe',
+                dirname($current) . '\\..\\php\\php.exe',           // XAMPP-relative
                 'C:\\xampp\\php\\php.exe',
                 'C:\\wamp64\\bin\\php\\php.exe',
+                'C:\\laragon\\bin\\php\\php.exe',
                 'C:\\Program Files\\PHP\\php.exe',
+                'C:\\Program Files (x86)\\PHP\\php.exe',
             ];
         } else {
-            $candidates = ['/usr/bin/php', '/usr/local/bin/php'];
+            $candidates = ['/usr/bin/php', '/usr/local/bin/php', '/opt/homebrew/bin/php'];
         }
 
         foreach ($candidates as $candidate) {
@@ -987,7 +1045,7 @@ class UpdateController extends Controller
         }
 
         throw new \RuntimeException(
-            'Could not locate the PHP CLI binary (php.exe). '
+            'Could not locate the PHP CLI binary (' . $expectedBasename . '). '
             . 'Set UPDATER_PHP_BIN in .env to the absolute path of php.exe.'
         );
     }
