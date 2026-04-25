@@ -262,11 +262,16 @@ class UpdateController extends Controller
     ): \Illuminate\Http\RedirectResponse {
         try {
             // Clear any stale status file from a previous failed run.
-            $statusFile = storage_path('app/deployments/status.json');
+            $deploymentDir = $this->deploymentArtifactPath();
+            $statusFile = $this->deploymentArtifactPath('status.json');
+            $logFile = $this->updaterLogPath();
+
+            File::ensureDirectoryExists($deploymentDir);
+            File::ensureDirectoryExists(dirname($logFile));
+
             if (File::exists($statusFile)) {
                 File::delete($statusFile);
             }
-            File::ensureDirectoryExists(storage_path('app/deployments'));
 
             // Mark as 'applying' so the index page shows an in-progress banner
             // if the user navigates away while the update runs.
@@ -287,7 +292,6 @@ class UpdateController extends Controller
             // running this request — no PATH resolution needed.
             $php     = $this->resolvePhpCliBinary();
             $artisan = base_path('artisan');
-            $logFile = storage_path('logs/artisan-update.log');
 
             // Truncate the artisan log so poll responses only show output from
             // this run, not the previous attempt.
@@ -311,9 +315,8 @@ class UpdateController extends Controller
             ];
             @file_put_contents($statusFile, json_encode($bootPayload));
 
-            $markerDir = storage_path('app/deployments');
-            $batMarker = $markerDir . DIRECTORY_SEPARATOR . 'bat-launched.txt';
-            $cliMarker = $markerDir . DIRECTORY_SEPARATOR . 'cli-entered.txt';
+            $batMarker = $this->deploymentArtifactPath('bat-launched.txt');
+            $cliMarker = $this->deploymentArtifactPath('cli-entered.txt');
             $appRoot   = base_path();
             @unlink($batMarker);
             @unlink($cliMarker);
@@ -321,7 +324,7 @@ class UpdateController extends Controller
             if (PHP_OS_FAMILY === 'Windows') {
                 // Write a .bat launcher so I/O is captured and quoting is trivial.
                 // start "" /B launches it detached; pclose returns in ~100 ms.
-                $batFile    = storage_path('app/deployments/run-update.bat');
+                $batFile    = $this->deploymentArtifactPath('run-update.bat');
                 $batContent = "@echo off\r\n"
                     . "cd /d \"{$appRoot}\"\r\n"
                     . "echo [bat] launched at %DATE% %TIME% (cwd=%CD%) >> \"{$logFile}\"\r\n"
@@ -411,7 +414,7 @@ class UpdateController extends Controller
     public function updateStatus(Request $request, AppRelease $release)
     {
         $tenant = tenant();
-        $statusFile = storage_path('app/deployments/status.json');
+        $statusFile = $this->deploymentArtifactPath('status.json');
 
         $status = null;
         if (File::exists($statusFile)) {
@@ -433,8 +436,8 @@ class UpdateController extends Controller
      */
     public function pollStatus(Request $request, AppRelease $release): JsonResponse
     {
-        $statusFile = storage_path('app/deployments/status.json');
-        $logFile    = storage_path('logs/artisan-update.log');
+        $statusFile = $this->deploymentArtifactPath('status.json');
+        $logFile    = $this->updaterLogPath();
 
         // Stall thresholds (seconds). A run that's been launched but has written
         // no progress in STALL_WARNING is likely wedged during Laravel boot or
@@ -536,9 +539,8 @@ class UpdateController extends Controller
      */
     private function diagnoseStalledUpdaterLaunch(): array
     {
-        $markerDir = storage_path('app/deployments');
-        $batMarker = $markerDir . DIRECTORY_SEPARATOR . 'bat-launched.txt';
-        $cliMarker = $markerDir . DIRECTORY_SEPARATOR . 'cli-entered.txt';
+        $batMarker = $this->deploymentArtifactPath('bat-launched.txt');
+        $cliMarker = $this->deploymentArtifactPath('cli-entered.txt');
 
         if (! File::exists($batMarker)) {
             return [
@@ -568,7 +570,7 @@ class UpdateController extends Controller
     public function finalizeUpdate(Request $request, AppRelease $release)
     {
         $tenant = tenant();
-        $statusFile = storage_path('app/deployments/status.json');
+        $statusFile = $this->deploymentArtifactPath('status.json');
 
         // Verify the updater actually finished successfully before touching DB.
         if (File::exists($statusFile)) {
@@ -939,6 +941,27 @@ class UpdateController extends Controller
         $store = (string) config('updates.tenant_maintenance.cache_store', config('cache.default'));
 
         return Cache::store($store);
+    }
+
+    /**
+     * Store updater launcher artifacts in the central storage tree so tenant
+     * context cannot rewrite the path via storage_path().
+     */
+    private function deploymentArtifactPath(string $relative = ''): string
+    {
+        $base = base_path('storage/app/deployments');
+
+        return $relative === ''
+            ? $base
+            : $base . DIRECTORY_SEPARATOR . ltrim($relative, '/\\');
+    }
+
+    /**
+     * Use the central updater log path regardless of tenant context.
+     */
+    private function updaterLogPath(): string
+    {
+        return base_path('storage/logs/artisan-update.log');
     }
 
     /**

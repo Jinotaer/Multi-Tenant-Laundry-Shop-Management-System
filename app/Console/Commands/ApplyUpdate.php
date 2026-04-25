@@ -7,6 +7,7 @@ use App\Models\Tenant;
 use App\Services\CodeDeploymentService;
 use App\Services\TenantMigrationService;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
@@ -19,7 +20,15 @@ class ApplyUpdate extends Command
         CodeDeploymentService $deployment,
         TenantMigrationService $migration,
     ): int {
-        $statusFile = storage_path('app/deployments/status.json');
+        $statusFile = $this->deploymentArtifactPath('status.json');
+        $cliMarker = $this->deploymentArtifactPath('cli-entered.txt');
+
+        File::ensureDirectoryExists($this->deploymentArtifactPath());
+        @file_put_contents(
+            $cliMarker,
+            '[cli] entered handle() at ' . now()->toIso8601String() . PHP_EOL
+        );
+
         $history    = [];
 
         $write = function (string $stage, string $message, string $state = 'running', ?string $error = null) use ($statusFile, &$history): void {
@@ -104,5 +113,14 @@ class ApplyUpdate extends Command
 
             return self::FAILURE;
         }
+    }
+
+    private function deploymentArtifactPath(string $relative = ''): string
+    {
+        $base = base_path('storage/app/deployments');
+
+        return $relative === ''
+            ? $base
+            : $base . DIRECTORY_SEPARATOR . ltrim($relative, '/\\');
     }
 }
