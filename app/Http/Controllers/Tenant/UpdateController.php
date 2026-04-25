@@ -311,55 +311,22 @@ class UpdateController extends Controller
             ];
             @file_put_contents($statusFile, json_encode($bootPayload));
 
-            // Diagnostic markers so post-mortem can pinpoint which link in
-            // controller → bat → php artisan → command::handle() actually ran.
-            // Each step writes a separate file; whichever is the LAST to appear
-            // tells you where the launch died.
-            $markerDir   = storage_path('app/deployments');
-            $batMarker   = $markerDir . DIRECTORY_SEPARATOR . 'bat-launched.txt';
-            $cliMarker   = $markerDir . DIRECTORY_SEPARATOR . 'cli-entered.txt';
-            @unlink($batMarker);
-            @unlink($cliMarker);
-
             if (PHP_OS_FAMILY === 'Windows') {
                 // Write a .bat launcher so I/O is captured and quoting is trivial.
                 // start "" /B launches it detached; pclose returns in ~100 ms.
-                // `cd /d` to the app root so artisan's __DIR__-based bootstrap
-                // sees the right vendor/, .env, and bootstrap/app.php regardless
-                // of where the bat was launched from.
-                $appRoot    = base_path();
                 $batFile    = storage_path('app/deployments/run-update.bat');
                 $batContent = "@echo off\r\n"
-                    . "cd /d \"{$appRoot}\"\r\n"
-                    . "echo [bat] launched at %DATE% %TIME% (cwd=%CD%) >> \"{$logFile}\"\r\n"
-                    . "echo [bat] launched at %DATE% %TIME% > \"{$batMarker}\"\r\n"
-                    . "\"{$php}\" -v >> \"{$logFile}\" 2>&1\r\n"
-                    . "if errorlevel 1 (\r\n"
-                    . "  echo [bat] FATAL: php.exe not runnable at \"{$php}\" >> \"{$logFile}\"\r\n"
-                    . "  exit /b 1\r\n"
-                    . ")\r\n"
                     . "\"{$php}\" \"{$artisan}\" update:apply"
                     . " \"{$release->id}\" \"{$tenant->getKey()}\""
-                    . " >> \"{$logFile}\" 2>&1\r\n"
-                    . "echo [bat] artisan exited with %ERRORLEVEL% at %DATE% %TIME% >> \"{$logFile}\"\r\n";
+                    . " >> \"{$logFile}\" 2>&1\r\n";
                 File::put($batFile, $batContent);
                 $command = "start \"\" /B \"{$batFile}\"";
             } else {
-                $command = "( echo '[bat] launched at '\\$(date -Iseconds) >> " . escapeshellarg($logFile) . "; "
-                    . "echo '[bat] launched at '\\$(date -Iseconds) > " . escapeshellarg($batMarker) . "; "
-                    . "\"{$php}\" \"{$artisan}\" update:apply"
+                $command = "\"{$php}\" \"{$artisan}\" update:apply"
                     . " " . escapeshellarg((string) $release->id)
                     . " " . escapeshellarg((string) $tenant->getKey())
-                    . " >> " . escapeshellarg($logFile) . " 2>&1 ) &";
+                    . " >> " . escapeshellarg($logFile) . " 2>&1 &";
             }
-
-            Log::info('Spawning update process', [
-                'tenant'  => $tenant->getKey(),
-                'release' => $release->id,
-                'php'     => $php,
-                'command' => $command,
-                'log'     => $logFile,
-            ]);
 
             $handle = popen($command, 'r');
             if ($handle === false) {
@@ -480,15 +447,10 @@ class UpdateController extends Controller
             $ageSeconds = max(0, time() - $mtime);
 
             if ($ageSeconds >= $stallFail) {
-                $diagnostic = $this->diagnoseStalledUpdaterLaunch();
-
                 $decoded['state']    = 'failed';
                 $decoded['stage']    = 'rollback';
-                $decoded['message']  = $diagnostic['message'] ?? 'The updater stopped responding. Check artisan-update.log for details.';
+                $decoded['message']  = 'The updater stopped responding. Check artisan-update.log for details.';
                 $decoded['error']    = 'Updater idle for ' . $ageSeconds . 's with no progress.';
-                if (! empty($diagnostic['detail'])) {
-                    $decoded['error'] .= "\n\n" . $diagnostic['detail'];
-                }
                 $decoded['log_tail'] = $this->readUpdaterLogTail($logFile, 60);
             } elseif ($ageSeconds >= $stallWarning) {
                 $decoded['stalled']      = true;
@@ -538,38 +500,6 @@ class UpdateController extends Controller
         } catch (\Throwable) {
             return null;
         }
-    }
-
-    /**
-     * Use marker files from controller -> batch -> CLI launch to narrow down
-     * where a stalled update died on this machine.
-     *
-     * @return array{message?: string, detail?: string}
-     */
-    private function diagnoseStalledUpdaterLaunch(): array
-    {
-        $markerDir = storage_path('app/deployments');
-        $batMarker = $markerDir . DIRECTORY_SEPARATOR . 'bat-launched.txt';
-        $cliMarker = $markerDir . DIRECTORY_SEPARATOR . 'cli-entered.txt';
-
-        if (! File::exists($batMarker)) {
-            return [
-                'message' => 'The updater never launched on this machine.',
-                'detail' => 'The batch launcher marker was not written. Check detached-process permissions for the web server user.',
-            ];
-        }
-
-        if (! File::exists($cliMarker)) {
-            return [
-                'message' => 'The updater batch launched, but the Laravel CLI never booted.',
-                'detail' => 'Check UPDATER_PHP_BIN on this device and review artisan-update.log for a PHP/Laravel boot error before handle() runs.',
-            ];
-        }
-
-        return [
-            'message' => 'The updater stopped responding. Check artisan-update.log for details.',
-            'detail' => 'The CLI reached update:apply, so the stall happened during download, composer, npm, or tenant migration work.',
-        ];
     }
 
     /**
@@ -958,83 +888,35 @@ class UpdateController extends Controller
      *
      * Under Apache mod_php on Windows, PHP_BINARY points to httpd.exe, not
      * php.exe — using it to run `php artisan ...` silently spawns another
-     * Apache instead of running the command. Resolution order:
-     *   1. UPDATER_PHP_BIN config override
-     *   2. PHP_BINARY itself if it's already php.exe
-     *   3. PATH-based lookup (where php.exe / which php)
-     *   4. Common Windows install paths (XAMPP, WAMP, Laragon, Program Files)
-     *   5. Common Unix install paths
-     *
-     * Then verifies the resolved binary actually runs (`php -v`) so a wrong
-     * path fails immediately with a useful error instead of producing a silent
-     * "CLI never booted" stall three minutes later.
+     * Apache instead of running the command. This checks PHP_BINARY first,
+     * then falls back to $(dirname PHP_BINARY)/../php/php.exe (XAMPP layout),
+     * then a hardcoded XAMPP path, then a config override.
      */
     private function resolvePhpCliBinary(): string
     {
-        $resolved = $this->discoverPhpCliBinary();
-
-        // Preflight: can we actually invoke this binary? A failure here means
-        // the launch chain would silently die in the bat — better to throw now.
-        $cmd = escapeshellarg($resolved) . ' -v';
-        $output = [];
-        $exitCode = 0;
-        @exec($cmd . ' 2>&1', $output, $exitCode);
-        if ($exitCode !== 0) {
-            throw new \RuntimeException(
-                "Resolved PHP CLI binary [{$resolved}] failed preflight ({$cmd}): "
-                . implode("\n", $output) . ' '
-                . 'Set UPDATER_PHP_BIN in .env to the absolute path of a working php.exe.'
-            );
-        }
-
-        return $resolved;
-    }
-
-    private function discoverPhpCliBinary(): string
-    {
-        $isWindows = PHP_OS_FAMILY === 'Windows';
-        $expectedBasename = $isWindows ? 'php.exe' : 'php';
-
-        // 1. Explicit override.
         $override = (string) config('updates.updater.php_binary', '');
         if ($override !== ''
-            && strtolower(basename($override)) === $expectedBasename
+            && strtolower(basename($override)) === (PHP_OS_FAMILY === 'Windows' ? 'php.exe' : 'php')
             && is_file($override)) {
             return $override;
         }
 
-        // 2. Current PHP_BINARY if already the CLI.
         $current = PHP_BINARY;
+        $expectedBasename = PHP_OS_FAMILY === 'Windows' ? 'php.exe' : 'php';
+
         if (strtolower(basename($current)) === $expectedBasename && is_file($current)) {
             return $current;
         }
 
-        // 3. PATH-based lookup. Covers Laragon, manual installs, anything on PATH.
-        $pathProbe = $isWindows ? 'where php.exe 2>NUL' : 'command -v php 2>/dev/null';
-        $output = [];
-        $exitCode = 0;
-        @exec($pathProbe, $output, $exitCode);
-        if ($exitCode === 0) {
-            foreach ($output as $line) {
-                $line = trim($line);
-                if ($line !== '' && is_file($line) && strtolower(basename($line)) === $expectedBasename) {
-                    return $line;
-                }
-            }
-        }
-
-        // 4. Hard-coded common install paths for the typical Windows stacks.
-        if ($isWindows) {
+        if (PHP_OS_FAMILY === 'Windows') {
             $candidates = [
-                dirname($current) . '\\..\\php\\php.exe',           // XAMPP-relative
+                dirname($current) . '\\..\\php\\php.exe',
                 'C:\\xampp\\php\\php.exe',
                 'C:\\wamp64\\bin\\php\\php.exe',
-                'C:\\laragon\\bin\\php\\php.exe',
                 'C:\\Program Files\\PHP\\php.exe',
-                'C:\\Program Files (x86)\\PHP\\php.exe',
             ];
         } else {
-            $candidates = ['/usr/bin/php', '/usr/local/bin/php', '/opt/homebrew/bin/php'];
+            $candidates = ['/usr/bin/php', '/usr/local/bin/php'];
         }
 
         foreach ($candidates as $candidate) {
@@ -1045,7 +927,7 @@ class UpdateController extends Controller
         }
 
         throw new \RuntimeException(
-            'Could not locate the PHP CLI binary (' . $expectedBasename . '). '
+            'Could not locate the PHP CLI binary (php.exe). '
             . 'Set UPDATER_PHP_BIN in .env to the absolute path of php.exe.'
         );
     }

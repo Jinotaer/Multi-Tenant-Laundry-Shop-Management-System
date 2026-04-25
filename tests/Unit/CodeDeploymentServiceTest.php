@@ -49,22 +49,6 @@ function invokeDeploymentCheck(CodeDeploymentService $service, string $command):
     $method->invoke($service, $command);
 }
 
-function invokeShellCommand(
-    CodeDeploymentService $service,
-    string $command,
-    ?callable $onHeartbeat = null,
-    ?callable $onOutput = null,
-    ?string $label = null
-): array {
-    $method = new ReflectionMethod($service, 'runShellCommand');
-    $method->setAccessible(true);
-
-    /** @var array{exit_code: int, output: string} $result */
-    $result = $method->invoke($service, $command, $onHeartbeat, $onOutput, $label);
-
-    return $result;
-}
-
 test('deployment manifest includes deployable release roots and excludes local-only paths', function () {
     $root = storage_path('framework/testing/deployment-manifest-' . Str::random(12));
 
@@ -254,31 +238,4 @@ test('frontend dependency verification fails when required npm files are missing
             File::put($viteDevServerIndex, $viteBackup);
         }
     }
-});
-
-test('shell command heartbeats stream progress for long running commands', function () {
-    $heartbeats = [];
-    $chunks = [];
-
-    $command = sprintf(
-        "\"%s\" -r \"fwrite(STDOUT, 'booting' . PHP_EOL); usleep(6200000); fwrite(STDOUT, 'done' . PHP_EOL);\"",
-        PHP_BINARY
-    );
-
-    $result = invokeShellCommand(
-        app(CodeDeploymentService::class),
-        $command,
-        function (string $message) use (&$heartbeats): void {
-            $heartbeats[] = $message;
-        },
-        function (string $chunk) use (&$chunks): void {
-            $chunks[] = $chunk;
-        },
-        'test command'
-    );
-
-    expect($result['exit_code'])->toBe(0);
-    expect($result['output'])->toContain('done');
-    expect($heartbeats)->not->toBeEmpty();
-    expect(implode('', $chunks))->toContain('done');
 });

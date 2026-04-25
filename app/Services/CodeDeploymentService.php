@@ -128,16 +128,9 @@ class CodeDeploymentService
      * tenant-scoped migrations can be run in the correct tenancy context.
      *
      * @param callable(string $stage, string $message): void $onProgress
-     * @param null|callable(string $stage, string $message): void $onHeartbeat
-     * @param null|callable(string $chunk): void $onLog
      * @return array{success: bool, backup_path: string|null, error?: string}
      */
-    public function deployWithProgress(
-        string $versionTag,
-        callable $onProgress,
-        ?callable $onHeartbeat = null,
-        ?callable $onLog = null
-    ): array
+    public function deployWithProgress(string $versionTag, callable $onProgress): array
     {
         set_time_limit(0);
         $this->validateVersionTag($versionTag);
@@ -147,6 +140,21 @@ class CodeDeploymentService
 
         if (! $repo) {
             return ['success' => false, 'backup_path' => null, 'error' => 'GitHub repository not configured.'];
+        }
+
+        // Preflight: detect Node binaries locked by another process. npm ci /
+        // npm install will fail with EPERM if Vite, esbuild, or the IDE's
+        // Tailwind extension is holding a binary open. Catch this BEFORE we
+        // download / extract / backup / swap so the operator sees a clear
+        // actionable error instead of a rolled-back update.
+        $lockedFiles = $this->detectLockedNodeBinaries();
+        if ($lockedFiles !== []) {
+            return [
+                'success' => false,
+                'backup_path' => null,
+                'error' => "Cannot update: the following files are locked by another process — close any running dev server (npm run dev / vite), your IDE, or any node.exe / esbuild.exe processes, then retry.\n\n"
+                    . implode("\n", array_map(static fn (string $p): string => '  • ' . $p, $lockedFiles)),
+            ];
         }
 
         $backupPath     = null;
@@ -180,35 +188,15 @@ class CodeDeploymentService
 
             if ((bool) config('updates.deployment.run_composer_install', true)) {
                 $onProgress('composer', 'Installing PHP dependencies (composer install --no-dev)…');
-                $this->runRequiredShellCommand(
-                    $this->composerInstallCommand(),
-                    $this->stageHeartbeat($onHeartbeat, 'composer'),
-                    $onLog,
-                    'composer install'
-                );
+                $this->runRequiredShellCommand($this->composerInstallCommand());
             }
 
             if ($this->shouldRunNpmBuild()) {
                 $onProgress('npm', 'Installing Node.js dependencies…');
-                $this->runRequiredShellCommand(
-                    $this->npmInstallCommand(),
-                    $this->stageHeartbeat($onHeartbeat, 'npm'),
-                    $onLog,
-                    'npm install'
-                );
-                $this->runRequiredShellCommand(
-                    $this->npmAuditFixCommand(),
-                    $this->stageHeartbeat($onHeartbeat, 'npm'),
-                    $onLog,
-                    'npm audit fix'
-                );
+                $this->runRequiredShellCommand($this->npmInstallCommand());
+                $this->runRequiredShellCommand($this->npmAuditFixCommand());
                 $onProgress('npm', 'Building frontend assets (npm run build)…');
-                $this->runRequiredShellCommand(
-                    'npm run build',
-                    $this->stageHeartbeat($onHeartbeat, 'npm'),
-                    $onLog,
-                    'npm run build'
-                );
+                $this->runRequiredShellCommand('npm run build');
             }
 
             $onProgress('cache', 'Rebuilding application caches…');
@@ -263,12 +251,7 @@ class CodeDeploymentService
     /**
      * Download release archive from GitHub.
      */
-    private function downloadRelease(
-        string $repo,
-        string $versionTag,
-        ?string $token,
-        ?callable $onHeartbeat = null
-    ): string
+    private function downloadRelease(string $repo, string $versionTag, ?string $token): string
     {
         $this->validateVersionTag($versionTag);
 
@@ -279,25 +262,9 @@ class CodeDeploymentService
             File::delete($archivePath);
         }
 
-        $lastProgressAt = 0.0;
         $request = Http::withHeaders([
             'Accept' => 'application/vnd.github.v3+json',
-        ])->withOptions([
-            'sink' => $archivePath,
-            'progress' => function ($downloadTotal, $downloadedBytes, $uploadTotal, $uploadedBytes) use (&$lastProgressAt, $onHeartbeat): void {
-                if ($onHeartbeat === null) {
-                    return;
-                }
-
-                $now = microtime(true);
-                if ($now - $lastProgressAt < 5.0) {
-                    return;
-                }
-
-                $onHeartbeat($this->downloadProgressMessage($downloadedBytes, $downloadTotal));
-                $lastProgressAt = $now;
-            },
-        ])->connectTimeout(30)->timeout(600)->retry(3, 1000);
+        ])->connectTimeout(30)->timeout(600)->retry(3, 1000)->sink($archivePath);
 
         if ($token) {
             $request = $request->withToken($token);
@@ -473,127 +440,48 @@ class CodeDeploymentService
     /**
      * Run a shell command and capture output.
      */
-    private function runShellCommand(
-        string $command,
-        ?callable $onHeartbeat = null,
-        ?callable $onOutput = null,
-        ?string $label = null
-    ): array
+    private function runShellCommand(string $command): array
     {
         Log::info('Running deployment shell command.', ['command' => $command]);
 
-        $stdoutPath = tempnam($this->tempPath, 'deploy-out-');
-        $stderrPath = tempnam($this->tempPath, 'deploy-err-');
-
-        if ($stdoutPath === false || $stderrPath === false) {
-            throw new RuntimeException('Failed to allocate temp files for deployment command output.');
-        }
-
         $descriptorSpec = [
             0 => ['pipe', 'r'],
-            1 => ['file', $stdoutPath, 'w'],
-            2 => ['file', $stderrPath, 'w'],
+            1 => ['pipe', 'w'],
+            2 => ['pipe', 'w'],
         ];
 
         $pipes = [];
-        try {
-            $process = @proc_open($command, $descriptorSpec, $pipes, base_path());
+        $process = @proc_open($command, $descriptorSpec, $pipes, base_path());
 
-            if (! is_resource($process)) {
-                throw new RuntimeException("Failed to start shell command [{$command}].");
-            }
-
-            if (isset($pipes[0])) {
-                fclose($pipes[0]);
-            }
-
-            $output = '';
-            $linesRead = 0;
-            $lastLine = '';
-            $exitCode = null;
-            $lastHeartbeat = microtime(true);
-            $heartbeatLabel = $label ?? $command;
-            $stdoutOffset = 0;
-            $stderrOffset = 0;
-
-            while (true) {
-                foreach ([[$stdoutPath, &$stdoutOffset], [$stderrPath, &$stderrOffset]] as [$path, &$offset]) {
-                    $chunk = $this->readProcessOutputChunk($path, $offset);
-                    if ($chunk === '') {
-                        continue;
-                    }
-
-                    $output .= $chunk;
-                    $linesRead += substr_count($chunk, "\n");
-
-                    $candidate = $this->extractLastLine($chunk);
-                    if ($candidate !== null) {
-                        $lastLine = $candidate;
-                    }
-
-                    if ($onOutput !== null) {
-                        $onOutput($chunk);
-                    }
-                }
-
-                $status = proc_get_status($process);
-                if (! $status['running']) {
-                    $exitCode = $status['exitcode'];
-                    break;
-                }
-
-                $now = microtime(true);
-                if ($onHeartbeat !== null && ($now - $lastHeartbeat) >= 5.0) {
-                    $message = $lastLine !== ''
-                        ? sprintf('%s - %s', $heartbeatLabel, $this->truncateValue($lastLine, 160))
-                        : sprintf('%s - running (%d log lines)', $heartbeatLabel, $linesRead);
-
-                    $onHeartbeat($message);
-                    $lastHeartbeat = $now;
-                }
-
-                usleep(200000);
-            }
-
-            foreach ([[$stdoutPath, &$stdoutOffset], [$stderrPath, &$stderrOffset]] as [$path, &$offset]) {
-                $chunk = $this->readProcessOutputChunk($path, $offset);
-                if ($chunk === '') {
-                    continue;
-                }
-
-                $output .= $chunk;
-
-                $candidate = $this->extractLastLine($chunk);
-                if ($candidate !== null) {
-                    $lastLine = $candidate;
-                }
-
-                if ($onOutput !== null) {
-                    $onOutput($chunk);
-                }
-            }
-
-            $closeCode = proc_close($process);
-            $exit = $exitCode ?? $closeCode;
-            $trimmedOutput = trim($output);
-        } finally {
-            if (is_file($stdoutPath)) {
-                @unlink($stdoutPath);
-            }
-
-            if (is_file($stderrPath)) {
-                @unlink($stderrPath);
-            }
+        if (! is_resource($process)) {
+            throw new RuntimeException("Failed to start shell command [{$command}].");
         }
+
+        if (isset($pipes[0])) {
+            fclose($pipes[0]);
+        }
+
+        $stdout = isset($pipes[1]) ? stream_get_contents($pipes[1]) ?: '' : '';
+        if (isset($pipes[1])) {
+            fclose($pipes[1]);
+        }
+
+        $stderr = isset($pipes[2]) ? stream_get_contents($pipes[2]) ?: '' : '';
+        if (isset($pipes[2])) {
+            fclose($pipes[2]);
+        }
+
+        $exitCode = proc_close($process);
+        $output = trim(implode(PHP_EOL, array_filter([$stdout, $stderr], static fn (string $value): bool => trim($value) !== '')));
 
         Log::info('Deployment shell command finished.', [
             'command' => $command,
-            'exit_code' => $exit,
+            'exit_code' => $exitCode,
         ]);
 
         return [
-            'exit_code' => $exit,
-            'output' => $trimmedOutput,
+            'exit_code' => $exitCode,
+            'output' => $output,
         ];
     }
 
@@ -996,114 +884,13 @@ class CodeDeploymentService
     /**
      * Run a required shell command and throw on failure.
      */
-    private function runRequiredShellCommand(
-        string $command,
-        ?callable $onHeartbeat = null,
-        ?callable $onOutput = null,
-        ?string $label = null
-    ): void
+    private function runRequiredShellCommand(string $command): void
     {
-        $result = $this->runShellCommand($command, $onHeartbeat, $onOutput, $label);
+        $result = $this->runShellCommand($command);
 
         if ($result['exit_code'] !== 0) {
             throw new RuntimeException("Command [{$command}] failed: " . ($result['output'] ?: 'unknown error'));
         }
-    }
-
-    /**
-     * Bind a heartbeat callback to a specific stage name.
-     */
-    private function stageHeartbeat(?callable $onHeartbeat, string $stage): ?callable
-    {
-        if ($onHeartbeat === null) {
-            return null;
-        }
-
-        return fn (string $message) => $onHeartbeat($stage, $message);
-    }
-
-    private function readProcessOutputChunk(string $path, int &$offset): string
-    {
-        clearstatcache(true, $path);
-
-        $size = @filesize($path);
-        if ($size === false || $size <= $offset) {
-            return '';
-        }
-
-        $handle = @fopen($path, 'rb');
-        if ($handle === false) {
-            return '';
-        }
-
-        @fseek($handle, $offset);
-        $chunk = @stream_get_contents($handle);
-        @fclose($handle);
-
-        if (! is_string($chunk) || $chunk === '') {
-            return '';
-        }
-
-        $offset += strlen($chunk);
-
-        return $chunk;
-    }
-
-    private function extractLastLine(string $chunk): ?string
-    {
-        $trimmed = rtrim($chunk, "\r\n");
-        if ($trimmed === '') {
-            return null;
-        }
-
-        $position = strrpos($trimmed, "\n");
-        $line = $position === false ? $trimmed : substr($trimmed, $position + 1);
-        $line = trim($line);
-
-        return $line === '' ? null : $line;
-    }
-
-    private function truncateValue(string $value, int $max): string
-    {
-        return strlen($value) <= $max ? $value : substr($value, 0, $max - 3) . '...';
-    }
-
-    private function downloadProgressMessage($downloadedBytes, $downloadTotal): string
-    {
-        $downloaded = max(0, (int) round((float) $downloadedBytes));
-        $total = max(0, (int) round((float) $downloadTotal));
-
-        if ($total > 0) {
-            $percent = min(100, (int) floor(($downloaded / $total) * 100));
-
-            return sprintf(
-                'Downloading release archive from GitHub... %d%% (%s / %s)',
-                $percent,
-                $this->formatBytes($downloaded),
-                $this->formatBytes($total)
-            );
-        }
-
-        return sprintf(
-            'Downloading release archive from GitHub... %s received',
-            $this->formatBytes($downloaded)
-        );
-    }
-
-    private function formatBytes(int $bytes): string
-    {
-        $units = ['B', 'KB', 'MB', 'GB', 'TB'];
-        $value = max($bytes, 0);
-        $unit = 0;
-
-        while ($value >= 1024 && $unit < count($units) - 1) {
-            $value /= 1024;
-            $unit++;
-        }
-
-        return $unit === 0
-            ? sprintf('%d %s', (int) round($value), $units[$unit])
-            : sprintf('%.1f %s', $value, $units[$unit]);
     }
 
     /**
@@ -1196,17 +983,59 @@ class CodeDeploymentService
      */
     private function composerInstallCommand(): string
     {
-        return 'composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader';
+        return 'composer install --prefer-dist --no-interaction --no-progress --optimize-autoloader';
     }
 
     /**
      * Build the NPM dependency install command used during deployment.
+     *
+     * We deliberately use `npm install` (not `npm ci`) on Windows: `npm ci`
+     * wipes node_modules/ before reinstalling, which fails with EPERM whenever
+     * another process holds a file handle on a binary like esbuild.exe — a
+     * common case when the IDE's Tailwind extension or a Vite dev server is
+     * running. `npm install` patches node_modules/ in place and tolerates
+     * locks much better.
      */
     private function npmInstallCommand(): string
     {
-        return File::exists(base_path('package-lock.json'))
-            ? 'npm ci --no-audit --no-fund'
-            : 'npm install --no-audit --no-fund';
+        return 'npm install --no-audit --no-fund';
+    }
+
+    /**
+     * Probe Node binaries that npm install is most likely to fail on if a
+     * sibling process (Vite dev server, IDE extension, antivirus scan) is
+     * holding them open. We test by attempting an exclusive write handle —
+     * Windows refuses the open if the file is already locked by another
+     * process. Returns the list of locked paths (empty if all good).
+     *
+     * @return list<string>
+     */
+    private function detectLockedNodeBinaries(): array
+    {
+        $candidates = [
+            base_path('node_modules/@esbuild/win32-x64/esbuild.exe'),
+            base_path('node_modules/esbuild/bin/esbuild'),
+            base_path('node_modules/.bin/esbuild.cmd'),
+            base_path('node_modules/.bin/vite.cmd'),
+        ];
+
+        $locked = [];
+        foreach ($candidates as $path) {
+            if (! is_file($path)) {
+                continue;
+            }
+
+            // Try to open with shared-write intent. On Windows this fails when
+            // another process has the file mapped (a running .exe or DLL).
+            $handle = @fopen($path, 'r+b');
+            if ($handle === false) {
+                $locked[] = $path;
+                continue;
+            }
+            @fclose($handle);
+        }
+
+        return $locked;
     }
 
     /**

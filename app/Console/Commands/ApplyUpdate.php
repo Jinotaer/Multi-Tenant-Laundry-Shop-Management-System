@@ -19,50 +19,16 @@ class ApplyUpdate extends Command
         CodeDeploymentService $deployment,
         TenantMigrationService $migration,
     ): int {
-        // Diagnostic marker: proves the artisan command was reached and DI
-        // resolved (CodeDeploymentService and TenantMigrationService injected).
-        // Pairs with the bat-level marker written by UpdateController.
-        @file_put_contents(
-            storage_path('app/deployments/cli-entered.txt'),
-            '[cli] entered handle() at ' . now()->toIso8601String() . PHP_EOL
-        );
-
         $statusFile = storage_path('app/deployments/status.json');
-        $logFile    = storage_path('logs/artisan-update.log');
         $history    = [];
 
-        $persist = function (string $stage, string $message, string $state = 'running', ?string $error = null) use ($statusFile, &$history): void {
-            $payload = [
-                'state' => $state,
-                'stage' => $stage,
-                'message' => $message,
-                'updated_at' => now()->toIso8601String(),
-                'history' => $history,
-            ];
-
+        $write = function (string $stage, string $message, string $state = 'running', ?string $error = null) use ($statusFile, &$history): void {
+            $history[] = ['at' => now()->toIso8601String(), 'stage' => $stage, 'message' => $message];
+            $payload   = ['state' => $state, 'stage' => $stage, 'message' => $message, 'history' => $history];
             if ($error !== null) {
                 $payload['error'] = $error;
             }
-
             @file_put_contents($statusFile, json_encode($payload));
-        };
-
-        $appendLog = function (string $chunk) use ($logFile): void {
-            if ($chunk === '') {
-                return;
-            }
-
-            @file_put_contents($logFile, $chunk, FILE_APPEND | LOCK_EX);
-        };
-
-        $write = function (string $stage, string $message, string $state = 'running', ?string $error = null) use (&$history, $persist, $appendLog): void {
-            $history[] = ['at' => now()->toIso8601String(), 'stage' => $stage, 'message' => $message];
-            $persist($stage, $message, $state, $error);
-            $appendLog(sprintf("[%s] [%s] %s%s", now()->format('Y-m-d H:i:s'), $stage, $message, PHP_EOL));
-        };
-
-        $heartbeat = function (string $stage, string $message, string $state = 'running', ?string $error = null) use ($persist): void {
-            $persist($stage, $message, $state, $error);
         };
 
         // Heartbeat as the very first action: tells the poll endpoint that the
@@ -89,8 +55,6 @@ class ApplyUpdate extends Command
             $result = $deployment->deployWithProgress(
                 $release->version_tag,
                 fn (string $stage, string $msg) => $write($stage, $msg),
-                fn (string $stage, string $msg) => $heartbeat($stage, $msg),
-                fn (string $chunk) => $appendLog($chunk),
             );
 
             if (! $result['success']) {
