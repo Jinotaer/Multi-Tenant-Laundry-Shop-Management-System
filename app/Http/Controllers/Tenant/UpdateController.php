@@ -316,6 +316,14 @@ class UpdateController extends Controller
                 // start "" /B launches it detached; pclose returns in ~100 ms.
                 $batFile    = storage_path('app/deployments/run-update.bat');
                 $batContent = "@echo off\r\n"
+                    . "cd /d \"{$appRoot}\"\r\n"
+                    . "echo [bat] launched at %DATE% %TIME% (cwd=%CD%) >> \"{$logFile}\"\r\n"
+                    . "echo [bat] launched at %DATE% %TIME% > \"{$batMarker}\"\r\n"
+                    . "\"{$php}\" -v >> \"{$logFile}\" 2>&1\r\n"
+                    . "if errorlevel 1 (\r\n"
+                    . "  echo [bat] FATAL: php.exe not runnable at \"{$php}\" >> \"{$logFile}\"\r\n"
+                    . "  exit /b 1\r\n"
+                    . ")\r\n"
                     . "\"{$php}\" \"{$artisan}\" update:apply"
                     . " \"{$release->id}\" \"{$tenant->getKey()}\""
                     . " >> \"{$logFile}\" 2>&1\r\n";
