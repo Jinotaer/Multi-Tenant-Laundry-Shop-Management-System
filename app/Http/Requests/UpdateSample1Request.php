@@ -11,7 +11,7 @@ class UpdateSample1Request extends FormRequest
      */
     public function authorize(): bool
     {
-        return false;
+        return true;
     }
 
     /**
@@ -22,7 +22,8 @@ class UpdateSample1Request extends FormRequest
     public function rules(): array
     {
         return [
-            //
+            'name' => ['required', 'string', 'max:255'],
+            'age' => ['required', 'integer', 'min:0', 'max:150'],
         ];
     }
 }
