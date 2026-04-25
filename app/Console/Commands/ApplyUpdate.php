@@ -7,8 +7,9 @@ use App\Models\Tenant;
 use App\Services\CodeDeploymentService;
 use App\Services\TenantMigrationService;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 
 class ApplyUpdate extends Command
@@ -101,6 +102,19 @@ class ApplyUpdate extends Command
             // Clear maintenance mode so the shop comes back online on old code.
             try {
                 Cache::forget("tenant:update:maintenance:{$tenantId}");
+            } catch (\Throwable) {}
+
+            try {
+                DB::connection(config('tenancy.database.central_connection'))
+                    ->table('tenant_updates')
+                    ->where('tenant_id', $tenantId)
+                    ->where('app_release_id', $releaseId)
+                    ->update([
+                        'status' => 'failed',
+                        'is_current' => false,
+                        'action_taken_at' => now(),
+                        'updated_at' => now(),
+                    ]);
             } catch (\Throwable) {}
 
             $write('rollback', $e->getMessage(), 'failed', $e->getMessage());

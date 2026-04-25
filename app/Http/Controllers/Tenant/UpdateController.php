@@ -38,6 +38,7 @@ class UpdateController extends Controller
         $currentVersion = $tenant->currentVersion();
         $currentUpdate = $tenant->updates()->where('is_current', true)->with('release')->first();
         $currentVersionTag = $currentUpdate?->release?->version_tag ?? 'v0.0.0';
+        $this->cancelSupersededApplyingUpdates($tenant, $currentVersionTag);
 
         // Sort by semantic version so tenants always see the true latest release first.
         $allReleases = $this->releaseService->sortReleasesDescending(AppRelease::all());
@@ -63,6 +64,16 @@ class UpdateController extends Controller
             ->with('release')
             ->latest('action_taken_at')
             ->first();
+
+        if (
+            $applyingUpdate
+            && ! $this->releaseService->isNewerVersion(
+                $applyingUpdate->release?->version_tag ?? 'v0.0.0',
+                $currentVersionTag
+            )
+        ) {
+            $applyingUpdate = null;
+        }
 
         // Check for pending migrations
         $hasPendingMigrations = false;
@@ -277,10 +288,7 @@ class UpdateController extends Controller
             // if the user navigates away while the update runs.
             $centralConnection = config('tenancy.database.central_connection');
             DB::connection($centralConnection)->transaction(function () use ($tenant, $release) {
-                $tenant->updates()
-                    ->where('tenant_id', $tenant->getKey())
-                    ->where('is_current', true)
-                    ->update(['is_current' => false]);
+                $this->cancelOtherApplyingUpdates($tenant, $release->id);
 
                 $tenant->updates()->updateOrCreate(
                     ['tenant_id' => $tenant->getKey(), 'app_release_id' => $release->id],
@@ -382,6 +390,9 @@ class UpdateController extends Controller
                     $this->backupService->restoreBackup($tenant, $tenantBackupPath);
                 } catch (\Throwable) {}
             }
+
+            $this->markTenantUpdateStatus($tenant, $release, 'failed');
+            $request->session()->forget('update_finalize');
 
             // Restore is_current on the most recent 'updated' row so
             // currentVersion() reflects the actual running version.
@@ -577,6 +588,8 @@ class UpdateController extends Controller
             $status = json_decode(File::get($statusFile), true);
             if (is_array($status) && ($status['state'] ?? '') === 'failed') {
                 $errorMsg = $status['message'] ?? 'Unknown error';
+                $this->markTenantUpdateStatus($tenant, $release, 'failed');
+                $request->session()->forget('update_finalize');
                 Log::error("Finalize requested but updater reported failure for tenant {$tenant->id}", [
                     'version' => $release->version_tag,
                     'updater_message' => $errorMsg,
@@ -763,6 +776,18 @@ class UpdateController extends Controller
                     'action_taken_at' => now(),
                 ]
             );
+
+            DB::connection($centralConnection)
+                ->table('tenant_updates')
+                ->where('tenant_id', $tenant->getKey())
+                ->where('status', 'applying')
+                ->where('app_release_id', '!=', $release->id)
+                ->update([
+                    'status' => 'cancelled',
+                    'is_current' => false,
+                    'action_taken_at' => now(),
+                    'updated_at' => now(),
+                ]);
         });
 
         $verifyCurrent = $tenant->updates()
@@ -822,6 +847,78 @@ class UpdateController extends Controller
                 'error' => $e->getMessage(),
             ]);
         }
+    }
+
+    /**
+     * Cancel any other queued/applying attempts for this tenant.
+     */
+    private function cancelOtherApplyingUpdates($tenant, ?int $exceptReleaseId = null): void
+    {
+        $query = DB::connection(config('tenancy.database.central_connection'))
+            ->table('tenant_updates')
+            ->where('tenant_id', $tenant->getKey())
+            ->where('status', 'applying');
+
+        if ($exceptReleaseId !== null) {
+            $query->where('app_release_id', '!=', $exceptReleaseId);
+        }
+
+        $query->update([
+            'status' => 'cancelled',
+            'is_current' => false,
+            'action_taken_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    /**
+     * Mark a specific update attempt as no longer active.
+     */
+    private function markTenantUpdateStatus($tenant, AppRelease $release, string $status): void
+    {
+        DB::connection(config('tenancy.database.central_connection'))
+            ->table('tenant_updates')
+            ->where('tenant_id', $tenant->getKey())
+            ->where('app_release_id', $release->id)
+            ->update([
+                'status' => $status,
+                'is_current' => false,
+                'action_taken_at' => now(),
+                'updated_at' => now(),
+            ]);
+    }
+
+    /**
+     * Cleanup stuck "applying" rows that are older than the current live version.
+     */
+    private function cancelSupersededApplyingUpdates($tenant, string $currentVersionTag): void
+    {
+        $staleUpdateIds = $tenant->updates()
+            ->where('status', 'applying')
+            ->with('release')
+            ->get()
+            ->filter(function ($update) use ($currentVersionTag): bool {
+                return ! $this->releaseService->isNewerVersion(
+                    $update->release?->version_tag ?? 'v0.0.0',
+                    $currentVersionTag
+                );
+            })
+            ->pluck('id')
+            ->all();
+
+        if ($staleUpdateIds === []) {
+            return;
+        }
+
+        DB::connection(config('tenancy.database.central_connection'))
+            ->table('tenant_updates')
+            ->whereIn('id', $staleUpdateIds)
+            ->update([
+                'status' => 'cancelled',
+                'is_current' => false,
+                'action_taken_at' => now(),
+                'updated_at' => now(),
+            ]);
     }
 
     /**

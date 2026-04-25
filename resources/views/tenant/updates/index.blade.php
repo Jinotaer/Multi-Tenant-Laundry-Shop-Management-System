@@ -234,6 +234,7 @@
                                         'updated' => 'bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/30',
                                         'applying' => 'bg-blue-50 text-blue-700 ring-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-500/30',
                                         'failed' => 'bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:ring-rose-500/30',
+                                        'cancelled' => 'bg-slate-100 text-slate-700 ring-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700',
                                         'rolled_back' => 'bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/30',
                                         default => 'bg-slate-100 text-slate-700 ring-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700',
                                     };
@@ -241,6 +242,7 @@
                                         'updated' => 'bg-emerald-500',
                                         'applying' => 'bg-blue-500 animate-pulse',
                                         'failed' => 'bg-rose-500',
+                                        'cancelled' => 'bg-slate-400',
                                         'rolled_back' => 'bg-amber-500',
                                         default => 'bg-slate-400',
                                     };
