@@ -1,6 +1,18 @@
 <x-tenant-layout>
     <div class="space-y-5">
-        <x-tenant-header title="Updating to {{ $release->version_tag }}" description="Do not close this tab while the update is in progress." />
+        <x-tenant-header title="Updating to {{ $release->version_tag }}" description="Do not close this tab while the update is in progress.">
+            <x-slot name="actions">
+                <a
+                    href="{{ route('tenant.updates.index') }}"
+                    class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white/80 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+                    </svg>
+                    Back to Update Center
+                </a>
+            </x-slot>
+        </x-tenant-header>
 
         @if (session('error'))
             <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
@@ -67,17 +79,6 @@
                 </div>
                 <p class="mt-3 text-sm text-slate-600 dark:text-slate-400">Error details:</p>
                 <pre id="error-detail" class="mt-2 overflow-x-auto whitespace-pre-wrap rounded-xl border border-red-200 bg-red-50 p-4 font-mono text-xs text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300"></pre>
-                <div class="mt-5">
-                    <a
-                        href="{{ route('tenant.updates.index') }}"
-                        class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white/80 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200"
-                    >
-                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
-                        </svg>
-                        Back to Update Center
-                    </a>
-                </div>
             </div>
         </div>
 
