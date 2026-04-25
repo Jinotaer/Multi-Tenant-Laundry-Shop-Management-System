@@ -311,6 +311,13 @@ class UpdateController extends Controller
             ];
             @file_put_contents($statusFile, json_encode($bootPayload));
 
+            $markerDir = storage_path('app/deployments');
+            $batMarker = $markerDir . DIRECTORY_SEPARATOR . 'bat-launched.txt';
+            $cliMarker = $markerDir . DIRECTORY_SEPARATOR . 'cli-entered.txt';
+            $appRoot   = base_path();
+            @unlink($batMarker);
+            @unlink($cliMarker);
+
             if (PHP_OS_FAMILY === 'Windows') {
                 // Write a .bat launcher so I/O is captured and quoting is trivial.
                 // start "" /B launches it detached; pclose returns in ~100 ms.
@@ -326,7 +333,8 @@ class UpdateController extends Controller
                     . ")\r\n"
                     . "\"{$php}\" \"{$artisan}\" update:apply"
                     . " \"{$release->id}\" \"{$tenant->getKey()}\""
-                    . " >> \"{$logFile}\" 2>&1\r\n";
+                    . " >> \"{$logFile}\" 2>&1\r\n"
+                    . "echo [bat] artisan exited with %ERRORLEVEL% at %DATE% %TIME% >> \"{$logFile}\"\r\n";
                 File::put($batFile, $batContent);
                 $command = "start \"\" /B \"{$batFile}\"";
             } else {
@@ -341,6 +349,14 @@ class UpdateController extends Controller
                 throw new \RuntimeException('Failed to launch update process.');
             }
             pclose($handle);
+
+            Log::info('Spawning update process', [
+                'tenant' => $tenant->getKey(),
+                'release' => $release->id,
+                'php' => $php,
+                'command' => $command,
+                'log' => $logFile,
+            ]);
 
             // Persist backup path so finalizeUpdate() can restore on failure.
             $request->session()->put('update_finalize', [
@@ -455,10 +471,15 @@ class UpdateController extends Controller
             $ageSeconds = max(0, time() - $mtime);
 
             if ($ageSeconds >= $stallFail) {
+                $diagnostic = $this->diagnoseStalledUpdaterLaunch();
+
                 $decoded['state']    = 'failed';
                 $decoded['stage']    = 'rollback';
-                $decoded['message']  = 'The updater stopped responding. Check artisan-update.log for details.';
+                $decoded['message']  = $diagnostic['message'] ?? 'The updater stopped responding. Check artisan-update.log for details.';
                 $decoded['error']    = 'Updater idle for ' . $ageSeconds . 's with no progress.';
+                if (! empty($diagnostic['detail'])) {
+                    $decoded['error'] .= "\n\n" . $diagnostic['detail'];
+                }
                 $decoded['log_tail'] = $this->readUpdaterLogTail($logFile, 60);
             } elseif ($ageSeconds >= $stallWarning) {
                 $decoded['stalled']      = true;
@@ -508,6 +529,35 @@ class UpdateController extends Controller
         } catch (\Throwable) {
             return null;
         }
+    }
+
+    /**
+     * @return array{message?: string, detail?: string}
+     */
+    private function diagnoseStalledUpdaterLaunch(): array
+    {
+        $markerDir = storage_path('app/deployments');
+        $batMarker = $markerDir . DIRECTORY_SEPARATOR . 'bat-launched.txt';
+        $cliMarker = $markerDir . DIRECTORY_SEPARATOR . 'cli-entered.txt';
+
+        if (! File::exists($batMarker)) {
+            return [
+                'message' => 'The updater never launched on this machine.',
+                'detail' => 'The batch launcher marker was not written. Check detached-process permissions for the web server user.',
+            ];
+        }
+
+        if (! File::exists($cliMarker)) {
+            return [
+                'message' => 'The updater batch launched, but the Laravel CLI never booted.',
+                'detail' => 'Check UPDATER_PHP_BIN on this device and review artisan-update.log for a PHP/Laravel boot error before handle() runs.',
+            ];
+        }
+
+        return [
+            'message' => 'The updater stopped responding. Check artisan-update.log for details.',
+            'detail' => 'The CLI reached update:apply, so the stall happened after Laravel boot.',
+        ];
     }
 
     /**

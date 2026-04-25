@@ -983,7 +983,7 @@ class CodeDeploymentService
      */
     private function composerInstallCommand(): string
     {
-        return 'composer install --prefer-dist --no-interaction --no-progress --optimize-autoloader';
+        return 'composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader';
     }
 
     /**

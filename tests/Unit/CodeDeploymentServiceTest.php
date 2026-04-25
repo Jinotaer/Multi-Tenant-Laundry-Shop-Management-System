@@ -174,7 +174,7 @@ test('deployment command plan runs install and build steps before recaching and 
         'php artisan route:clear',
         'php artisan view:clear',
         'composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader',
-        'npm ci --no-audit --no-fund',
+        'npm install --no-audit --no-fund',
         'verify frontend dependencies',
         'npm audit fix --no-fund',
         'npm run build',
