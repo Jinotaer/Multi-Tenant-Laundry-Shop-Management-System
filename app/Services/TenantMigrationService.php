@@ -18,8 +18,11 @@ class TenantMigrationService
             $results = [];
 
             try {
-                // Get migrations between versions
-                $migrations = $this->getMigrationsBetweenVersions($fromVersion, $toVersion);
+                // During forward updates, run any pending version-tagged tenant
+                // migrations up to the target version. This backfills migrations
+                // that may have been introduced late or skipped on an earlier
+                // release without forcing operators to run commands manually.
+                $migrations = $this->getPendingForwardMigrations($fromVersion, $toVersion);
 
                 if (empty($migrations)) {
                     return [
@@ -79,18 +82,7 @@ class TenantMigrationService
      */
     private function getMigrationsBetweenVersions(string $fromVersion, string $toVersion): array
     {
-        $migrationsPath = database_path('migrations/tenant');
-        
-        if (!File::exists($migrationsPath)) {
-            return [];
-        }
-        
-        $allMigrations = collect(File::files($migrationsPath))
-            ->map(fn($file) => $file->getFilename())
-            ->filter(fn($file) => str_ends_with($file, '.php'))
-            ->sort()
-            ->values()
-            ->toArray();
+        $allMigrations = $this->allTenantMigrationFiles();
 
         // When versions are identical, this is a "run pending" operation,
         // so include all tenant migration files.
@@ -105,14 +97,37 @@ class TenantMigrationService
     }
 
     /**
+     * Get all pending tenant migrations that should exist by the target version.
+     */
+    private function getPendingForwardMigrations(string $fromVersion, string $toVersion): array
+    {
+        $allMigrations = $this->allTenantMigrationFiles();
+
+        if (ltrim($fromVersion, 'v') === ltrim($toVersion, 'v')) {
+            return $allMigrations;
+        }
+
+        return array_values(array_filter($allMigrations, function (string $migration) use ($toVersion): bool {
+            $migrationVersion = $this->extractVersionFromMigration($migration);
+
+            if ($migrationVersion === null) {
+                return false;
+            }
+
+            return version_compare(ltrim($migrationVersion, 'v'), ltrim($toVersion, 'v'), '<=')
+                && ! $this->hasMigrationAlreadyRun($migration);
+        }));
+    }
+
+    /**
      * Filter migrations by version tags in filename or comments.
      */
     private function filterMigrationsByVersion(array $migrations, string $fromVersion, string $toVersion): array
     {
         return array_filter($migrations, function($migration) use ($fromVersion, $toVersion) {
-            // Extract version from migration filename if present
-            if (preg_match('/v(\d+)_(\d+)_(\d+)/', $migration, $matches)) {
-                $migrationVersion = "v{$matches[1]}.{$matches[2]}.{$matches[3]}";
+            $migrationVersion = $this->extractVersionFromMigration($migration);
+
+            if ($migrationVersion !== null) {
                 return $this->isVersionBetween($migrationVersion, $fromVersion, $toVersion);
             }
             
@@ -139,14 +154,7 @@ class TenantMigrationService
      */
     private function runSingleMigration(string $migrationFile): void
     {
-        $migrationName = str_replace('.php', '', $migrationFile);
-        
-        // Check if already run
-        $alreadyRun = DB::table('migrations')
-            ->where('migration', $migrationName)
-            ->exists();
-        
-        if ($alreadyRun) {
+        if ($this->hasMigrationAlreadyRun($migrationFile)) {
             return;
         }
         
@@ -156,6 +164,49 @@ class TenantMigrationService
             '--force' => true,
             '--step' => true
         ]);
+    }
+
+    /**
+     * Return all tenant migration filenames in sorted order.
+     */
+    private function allTenantMigrationFiles(): array
+    {
+        $migrationsPath = database_path('migrations/tenant');
+
+        if (! File::exists($migrationsPath)) {
+            return [];
+        }
+
+        return collect(File::files($migrationsPath))
+            ->map(fn ($file) => $file->getFilename())
+            ->filter(fn ($file) => str_ends_with($file, '.php'))
+            ->sort()
+            ->values()
+            ->toArray();
+    }
+
+    /**
+     * Extract a semantic version from a tagged migration filename.
+     */
+    private function extractVersionFromMigration(string $migration): ?string
+    {
+        if (! preg_match('/v(\d+)_(\d+)_(\d+)/', $migration, $matches)) {
+            return null;
+        }
+
+        return "v{$matches[1]}.{$matches[2]}.{$matches[3]}";
+    }
+
+    /**
+     * Determine whether a tenant migration has already been recorded.
+     */
+    private function hasMigrationAlreadyRun(string $migrationFile): bool
+    {
+        $migrationName = str_replace('.php', '', $migrationFile);
+
+        return DB::table('migrations')
+            ->where('migration', $migrationName)
+            ->exists();
     }
 
     /**
