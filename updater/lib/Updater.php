@@ -199,6 +199,12 @@ final class Updater
     }
 
     /**
+     * Run a child command non-blocking: stream stdout/stderr to the log as
+     * they arrive, and emit a heartbeat to status.json every few seconds with
+     * the latest output line. This keeps the UI watchdog satisfied during
+     * long steps (composer install, npm build, migrations) that previously
+     * froze the updater on a blocking stream_get_contents().
+     *
      * @param array<int, string> $args
      */
     private function runShell(array $args, string $label): void
@@ -216,20 +222,89 @@ final class Updater
         }
 
         fclose($pipes[0]);
-        $stdout = stream_get_contents($pipes[1]) ?: '';
-        $stderr = stream_get_contents($pipes[2]) ?: '';
+        stream_set_blocking($pipes[1], false);
+        stream_set_blocking($pipes[2], false);
+
+        $output = '';
+        $linesRead = 0;
+        $lastLine = '';
+        $exitCode = null;
+        $lastHeartbeat = microtime(true);
+        $heartbeatInterval = 5.0;
+
+        while (true) {
+            $stdoutChunk = fread($pipes[1], 8192);
+            $stderrChunk = fread($pipes[2], 8192);
+
+            foreach ([$stdoutChunk, $stderrChunk] as $chunk) {
+                if ($chunk === false || $chunk === '') {
+                    continue;
+                }
+                $output .= $chunk;
+                $linesRead += substr_count($chunk, "\n");
+                $candidate = $this->extractLastLine($chunk);
+                if ($candidate !== null) {
+                    $lastLine = $candidate;
+                }
+                $this->status->stream($chunk);
+            }
+
+            $procStatus = proc_get_status($process);
+            if (! $procStatus['running']) {
+                $exitCode = $procStatus['exitcode'];
+                // Drain remaining buffered output before closing pipes.
+                foreach ([$pipes[1], $pipes[2]] as $pipe) {
+                    while (($remaining = fread($pipe, 8192)) !== false && $remaining !== '') {
+                        $output .= $remaining;
+                        $this->status->stream($remaining);
+                    }
+                }
+                break;
+            }
+
+            $now = microtime(true);
+            if ($now - $lastHeartbeat >= $heartbeatInterval) {
+                $message = $lastLine !== ''
+                    ? sprintf('%s — %s', $label, $this->truncate($lastLine, 160))
+                    : sprintf('%s — running (%d log lines)', $label, $linesRead);
+                $this->status->heartbeat($label, $message);
+                $lastHeartbeat = $now;
+            }
+
+            usleep(200_000);
+        }
+
         fclose($pipes[1]);
         fclose($pipes[2]);
 
-        $exit = proc_close($process);
+        $closeCode = proc_close($process);
+        $exit = $exitCode ?? $closeCode;
 
         if ($exit !== 0) {
-            $tail = trim($stdout . "\n" . $stderr);
+            $tail = trim($output);
             if (strlen($tail) > 2000) {
                 $tail = substr($tail, -2000);
             }
             throw new RuntimeException("[{$label}] failed (exit {$exit}): {$tail}");
         }
+    }
+
+    private function extractLastLine(string $chunk): ?string
+    {
+        $trimmed = rtrim($chunk, "\r\n");
+        if ($trimmed === '') {
+            return null;
+        }
+        $pos = strrpos($trimmed, "\n");
+        $line = $pos === false ? $trimmed : substr($trimmed, $pos + 1);
+        $line = trim($line);
+
+        return $line === '' ? null : $line;
+    }
+
+    private function truncate(string $value, int $max): string
+    {
+        return strlen($value) <= $max ? $value : substr($value, 0, $max - 1) . '…';
     }
 
     private function validateConfig(): void

@@ -60,6 +60,38 @@ final class StatusWriter
         $this->update('finalize', $message, $state, $extra);
     }
 
+    /**
+     * Refresh the status file's top-line message and mtime without appending
+     * to history. Used to satisfy the UI watchdog while a long subprocess
+     * (composer, npm, migrate) runs without phase changes.
+     */
+    public function heartbeat(string $stage, string $message, array $extra = []): void
+    {
+        $payload = array_merge([
+            'state' => 'running',
+            'stage' => $stage,
+            'message' => $message,
+            'updated_at' => date('c'),
+            'history' => $this->history,
+        ], $extra);
+
+        $tmp = $this->path . '.tmp';
+        file_put_contents($tmp, json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        @rename($tmp, $this->path);
+    }
+
+    /**
+     * Append raw subprocess output to the log as it arrives, so operators see
+     * live composer/npm/migrate output instead of a single dump on completion.
+     */
+    public function stream(string $chunk): void
+    {
+        if ($chunk === '') {
+            return;
+        }
+        @file_put_contents($this->logPath, $chunk, FILE_APPEND | LOCK_EX);
+    }
+
     private function appendLog(string $line): void
     {
         $stamp = date('Y-m-d H:i:s');
