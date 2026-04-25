@@ -759,7 +759,7 @@ class UpdateController extends Controller
     {
         $centralConnection = config('tenancy.database.central_connection');
 
-        DB::connection($centralConnection)->transaction(function () use ($tenant, $release) {
+        DB::connection($centralConnection)->transaction(function () use ($tenant, $release, $centralConnection) {
             $tenant->updates()
                 ->where('tenant_id', $tenant->getKey())
                 ->where('is_current', true)
