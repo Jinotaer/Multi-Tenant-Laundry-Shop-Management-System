@@ -28,15 +28,41 @@ class ApplyUpdate extends Command
         );
 
         $statusFile = storage_path('app/deployments/status.json');
+        $logFile    = storage_path('logs/artisan-update.log');
         $history    = [];
 
-        $write = function (string $stage, string $message, string $state = 'running', ?string $error = null) use ($statusFile, &$history): void {
-            $history[] = ['at' => now()->toIso8601String(), 'stage' => $stage, 'message' => $message];
-            $payload   = ['state' => $state, 'stage' => $stage, 'message' => $message, 'history' => $history];
+        $persist = function (string $stage, string $message, string $state = 'running', ?string $error = null) use ($statusFile, &$history): void {
+            $payload = [
+                'state' => $state,
+                'stage' => $stage,
+                'message' => $message,
+                'updated_at' => now()->toIso8601String(),
+                'history' => $history,
+            ];
+
             if ($error !== null) {
                 $payload['error'] = $error;
             }
+
             @file_put_contents($statusFile, json_encode($payload));
+        };
+
+        $appendLog = function (string $chunk) use ($logFile): void {
+            if ($chunk === '') {
+                return;
+            }
+
+            @file_put_contents($logFile, $chunk, FILE_APPEND | LOCK_EX);
+        };
+
+        $write = function (string $stage, string $message, string $state = 'running', ?string $error = null) use (&$history, $persist, $appendLog): void {
+            $history[] = ['at' => now()->toIso8601String(), 'stage' => $stage, 'message' => $message];
+            $persist($stage, $message, $state, $error);
+            $appendLog(sprintf("[%s] [%s] %s%s", now()->format('Y-m-d H:i:s'), $stage, $message, PHP_EOL));
+        };
+
+        $heartbeat = function (string $stage, string $message, string $state = 'running', ?string $error = null) use ($persist): void {
+            $persist($stage, $message, $state, $error);
         };
 
         // Heartbeat as the very first action: tells the poll endpoint that the
@@ -63,6 +89,8 @@ class ApplyUpdate extends Command
             $result = $deployment->deployWithProgress(
                 $release->version_tag,
                 fn (string $stage, string $msg) => $write($stage, $msg),
+                fn (string $stage, string $msg) => $heartbeat($stage, $msg),
+                fn (string $chunk) => $appendLog($chunk),
             );
 
             if (! $result['success']) {
