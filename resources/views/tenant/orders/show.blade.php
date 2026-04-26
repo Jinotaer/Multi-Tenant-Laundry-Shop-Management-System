@@ -1,178 +1,318 @@
 <x-tenant-layout>
-    <x-slot name="header">
-        <div class="flex items-center gap-3">
-            <a href="{{ route('tenant.orders.index') }}" class="text-gray-400 hover:text-gray-600">
-                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-                </svg>
-            </a>
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">{{ $order->order_number }}</h2>
-            <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium {{ $order->status_color }}">
-                {{ $order->status_label }}
-            </span>
-            @if ($order->payment_status === 'paid')
-                <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium bg-green-100 text-green-800">Paid</span>
-            @else
-                <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium bg-red-100 text-red-800">Unpaid</span>
-            @endif
-        </div>
-    </x-slot>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
 
-    @php $theme = tenant()->getThemePreset(); @endphp
+    @php 
+        $theme = tenant()->getThemePreset(); 
+        $isPaid = $order->isPaid();
+    @endphp
 
-    <div class="tenant-page-stack max-w-3xl space-y-6">
+    <div class="max-w-7xl mx-auto space-y-8 mt-2">
+        <!-- Page Header -->
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+                <div class="flex items-center space-x-3 mb-1">
+                    <a href="{{ route('tenant.orders.index') }}" class="text-gray-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition-colors flex items-center">
+                        <span class="material-symbols-outlined text-[20px]">arrow_back</span>
+                    </a>
+                    <h1 class="text-3xl font-bold tracking-tight text-gray-900 dark:text-slate-100">Order Details</h1>
+                    <span class="px-3 py-1 bg-gray-100 dark:bg-slate-800 text-gray-900 dark:text-slate-100 text-sm font-semibold rounded-full {{ $order->status_color }}">
+                        {{ $order->order_number }}
+                    </span>
+                </div>
+                <p class="text-base text-gray-500 dark:text-slate-400 ml-9">Created on {{ $order->created_at->format('M d, Y') }} at {{ $order->created_at->format('h:i A') }}</p>
+            </div>
+            
+            <div class="flex flex-wrap items-center gap-3">
+                @if (auth()->user()->isOwner() || auth()->user()->isStaff())
+                    <a href="{{ route('tenant.orders.edit', $order) }}" class="px-4 py-2 border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-300 rounded-lg text-sm font-semibold hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors active:scale-[0.98] flex items-center space-x-2">
+                        <span class="material-symbols-outlined text-[18px]">edit</span>
+                        <span>Edit Order</span>
+                    </a>
+                    
+                    @if (auth()->user()->isOwner())
+                        <form method="POST" action="{{ route('tenant.orders.destroy', $order) }}" onsubmit="return confirm('Delete this order?')" class="m-0">
+                            @csrf @method('DELETE')
+                            <button type="submit" class="px-4 py-2 border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 rounded-lg text-sm font-semibold hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors active:scale-[0.98] flex items-center space-x-2">
+                                <span class="material-symbols-outlined text-[18px]">delete</span>
+                            </button>
+                        </form>
+                    @endif
+                @endif
 
-        {{-- Quick Actions --}}
-        @if (auth()->user()->isOwner() || auth()->user()->isStaff())
-            <div class="bg-white shadow-sm sm:rounded-lg">
-                <div class="px-6 py-4 flex flex-wrap items-center gap-3">
-                    {{-- Status Workflow --}}
+                <a href="{{ route('tenant.orders.receipt', $order) }}" target="_blank" class="px-4 py-2 border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-300 rounded-lg text-sm font-semibold hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors active:scale-[0.98] flex items-center space-x-2">
+                    <span class="material-symbols-outlined text-[18px]">receipt_long</span>
+                    <span>Print Receipt</span>
+                </a>
+                
+                @if (auth()->user()->isOwner() || auth()->user()->isStaff())
                     @php
                         $nextStatuses = \App\Models\Order::nextStatusActionsForPlan($order->status);
                     @endphp
-
                     @foreach ($nextStatuses as $statusKey => $statusLabel)
-                        <form method="POST" action="{{ route('tenant.orders.update-status', $order) }}">
+                        <form method="POST" action="{{ route('tenant.orders.update-status', $order) }}" class="m-0">
                             @csrf @method('PATCH')
                             <input type="hidden" name="status" value="{{ $statusKey }}">
-                            <button type="submit"
-                                class="inline-flex items-center gap-1 rounded-md {{ $theme['primary_bg'] }} {{ $theme['primary_hover'] }} px-4 py-2 text-sm font-medium text-white shadow-sm transition">
-                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
-                                {{ $statusLabel }}
+                            <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold shadow-sm hover:bg-blue-700 transition-colors active:scale-[0.98] flex items-center space-x-2">
+                                <span class="material-symbols-outlined text-[18px]">play_arrow</span>
+                                <span>{{ $statusLabel }}</span>
                             </button>
                         </form>
                     @endforeach
-
-                    {{-- Payment Action --}}
-                    @if ($order->payment_status !== 'paid')
-                        <form method="POST" action="{{ route('tenant.orders.mark-paid', $order) }}">
-                            @csrf @method('PATCH')
-                            <button type="submit"
-                                class="inline-flex items-center gap-1 rounded-md bg-green-600 hover:bg-green-700 px-4 py-2 text-sm font-medium text-white shadow-sm transition">
-                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" /></svg>
-                                Mark as Paid
-                            </button>
-                        </form>
-                    @endif
-
-                    {{-- Receipt --}}
-                    <a href="{{ route('tenant.orders.receipt', $order) }}" target="_blank"
-                        class="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition">
-                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18.75 12h.008v.008h-.008V12zm-2.25 0h.008v.008H16.5V12z" /></svg>
-                        Print Receipt
-                    </a>
-
-                    <a href="{{ route('tenant.orders.edit', $order) }}"
-                        class="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition">
-                        Edit
-                    </a>
-                </div>
-            </div>
-        @endif
-
-        {{-- Order Info --}}
-        <div class="bg-white shadow-sm sm:rounded-lg">
-            <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-                <h3 class="text-sm font-semibold text-gray-700">Order Details</h3>
-                @if (auth()->user()->isOwner())
-                    <form method="POST" action="{{ route('tenant.orders.destroy', $order) }}"
-                        onsubmit="return confirm('Delete this order?')">
-                        @csrf @method('DELETE')
-                        <button type="submit" class="text-sm font-medium text-red-600 hover:underline">Delete</button>
-                    </form>
-                @endif
-            </div>
-            <div class="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                <div>
-                    <p class="text-gray-400 text-xs uppercase tracking-wide mb-1">Customer</p>
-                    <a href="{{ route('tenant.customers.show', $order->customer) }}"
-                        class="font-medium text-gray-900 hover:{{ $theme['nav_active_text'] }} hover:underline">
-                        {{ $order->customer->name }}
-                    </a>
-                    @if ($order->customer->phone)
-                        <p class="text-gray-500 text-xs mt-0.5">{{ $order->customer->phone }}</p>
-                    @endif
-                </div>
-                @if ($order->service)
-                    <div>
-                        <p class="text-gray-400 text-xs uppercase tracking-wide mb-1">Service</p>
-                        <p class="text-gray-700 font-medium">{{ $order->service->name }} <span class="text-gray-400 text-xs">({{ $order->service->formatted_price }})</span></p>
-                    </div>
-                @endif
-                @if ($order->weight)
-                    <div>
-                        <p class="text-gray-400 text-xs uppercase tracking-wide mb-1">Weight</p>
-                        <p class="text-gray-700">{{ $order->weight }} kg</p>
-                    </div>
-                @endif
-                <div>
-                    <p class="text-gray-400 text-xs uppercase tracking-wide mb-1">Status</p>
-                    <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium {{ $order->status_color }}">
-                        {{ $order->status_label }}
-                    </span>
-                </div>
-                <div>
-                    <p class="text-gray-400 text-xs uppercase tracking-wide mb-1">Payment</p>
-                    @if ($order->isPaid())
-                        <span class="text-green-700 font-medium">Paid</span>
-                        <span class="text-gray-400 text-xs ml-1">{{ $order->paid_at->format('M d, Y h:i A') }}</span>
-                    @else
-                        <span class="text-red-600 font-medium">Unpaid</span>
-                    @endif
-                </div>
-                <div>
-                    <p class="text-gray-400 text-xs uppercase tracking-wide mb-1">Due Date</p>
-                    <p class="text-gray-700">{{ $order->due_date?->format('M d, Y') ?? 'Not set' }}</p>
-                </div>
-                <div>
-                    <p class="text-gray-400 text-xs uppercase tracking-wide mb-1">Created</p>
-                    <p class="text-gray-700">{{ $order->created_at->format('M d, Y h:i A') }}</p>
-                </div>
-                @if ($order->notes)
-                    <div class="sm:col-span-2">
-                        <p class="text-gray-400 text-xs uppercase tracking-wide mb-1">Notes</p>
-                        <p class="text-gray-700">{{ $order->notes }}</p>
-                    </div>
                 @endif
             </div>
         </div>
 
-        {{-- Items & Total --}}
-        <div class="bg-white shadow-sm sm:rounded-lg">
-            <div class="px-6 py-4 border-b border-gray-200">
-                <h3 class="text-sm font-semibold text-gray-700">Laundry Items</h3>
-            </div>
-            <div class="p-6">
-                @if ($order->items && count($order->items))
-                    <table class="min-w-full text-sm">
-                        <thead>
-                            <tr class="text-left text-xs text-gray-500 uppercase tracking-wider border-b border-gray-200">
-                                <th class="pb-2 font-medium">Item</th>
-                                <th class="pb-2 font-medium text-center">Qty</th>
-                                <th class="pb-2 font-medium text-right">Unit Price</th>
-                                <th class="pb-2 font-medium text-right">Subtotal</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100">
-                            @foreach ($order->items as $item)
-                                <tr>
-                                    <td class="py-2 text-gray-900">{{ $item['name'] ?? 'Not set' }}</td>
-                                    <td class="py-2 text-center text-gray-600">{{ $item['qty'] ?? 1 }}</td>
-                                    <td class="py-2 text-right text-gray-600">₱{{ number_format($item['price'] ?? 0, 2) }}</td>
-                                    <td class="py-2 text-right font-medium text-gray-900">
-                                        ₱{{ number_format(($item['qty'] ?? 1) * ($item['price'] ?? 0), 2) }}
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                @else
-                    <p class="text-sm text-gray-400 italic">No additional items recorded.</p>
-                @endif
+        <!-- Bento Grid Layout -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Left Column (Status & Details) -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- Status Tracker Card -->
+                <div class="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-gray-100 dark:border-slate-800 relative overflow-hidden">
+                    <div class="absolute -top-12 -right-12 w-32 h-32 bg-blue-600/5 rounded-full blur-2xl pointer-events-none"></div>
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-xl font-bold tracking-tight text-gray-900 dark:text-slate-100 flex items-center space-x-2">
+                            <span class="material-symbols-outlined text-blue-600 dark:text-blue-400">timeline</span>
+                            <span>Order Lifecycle</span>
+                        </h2>
+                        <span class="px-3 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 text-sm font-semibold rounded-md">
+                            {{ $order->status_label }}
+                        </span>
+                    </div>
+                    
+                    @php
+                        $planStatuses = \App\Models\Order::statusLabelsForPlan();
+                        $statusKeys = array_keys($planStatuses);
+                        $statusIndex = array_search($order->status, $statusKeys);
+                        if ($statusIndex === false) $statusIndex = 0;
+                        
+                        $totalSteps = count($statusKeys);
+                        $progressWidth = $totalSteps > 1 ? ($statusIndex / ($totalSteps - 1)) * 100 : 0;
+                        
+                        $icons = [
+                            'received' => 'inventory_2',
+                            'in_progress' => 'local_laundry_service',
+                            'washing' => 'water_drop',
+                            'drying' => 'air',
+                            'folding' => 'dry_cleaning',
+                            'ready' => 'checkroom',
+                            'claimed' => 'task_alt',
+                        ];
+                        
+                        $steps = [];
+                        foreach($statusKeys as $index => $key) {
+                            $steps[] = [
+                                'label' => $planStatuses[$key],
+                                'icon' => $icons[$key] ?? 'circle',
+                                'active' => $statusIndex >= $index,
+                            ];
+                        }
+                    @endphp
 
-                <div class="mt-4 pt-4 border-t border-gray-200 flex justify-between items-center">
-                    <span class="text-sm font-semibold text-gray-700">Total Amount</span>
-                    <span class="text-lg font-bold text-gray-900">₱{{ number_format($order->total_amount, 2) }}</span>
+                    <div class="relative flex justify-between mt-8 mb-4 px-4">
+                        <!-- Progress Line (Single Continuous Line) -->
+                        <div class="absolute -translate-y-1/2 h-1 bg-gray-200 dark:bg-slate-700" 
+                             style="top: 20px; left: {{ 100 / (count($steps) * 2) }}%; right: {{ 100 / (count($steps) * 2) }}%;">
+                            <div class="absolute left-0 top-0 bottom-0 transition-all duration-500" 
+                                 style="width: {{ count($steps) > 1 ? ($statusIndex / (count($steps) - 1)) * 100 : 0 }}%; background-color: var(--tenant-theme-accent);"></div>
+                        </div>
+
+                        @foreach($steps as $index => $step)
+                            <!-- Step {{ $index + 1 }} -->
+                            <div class="relative flex flex-col items-center flex-1">
+                                @if($step['active'])
+                                    @if($statusIndex == $index)
+                                        <!-- Current Step (Has Gap) -->
+                                        <div class="relative z-10 w-10 h-10 rounded-full bg-white dark:bg-slate-900 border-2 flex items-center justify-center ring-4 ring-white dark:ring-slate-900 shadow-sm transition-transform hover:scale-110" style="border-color: var(--tenant-theme-accent); color: var(--tenant-theme-accent);">
+                                            <span class="material-symbols-outlined text-[20px]">{{ $step['icon'] }}</span>
+                                        </div>
+                                    @else
+                                        <!-- Completed Step (No Gap) -->
+                                        <div class="relative z-10 w-10 h-10 rounded-full text-white flex items-center justify-center transition-transform hover:scale-110" style="background-color: var(--tenant-theme-accent);">
+                                            <span class="material-symbols-outlined text-[20px]">{{ $step['icon'] }}</span>
+                                        </div>
+                                    @endif
+                                    <span class="mt-3 text-[11px] font-bold uppercase tracking-wider text-gray-900 dark:text-slate-100 text-center" style="color: var(--tenant-theme-accent);">{{ $step['label'] }}</span>
+                                @else
+                                    <!-- Future Step (Has Gap) -->
+                                    <div class="relative z-10 w-10 h-10 rounded-full bg-gray-100 dark:bg-slate-800 text-gray-400 dark:text-slate-500 flex items-center justify-center ring-4 ring-white dark:ring-slate-900 transition-transform hover:scale-110">
+                                        <span class="material-symbols-outlined text-[20px]">{{ $step['icon'] }}</span>
+                                    </div>
+                                    <span class="mt-3 text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-slate-500 text-center">{{ $step['label'] }}</span>
+                                @endif
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+
+                <!-- Laundry Items Table Card -->
+                <div class="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-gray-100 dark:border-slate-800">
+                    <h2 class="text-xl font-bold tracking-tight text-gray-900 dark:text-slate-100 mb-6 flex items-center space-x-2">
+                        <span class="material-symbols-outlined text-blue-600 dark:text-blue-400">category</span>
+                        <span>Order Items</span>
+                    </h2>
+                    
+                    <div class="overflow-x-auto rounded-lg border border-gray-200 dark:border-slate-700">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-gray-50 dark:bg-slate-800/80 text-gray-900 dark:text-slate-100 text-sm font-semibold border-b border-gray-200 dark:border-slate-700">
+                                    <th class="py-3 px-4">Description</th>
+                                    <th class="py-3 px-4 text-right">Qty</th>
+                                    <th class="py-3 px-4 text-right">Unit Price</th>
+                                    <th class="py-3 px-4 text-right">Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-base text-gray-600 dark:text-slate-300">
+                                @if ($order->items && count($order->items))
+                                    @foreach ($order->items as $item)
+                                        <tr class="border-b border-gray-100 dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors h-[56px]">
+                                            <td class="py-3 px-4 flex items-center space-x-3">
+                                                <div class="w-8 h-8 rounded bg-gray-100 dark:bg-slate-800 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                                                    <span class="material-symbols-outlined text-[18px]">inventory_2</span>
+                                                </div>
+                                                <span class="font-medium text-gray-900 dark:text-slate-100">{{ $item['name'] ?? 'Not set' }}</span>
+                                            </td>
+                                            <td class="py-3 px-4 text-right">{{ $item['qty'] ?? 1 }}</td>
+                                            <td class="py-3 px-4 text-right">₱{{ number_format($item['price'] ?? 0, 2) }}</td>
+                                            <td class="py-3 px-4 text-right font-medium text-gray-900 dark:text-slate-100">₱{{ number_format(($item['qty'] ?? 1) * ($item['price'] ?? 0), 2) }}</td>
+                                        </tr>
+                                    @endforeach
+                                @else
+                                    <tr>
+                                        <td colspan="4" class="py-8 px-4 text-center text-gray-400 italic">No additional items recorded.</td>
+                                    </tr>
+                                @endif
+                            </tbody>
+                            @if ($order->items && count($order->items))
+                            <tfoot class="bg-gray-50 dark:bg-slate-800/80 border-t border-gray-200 dark:border-slate-700 text-sm font-semibold text-gray-900 dark:text-slate-100">
+                                <tr>
+                                    <td class="py-3 px-4 text-right" colspan="2">Total Items:</td>
+                                    <td class="py-3 px-4 text-right" colspan="2">{{ collect($order->items)->sum('qty') }}</td>
+                                </tr>
+                            </tfoot>
+                            @endif
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column (Customer & Payment) -->
+            <div class="space-y-6">
+                <!-- Customer Info Card -->
+                <div class="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-gray-100 dark:border-slate-800 border-t-4 border-t-teal-500 relative overflow-hidden">
+                    <h2 class="text-xl font-bold tracking-tight text-gray-900 dark:text-slate-100 mb-6 flex items-center space-x-2">
+                        <span class="material-symbols-outlined text-teal-600 dark:text-teal-400">person</span>
+                        <span>Customer Info</span>
+                    </h2>
+                    
+                    <div class="flex items-center space-x-4 mb-6">
+                        <div class="w-14 h-14 rounded-full bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 flex items-center justify-center text-xl font-bold">
+                            {{ strtoupper(substr($order->customer->name, 0, 2)) }}
+                        </div>
+                        <div>
+                            <a href="{{ route('tenant.customers.show', $order->customer) }}" class="text-[18px] font-bold tracking-tight text-gray-900 dark:text-slate-100 hover:text-teal-600 dark:hover:text-teal-400 transition-colors">
+                                {{ $order->customer->name }}
+                            </a>
+                            <div class="flex items-center text-gray-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider mt-1">
+                                <span class="material-symbols-outlined text-[14px] mr-1">star</span>
+                                <span>Customer</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-4 text-base text-gray-600 dark:text-slate-300">
+                        @if ($order->customer->phone)
+                            <div class="flex items-start space-x-3">
+                                <span class="material-symbols-outlined text-gray-400 dark:text-slate-500 mt-0.5 text-[20px]">phone</span>
+                                <div>
+                                    <div class="font-medium text-gray-900 dark:text-slate-100">{{ $order->customer->phone }}</div>
+                                    <div class="text-sm">Mobile</div>
+                                </div>
+                            </div>
+                        @endif
+                        @if ($order->customer->email)
+                            <div class="flex items-start space-x-3">
+                                <span class="material-symbols-outlined text-gray-400 dark:text-slate-500 mt-0.5 text-[20px]">mail</span>
+                                <div class="font-medium text-gray-900 dark:text-slate-100">{{ $order->customer->email }}</div>
+                            </div>
+                        @endif
+                        @if ($order->customer->address)
+                            <div class="flex items-start space-x-3">
+                                <span class="material-symbols-outlined text-gray-400 dark:text-slate-500 mt-0.5 text-[20px]">location_on</span>
+                                <div class="font-medium text-gray-900 dark:text-slate-100">{{ $order->customer->address }}</div>
+                            </div>
+                        @endif
+                    </div>
+                </div>
+
+                <!-- Service Details Card -->
+                <div class="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-gray-100 dark:border-slate-800 relative overflow-hidden">
+                    <div class="absolute -top-10 -right-10 w-24 h-24 bg-gray-100 dark:bg-slate-800 rounded-full blur-xl pointer-events-none"></div>
+                    <h2 class="text-xl font-bold tracking-tight text-gray-900 dark:text-slate-100 mb-6 flex items-center space-x-2">
+                        <span class="material-symbols-outlined text-blue-600 dark:text-blue-400">receipt</span>
+                        <span>Service Details</span>
+                    </h2>
+                    
+                    <div class="space-y-4 mb-6">
+                        @if ($order->service)
+                            <div class="flex justify-between items-center py-2 border-b border-gray-100 dark:border-slate-800">
+                                <span class="text-base text-gray-500 dark:text-slate-400">Service Type</span>
+                                <span class="text-sm font-semibold text-gray-900 dark:text-slate-100 px-2 py-1 bg-gray-100 dark:bg-slate-800 rounded-md">{{ $order->service->name }}</span>
+                            </div>
+                        @endif
+                        @if ($order->weight)
+                            <div class="flex justify-between items-center py-2 border-b border-gray-100 dark:border-slate-800">
+                                <span class="text-base text-gray-500 dark:text-slate-400">Weight</span>
+                                <span class="text-sm font-semibold text-gray-900 dark:text-slate-100 px-2 py-1 bg-gray-100 dark:bg-slate-800 rounded-md">{{ $order->weight }} kg</span>
+                            </div>
+                        @endif
+                        <div class="flex justify-between items-center py-2 border-b border-gray-100 dark:border-slate-800">
+                            <span class="text-base text-gray-500 dark:text-slate-400">Expected Delivery</span>
+                            <span class="text-sm font-semibold text-gray-900 dark:text-slate-100">{{ $order->due_date?->format('M d, Y') ?? 'Not set' }}</span>
+                        </div>
+                        <div class="flex justify-between items-center py-2 border-b border-gray-100 dark:border-slate-800">
+                            <span class="text-base text-gray-500 dark:text-slate-400">Payment Status</span>
+                            @if ($isPaid)
+                                <span class="text-sm font-semibold text-green-700 dark:text-green-400 px-2 py-1 bg-green-100 dark:bg-green-900/30 rounded-md flex items-center space-x-1">
+                                    <span class="material-symbols-outlined text-[14px]">check_circle</span>
+                                    <span>Paid</span>
+                                </span>
+                            @else
+                                <span class="text-sm font-semibold text-red-600 dark:text-red-400 px-2 py-1 bg-red-100 dark:bg-red-900/30 rounded-md flex items-center space-x-1">
+                                    <span class="material-symbols-outlined text-[14px]">error</span>
+                                    <span>Unpaid</span>
+                                </span>
+                            @endif
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gray-50 dark:bg-slate-800 p-4 rounded-lg border border-gray-200 dark:border-slate-700">
+                        @if($order->service)
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-base text-gray-500 dark:text-slate-400">Base Service</span>
+                                <span class="text-base text-gray-900 dark:text-slate-100">₱{{ number_format(($order->service->price ?? 0) * ($order->weight ?? 1), 2) }}</span>
+                            </div>
+                        @endif
+                        <div class="flex justify-between items-center pt-3 border-t border-gray-200 dark:border-slate-700 mt-2">
+                            <span class="text-[18px] font-bold tracking-tight text-gray-900 dark:text-slate-100">Total Amount</span>
+                            <span class="text-[20px] font-bold tracking-tight text-blue-600 dark:text-blue-400">₱{{ number_format($order->total_amount, 2) }}</span>
+                        </div>
+                    </div>
+                    
+                    @if (! $isPaid && (auth()->user()->isOwner() || auth()->user()->isStaff()))
+                        <form method="POST" action="{{ route('tenant.orders.mark-paid', $order) }}" class="mt-6">
+                            @csrf @method('PATCH')
+                            <button type="submit" class="w-full py-3 border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-300 rounded-lg text-sm font-semibold hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors active:scale-[0.98] flex items-center justify-center space-x-2">
+                                <span class="material-symbols-outlined text-[18px]">payments</span>
+                                <span>Mark as Paid</span>
+                            </button>
+                        </form>
+                    @endif
+                    
+                    @if ($order->notes)
+                        <div class="mt-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-300 text-sm rounded-lg border border-yellow-200 dark:border-yellow-800">
+                            <strong>Notes:</strong> {{ $order->notes }}
+                        </div>
+                    @endif
                 </div>
             </div>
         </div>
