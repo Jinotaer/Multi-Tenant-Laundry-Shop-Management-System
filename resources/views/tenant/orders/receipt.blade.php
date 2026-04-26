@@ -3,8 +3,8 @@
 
     $brandingEnabled = tenant()->hasFeature('custom_branding');
     $logoUrl = $brandingEnabled && tenant()->logo_path && Storage::disk('public')->exists(tenant()->logo_path)
-        ? Storage::disk('public')->url(tenant()->logo_path)
-        : null;
+        ? route('stancl.tenancy.asset', ['path' => tenant()->logo_path])
+        : global_asset('Laundry3.png');
 @endphp
 
 <!DOCTYPE html>

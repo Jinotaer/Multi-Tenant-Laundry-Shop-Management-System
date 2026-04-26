@@ -31,6 +31,13 @@
 
         <title>{{ config('app.name', 'LaundryTrack') }} - Laundry Shop Management Platform</title>
 
+        @php
+            $logoUrl = $admin?->logo_path && Storage::disk('public')->exists($admin->logo_path) ? asset('storage/' . $admin->logo_path) : null;
+            $faviconUrl = $logoUrl ?? asset('Laundry3.png');
+        @endphp
+        <link rel="icon" type="image/png" href="{{ $faviconUrl }}">
+        <link rel="apple-touch-icon" href="{{ $faviconUrl }}">
+
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700,800&display=swap" rel="stylesheet" />
 

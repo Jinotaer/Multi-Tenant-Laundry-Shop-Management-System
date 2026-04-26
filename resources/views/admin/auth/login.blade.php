@@ -1,10 +1,7 @@
 <x-admin-guest-layout :show-color-mode-toggle="false">
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
     <div class="mb-6 text-center">
-        <div class="tenant-auth-icon mx-auto mb-4">
-            <svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-            </svg>
-        </div>
+        <x-application-logo class="mx-auto mb-2 h-24 w-24 object-cover rounded-full drop-shadow-sm border border-gray-200 dark:border-slate-700" />
         <h2 class="text-xl font-bold tracking-tight text-gray-900 dark:text-slate-100">Admin Portal</h2>
         <p class="mt-1 text-sm text-gray-500 dark:text-slate-400">Sign in to manage workspaces, registrations, billing, and platform settings.</p>
     </div>
@@ -69,6 +66,11 @@
             </a>
         </div>
 
+        <div class="mt-4 flex flex-col items-center">
+            <div class="g-recaptcha" data-sitekey="{{ config('services.recaptcha.site_key') }}"></div>
+            <x-input-error :messages="$errors->get('g-recaptcha-response')" class="mt-2 text-center" />
+        </div>
+
         <div class="pt-1">
             <button type="submit" class="tenant-auth-submit">
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -78,13 +80,6 @@
             </button>
         </div>
     </form>
-
-    <div class="mt-6 flex items-center gap-3">
-        <div class="flex-1 border-t border-gray-200 dark:border-slate-800"></div>
-        <span class="text-xs uppercase tracking-[0.22em] text-gray-400 dark:text-slate-500">admin access</span>
-        <div class="flex-1 border-t border-gray-200 dark:border-slate-800"></div>
-    </div>
-
     <div class="mt-4 text-center">
         <a href="{{ route('home') }}" class="inline-flex items-center gap-1.5 text-sm text-gray-400 transition-colors duration-150 hover:text-gray-600 dark:text-slate-500 dark:hover:text-slate-300">
             <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">

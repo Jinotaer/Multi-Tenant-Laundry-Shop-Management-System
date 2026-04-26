@@ -23,12 +23,7 @@
             <div class="flex items-center justify-between h-16">
                 {{-- Brand --}}
                 <a href="{{ route('home') }}" class="flex items-center gap-2">
-                    <svg class="h-8 w-8 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                        <rect x="5" y="3" width="14" height="18" rx="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 8h14"/>
-                        <circle cx="12" cy="14" r="4" stroke-linecap="round" stroke-linejoin="round"/>
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5.5h.01M12 5.5h.01M15 5.5h.01"/>
-                    </svg>
+                    <x-application-logo class="h-12 w-12 object-cover rounded-full drop-shadow-sm border border-gray-200 dark:border-slate-700" alt="Laundry Track"/>
                     <span class="text-xl font-bold text-gray-900">Laundry<span class="text-indigo-600">Track</span></span>
                 </a>
 
@@ -364,12 +359,7 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex flex-col md:flex-row items-center justify-between gap-6">
                 <div class="flex items-center gap-2">
-                    <svg class="h-6 w-6 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                        <rect x="5" y="3" width="14" height="18" rx="2" stroke-linecap="round" stroke-linejoin="round"/>
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M5 8h14"/>
-                          <circle cx="12" cy="14" r="4" stroke-linecap="round" stroke-linejoin="round"/>
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5.5h.01M12 5.5h.01M15 5.5h.01"/>
-                    </svg>
+                    <x-application-logo class="h-8 w-8 object-cover rounded-full" />
                     <span class="text-lg font-bold text-white">Laundry<span class="text-indigo-400">Track</span></span>
                 </div>
 
