@@ -71,7 +71,9 @@ class OrderStatusChangedNotification extends Mailable
             : '/notifications';
 
         if ($domain) {
-            return "http://{$domain}{$path}";
+            $port = parse_url(config('app.url'), PHP_URL_PORT);
+            $portSuffix = $port ? ":{$port}" : '';
+            return "http://{$domain}{$portSuffix}{$path}";
         }
 
         return route('tenant.notifications.index', absolute: false);

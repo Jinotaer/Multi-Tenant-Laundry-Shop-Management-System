@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Notifications\CustomerResetPasswordNotification;
 use App\Notifications\CustomerSetPasswordNotification;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -64,7 +65,7 @@ class Customer extends Authenticatable
 
         $shopName = tenant()?->data['shop_name'] ?? config('app.name');
 
-        $this->notify(new CustomerSetPasswordNotification($url, $token, $shopName));
+        $this->notify(new CustomerResetPasswordNotification($url, $shopName));
     }
 
     public function isOwner(): bool

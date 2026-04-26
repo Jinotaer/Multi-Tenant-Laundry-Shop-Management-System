@@ -21,6 +21,18 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->redirectUsersTo(function (\Illuminate\Http\Request $request) {
+            if (tenant()) {
+                return route('tenant.dashboard');
+            }
+
+            if ($request->routeIs('admin.*')) {
+                return route('admin.dashboard');
+            }
+
+            return '/';
+        });
+
         $middleware->alias([
             'role' => EnsureUserHasRole::class,
             'permission' => EnsureUserHasPermission::class,

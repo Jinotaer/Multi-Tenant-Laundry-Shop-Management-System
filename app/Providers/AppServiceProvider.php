@@ -6,6 +6,7 @@ use App\Models\TenantRegistration;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Validation\Rules\Password;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -29,6 +30,15 @@ class AppServiceProvider extends ServiceProvider
             $tenant = tenant();
 
             return $tenant && $tenant->hasFeature($feature);
+        });
+
+        Password::defaults(function () {
+            return Password::min(8)
+                ->letters()
+                ->mixedCase()
+                ->numbers()
+                ->symbols()
+                ->uncompromised();
         });
     }
 }

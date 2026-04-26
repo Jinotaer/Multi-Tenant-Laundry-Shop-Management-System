@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Notifications\TenantUserResetPasswordNotification;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -19,6 +20,18 @@ class User extends Authenticatable
         static::saved(function (self $user): void {
             $user->syncLegacyRoleRecord();
         });
+    }
+
+    public function sendPasswordResetNotification($token): void
+    {
+        $url = route('tenant.password.reset', [
+            'token' => $token,
+            'email' => $this->getEmailForPasswordReset(),
+        ]);
+
+        $shopName = tenant()?->data['shop_name'] ?? config('app.name');
+
+        $this->notify(new TenantUserResetPasswordNotification($url, $shopName));
     }
 
     /**

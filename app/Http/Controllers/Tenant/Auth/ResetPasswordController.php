@@ -14,38 +14,36 @@ use Illuminate\View\View;
 
 class ResetPasswordController extends Controller
 {
-    /**
-     * Display the tenant customer password reset view.
-     */
     public function create(Request $request): View
     {
         return view('tenant.auth.reset-password', ['request' => $request]);
     }
 
-    /**
-     * Persist the tenant customer's new password.
-     */
     public function store(
         StoreCustomerPasswordRequest $request
     ): RedirectResponse {
-        $status = Password::broker('customers')->reset(
-            $request->safe()->only(
-                'email',
-                'password',
-                'password_confirmation',
-                'token',
-            ),
-            function ($customer) use ($request): void {
-                $customer
-                    ->forceFill([
-                        'password' => Hash::make($request->validated('password')),
-                        'remember_token' => Str::random(60),
-                    ])
-                    ->save();
-
-                event(new PasswordReset($customer));
-            },
+        $credentials = $request->safe()->only(
+            'email',
+            'password',
+            'password_confirmation',
+            'token',
         );
+
+        $callback = function ($user) use ($request): void {
+            $user->forceFill([
+                'password' => Hash::make($request->validated('password')),
+                'remember_token' => Str::random(60),
+            ])->save();
+
+            event(new PasswordReset($user));
+        };
+
+        // Try users broker first (owner/staff), fall back to customers
+        $status = Password::broker('users')->reset($credentials, $callback);
+
+        if ($status !== Password::PASSWORD_RESET) {
+            $status = Password::broker('customers')->reset($credentials, $callback);
+        }
 
         return $status === Password::PASSWORD_RESET
             ? redirect()->route('tenant.login')->with('status', __($status))

@@ -29,7 +29,21 @@ class EnsureUserHasRole
             return $next($request);
         }
 
-        // For User model: check role column or roles relationship
+        // Any User model (staff, owner, or even role=customer) accessing a customer-only
+        // route must be redirected to the admin area, not allowed into the customer portal.
+        // This must run before hasRole() because a User with role='customer' would otherwise
+        // pass the hasRole check, reach the controller as a non-Customer instance, and 403.
+        if (in_array('customer', $roles, true)) {
+            $order = $request->route('order');
+            if ($order) {
+                $orderId = is_object($order) ? $order->id : $order;
+                return redirect()->route('tenant.orders.show', $orderId);
+            }
+
+            return redirect()->route('tenant.dashboard');
+        }
+
+        // For non-customer routes: check role column or roles relationship
         if (method_exists($user, 'hasRole') && $user->hasRole($roles)) {
             return $next($request);
         }

@@ -52,6 +52,9 @@ Route::middleware([
     CheckTenantEnabled::class,
     TrackTenantUsage::class,
 ])->group(function () {
+    // Dynamic Favicon Route
+    Route::get('/favicon.svg', [\App\Http\Controllers\FaviconController::class, 'tenantFavicon'])->name('tenant.favicon');
+
     // Guest routes
     Route::middleware('guest:web,customer')->group(function () {
         Route::get('/login', [LoginController::class, 'create'])->name(

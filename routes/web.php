@@ -45,6 +45,9 @@ foreach ($centralDomains as $domain) {
             // Landing Page
             Route::get('/', WelcomeController::class)->name('home');
 
+            // Dynamic Favicon Route
+            Route::get('/favicon.svg', [\App\Http\Controllers\FaviconController::class, 'globalFavicon'])->name('global.favicon');
+
             // PayMongo Webhook (no CSRF verification)
             Route::post('/webhooks/paymongo', [
                 PayMongoWebhookController::class,

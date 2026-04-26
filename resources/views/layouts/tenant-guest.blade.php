@@ -39,7 +39,8 @@
         @php
             $faviconUrl = $logoUrl ?? global_asset('Laundry3.png');
         @endphp
-        <link rel="icon" type="image/png" href="{{ $faviconUrl }}">
+        <link rel="icon" type="image/svg+xml" href="{{ route('tenant.favicon') }}">
+        <link rel="alternate icon" type="image/png" href="{{ $faviconUrl }}">
         <link rel="apple-touch-icon" href="{{ $faviconUrl }}">
 
         <link rel="preconnect" href="https://fonts.bunny.net">

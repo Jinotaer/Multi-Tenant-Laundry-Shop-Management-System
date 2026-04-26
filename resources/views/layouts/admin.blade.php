@@ -88,7 +88,8 @@
         @php
             $faviconUrl = $browserIconUrl;
         @endphp
-        <link rel="icon" type="image/png" href="{{ $faviconUrl }}">
+        <link rel="icon" type="image/svg+xml" href="{{ route('global.favicon') }}">
+        <link rel="alternate icon" type="image/png" href="{{ $faviconUrl }}">
         <link rel="apple-touch-icon" href="{{ $faviconUrl }}">
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />

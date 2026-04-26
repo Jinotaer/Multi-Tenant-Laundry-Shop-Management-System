@@ -64,6 +64,12 @@ class LoginController extends Controller
             return redirect()->intended(route('tenant.dashboard'));
         }
 
+        if ($customer && ! filled($customer->password)) {
+            return back()->withErrors([
+                'email' => __('Your account has no password set. Please use "Forgot password?" to create one.'),
+            ])->onlyInput('email');
+        }
+
         return back()->withErrors([
             'email' => __('The provided credentials do not match our records.'),
         ])->onlyInput('email');

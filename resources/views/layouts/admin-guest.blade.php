@@ -35,7 +35,8 @@
             $logoUrl = $admin?->logo_path && Storage::disk('public')->exists($admin->logo_path) ? asset('storage/' . $admin->logo_path) : null;
             $faviconUrl = $logoUrl ?? asset('Laundry3.png');
         @endphp
-        <link rel="icon" type="image/png" href="{{ $faviconUrl }}">
+        <link rel="icon" type="image/svg+xml" href="{{ route('global.favicon') }}">
+        <link rel="alternate icon" type="image/png" href="{{ $faviconUrl }}">
         <link rel="apple-touch-icon" href="{{ $faviconUrl }}">
 
         <link rel="preconnect" href="https://fonts.bunny.net">
