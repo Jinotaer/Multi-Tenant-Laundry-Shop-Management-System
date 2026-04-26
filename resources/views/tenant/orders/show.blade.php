@@ -11,9 +11,9 @@
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
                 <div class="flex items-center space-x-3 mb-1">
-                    <a href="{{ route('tenant.orders.index') }}" class="text-gray-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition-colors flex items-center">
+                    <!-- <a href="{{ route('tenant.orders.index') }}" class="text-gray-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition-colors flex items-center">
                         <span class="material-symbols-outlined text-[20px]">arrow_back</span>
-                    </a>
+                    </a> -->
                     <h1 class="text-3xl font-bold tracking-tight text-gray-900 dark:text-slate-100">Order Details</h1>
                     <span class="px-3 py-1 bg-gray-100 dark:bg-slate-800 text-gray-900 dark:text-slate-100 text-sm font-semibold rounded-full {{ $order->status_color }}">
                         {{ $order->order_number }}
