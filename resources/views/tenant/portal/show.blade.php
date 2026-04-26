@@ -1,5 +1,6 @@
 <x-tenant-layout>
     <x-slot name="header">
+        <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
         <x-tenant-header :title="$order->order_number" subtitle="View order status, items, and payment details.">
             <x-slot name="actions">
                 <a href="{{ route('tenant.portal.index') }}" class="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-200 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 transition-colors">
@@ -31,6 +32,16 @@
                 $itemsTotal += ((int) ($item['qty'] ?? 1)) * ((float) ($item['price'] ?? 0));
             }
         }
+        
+        $icons = [
+            'received' => 'inventory_2',
+            'in_progress' => 'local_laundry_service',
+            'washing' => 'water_drop',
+            'drying' => 'air',
+            'folding' => 'dry_cleaning',
+            'ready' => 'checkroom',
+            'claimed' => 'task_alt',
+        ];
     @endphp
 
     <div class="tenant-page-stack max-w-4xl mx-auto space-y-6">
@@ -80,42 +91,44 @@
 
             {{-- Desktop stepper --}}
             <div class="hidden sm:block">
-                <div class="relative">
-                    {{-- Background track --}}
-                    <div class="absolute top-4 left-0 right-0 h-0.5 bg-gray-200 dark:bg-slate-700" aria-hidden="true"></div>
-                    {{-- Progress track --}}
-                    <div class="absolute top-4 left-0 h-0.5 {{ $theme['primary_bg'] }} transition-all duration-500" style="width: {{ $progressPercent }}%" aria-hidden="true"></div>
-
-                    <div class="relative flex justify-between">
-                        @foreach ($steps as $key => $label)
-                            @php
-                                $stepIndex = array_search($key, $stepKeys, true);
-                                $stepIndex = is_int($stepIndex) ? $stepIndex : -1;
-                                $isComplete = $stepIndex < $currentIndex;
-                                $isCurrent = $stepIndex === $currentIndex;
-                            @endphp
-                            <div class="flex flex-col items-center text-center" style="flex: 0 0 auto;">
-                                <div class="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ring-4
-                                    {{ $isCurrent ? $theme['primary_bg'] . ' text-white ring-white dark:ring-slate-800 shadow-lg' : '' }}
-                                    {{ $isComplete ? $theme['primary_bg'] . ' text-white ring-white dark:ring-slate-800' : '' }}
-                                    {{ !$isComplete && !$isCurrent ? 'bg-gray-200 text-gray-400 ring-white dark:bg-slate-700 dark:text-slate-500 dark:ring-slate-800' : '' }}">
-                                    @if ($isComplete)
-                                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
-                                    @elseif ($isCurrent)
-                                        <span class="relative flex h-2 w-2">
-                                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-                                            <span class="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
-                                        </span>
-                                    @else
-                                        {{ $stepIndex + 1 }}
-                                    @endif
-                                </div>
-                                <span class="mt-2 text-xs max-w-[6rem] {{ $isCurrent ? 'font-semibold text-gray-900 dark:text-slate-100' : ($isComplete ? 'text-gray-600 dark:text-slate-400' : 'text-gray-400 dark:text-slate-500') }}">
-                                    {{ $label }}
-                                </span>
-                            </div>
-                        @endforeach
+                <div class="relative flex justify-between mt-8 mb-4 px-4">
+                    {{-- Progress Line (Single Continuous Line) --}}
+                    <div class="absolute -translate-y-1/2 h-1 bg-gray-200 dark:bg-slate-700" 
+                         style="top: 20px; left: {{ 100 / ($totalSteps * 2) }}%; right: {{ 100 / ($totalSteps * 2) }}%;">
+                        <div class="absolute left-0 top-0 bottom-0 transition-all duration-500" 
+                             style="width: {{ $progressPercent }}%; background-color: var(--tenant-theme-accent);"></div>
                     </div>
+
+                    @foreach ($steps as $key => $label)
+                        @php
+                            $stepIndex = array_search($key, $stepKeys, true);
+                            $stepIndex = is_int($stepIndex) ? $stepIndex : -1;
+                            $isComplete = $stepIndex < $currentIndex;
+                            $isCurrent = $stepIndex === $currentIndex;
+                        @endphp
+                        <div class="relative flex flex-col items-center flex-1">
+                            @if($isCurrent || $isComplete)
+                                @if($isCurrent)
+                                    <!-- Current Step (Has Gap) -->
+                                    <div class="relative z-10 w-10 h-10 rounded-full bg-white dark:bg-slate-900 border-2 flex items-center justify-center ring-4 ring-white dark:ring-slate-800 shadow-sm transition-transform hover:scale-110" style="border-color: var(--tenant-theme-accent); color: var(--tenant-theme-accent);">
+                                        <span class="material-symbols-outlined text-[20px]">{{ $icons[$key] ?? 'circle' }}</span>
+                                    </div>
+                                @else
+                                    <!-- Completed Step (No Gap) -->
+                                    <div class="relative z-10 w-10 h-10 rounded-full text-white flex items-center justify-center transition-transform hover:scale-110 ring-4 ring-white dark:ring-slate-800 shadow-sm" style="background-color: var(--tenant-theme-accent);">
+                                        <span class="material-symbols-outlined text-[20px]">{{ $icons[$key] ?? 'circle' }}</span>
+                                    </div>
+                                @endif
+                                <span class="mt-3 text-[11px] font-bold uppercase tracking-wider text-gray-900 dark:text-slate-100 text-center" style="color: var(--tenant-theme-accent);">{{ $label }}</span>
+                            @else
+                                <!-- Future Step (Has Gap) -->
+                                <div class="relative z-10 w-10 h-10 rounded-full bg-gray-100 dark:bg-slate-800 text-gray-400 dark:text-slate-500 flex items-center justify-center ring-4 ring-white dark:ring-slate-800 transition-transform hover:scale-110">
+                                    <span class="material-symbols-outlined text-[20px]">{{ $icons[$key] ?? 'circle' }}</span>
+                                </div>
+                                <span class="mt-3 text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-slate-500 text-center">{{ $label }}</span>
+                            @endif
+                        </div>
+                    @endforeach
                 </div>
             </div>
 
@@ -130,16 +143,16 @@
                     @endphp
                     <li class="flex items-start gap-3">
                         <div class="flex flex-col items-center">
-                            <div class="flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-bold
-                                {{ $isCurrent || $isComplete ? $theme['primary_bg'] . ' text-white' : 'bg-gray-200 text-gray-400 dark:bg-slate-700 dark:text-slate-500' }}">
-                                @if ($isComplete)
-                                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
-                                @else
-                                    {{ $stepIndex + 1 }}
-                                @endif
+                            <div class="relative z-10 flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-bold shadow-sm
+                                {{ $isCurrent || $isComplete ? 'text-white' : 'bg-gray-200 text-gray-400 dark:bg-slate-700 dark:text-slate-500' }}"
+                                style="{{ $isCurrent || $isComplete ? 'background-color: var(--tenant-theme-accent);' : '' }}">
+                                <span class="material-symbols-outlined text-[16px]">
+                                    {{ $icons[$key] ?? 'circle' }}
+                                </span>
                             </div>
                             @if (!$loop->last)
-                                <div class="mt-1 h-8 w-0.5 {{ $isComplete ? $theme['primary_bg'] : 'bg-gray-200 dark:bg-slate-700' }}"></div>
+                                <div class="mt-1 h-8 w-0.5 {{ !$isComplete ? 'bg-gray-200 dark:bg-slate-700' : '' }}"
+                                     style="{{ $isComplete ? 'background-color: var(--tenant-theme-accent);' : '' }}"></div>
                             @endif
                         </div>
                         <div class="pt-0.5">
