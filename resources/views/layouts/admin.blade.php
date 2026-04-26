@@ -158,11 +158,258 @@
                     display: none !important;
                 }
             }
+
+            .tenant-shell[data-layout-ready='false'] .admin-shell-aside,
+            .tenant-shell[data-layout-ready='false'] .admin-shell-content {
+                transition: none !important;
+            }
+
+            .tenant-shell[data-layout-ready='false'] .admin-shell-aside {
+                position: fixed;
+                z-index: 50;
+                display: flex;
+                flex-direction: column;
+            }
+
+            .tenant-shell[data-layout-ready='false']:not([data-preview-sidebar-position='top']) .admin-shell-aside {
+                top: 0;
+                bottom: 0;
+                width: 18rem;
+            }
+
+            .tenant-shell[data-layout-ready='false'][data-preview-sidebar-position='top'] .admin-shell-aside {
+                top: 0;
+                right: 0;
+                left: 0;
+                height: 4rem;
+                transform: translateY(0);
+                align-items: center;
+                gap: 0.5rem;
+                border-bottom: 1px solid rgb(229 231 235);
+                background: rgb(255 255 255 / 1);
+            }
+
+            .dark .tenant-shell[data-layout-ready='false'][data-preview-sidebar-position='top'] .admin-shell-aside {
+                border-color: rgb(30 41 59 / 1);
+                background: rgb(15 23 42 / 1);
+            }
+
+            .tenant-shell[data-layout-ready='false'][data-preview-sidebar-position='top'] .admin-shell-header {
+                height: 4rem;
+                min-height: 4rem;
+                flex-shrink: 0;
+                border-bottom-width: 0;
+                border-right: 1px solid rgb(229 231 235);
+                padding: 0 0.75rem;
+            }
+
+            .dark .tenant-shell[data-layout-ready='false'][data-preview-sidebar-position='top'] .admin-shell-header {
+                border-color: rgb(30 41 59 / 1);
+            }
+
+            .tenant-shell[data-layout-ready='false'][data-preview-sidebar-position='top'] .admin-shell-nav {
+                display: flex;
+                flex: 1 1 0%;
+                flex-direction: row;
+                align-items: center;
+                gap: 0.25rem;
+                overflow-x: auto;
+                overflow-y: hidden;
+                padding: 0.5rem 0.75rem;
+                white-space: nowrap;
+            }
+
+            .tenant-shell[data-layout-ready='false'][data-preview-sidebar-position='top'] .admin-shell-nav > :not([hidden]) ~ :not([hidden]) {
+                margin-top: 0 !important;
+            }
+
+            .tenant-shell[data-layout-ready='false'][data-preview-sidebar-position='top'] .admin-shell-content {
+                padding-top: 5rem;
+            }
+
+            .tenant-shell[data-layout-ready='false'][data-preview-sidebar-position='top'] .admin-shell-topbar-wrap,
+            .tenant-shell[data-layout-ready='false'][data-preview-sidebar-position='top'] .admin-shell-bottom-user,
+            .tenant-shell[data-layout-ready='false'][data-preview-sidebar-position='top'] .admin-shell-sidebar-close {
+                display: none;
+            }
+
+            .tenant-shell[data-layout-ready='false']:not([data-preview-sidebar-position='top']) .admin-shell-top-tools {
+                display: none;
+            }
+
+            .tenant-shell[data-layout-ready='false']:not([data-preview-sidebar-position='top']) .admin-shell-topbar-wrap {
+                display: block;
+                padding-bottom: 1rem;
+            }
+
+            .tenant-shell[data-layout-ready='false'][data-preview-topbar-style='card'] .admin-shell-topbar-wrap,
+            .tenant-shell[data-layout-ready='false'][data-preview-topbar-style='accent'] .admin-shell-topbar-wrap {
+                padding-top: 1rem;
+                padding-bottom: 1rem;
+            }
+
+            .tenant-shell[data-layout-ready='false']:not([data-preview-sidebar-position='top'])[data-preview-topbar-behavior='sticky'] .admin-shell-topbar-wrap {
+                position: sticky;
+                top: 0;
+                z-index: 30;
+            }
+
+            .tenant-shell[data-layout-ready='false'] .admin-shell-topbar {
+                padding: 1rem;
+            }
+
+            .tenant-shell[data-layout-ready='false'][data-preview-topbar-style='minimal'] .admin-shell-topbar {
+                background: rgb(255 255 255 / 1);
+            }
+
+            .dark .tenant-shell[data-layout-ready='false'][data-preview-topbar-style='minimal'] .admin-shell-topbar {
+                background: rgb(15 23 42 / 1);
+            }
+
+            .tenant-shell[data-layout-ready='false'][data-preview-topbar-style='card'] .admin-shell-topbar {
+                border: 1px solid rgb(229 231 235 / 1);
+                border-radius: calc(var(--tenant-radius) + 0.125rem);
+                background: rgb(255 255 255 / 1);
+                box-shadow: 0 1px 2px rgb(15 23 42 / 0.08);
+            }
+
+            .dark .tenant-shell[data-layout-ready='false'][data-preview-topbar-style='card'] .admin-shell-topbar {
+                border-color: rgb(30 41 59 / 1);
+                background: rgb(15 23 42 / 1);
+            }
+
+            .tenant-shell[data-layout-ready='false'][data-preview-topbar-style='accent'] .admin-shell-topbar {
+                border: 1px solid var(--tenant-theme-accent-soft);
+                border-radius: calc(var(--tenant-radius) + 0.125rem);
+                background:
+                    linear-gradient(180deg, var(--tenant-theme-accent-soft) 0%, rgb(255 255 255 / 1) 44%, rgb(255 255 255 / 1) 100%);
+                box-shadow:
+                    inset 0 3px 0 0 var(--tenant-theme-accent),
+                    0 18px 34px -30px var(--tenant-theme-accent);
+            }
+
+            .dark .tenant-shell[data-layout-ready='false'][data-preview-topbar-style='accent'] .admin-shell-topbar {
+                background:
+                    linear-gradient(180deg, var(--tenant-theme-accent-soft) 0%, rgb(15 23 42 / 1) 44%, rgb(15 23 42 / 1) 100%);
+            }
+
+            .tenant-shell[data-layout-ready='false'][data-preview-sidebar-position='top'] .admin-shell-top-tools {
+                display: none;
+            }
+
+            @media (min-width: 640px) {
+                .tenant-shell[data-layout-ready='false'] .admin-shell-topbar {
+                    padding-right: 1.5rem;
+                    padding-left: 1.5rem;
+                }
+
+                .tenant-shell[data-layout-ready='false'][data-preview-sidebar-position='top'] .admin-shell-top-tools {
+                    display: flex;
+                }
+            }
+
+            @media (min-width: 1024px) {
+                .tenant-shell[data-layout-ready='false'][data-preview-sidebar-position='left'] .admin-shell-aside {
+                    left: 0;
+                    transform: translateX(0);
+                }
+
+                .tenant-shell[data-layout-ready='false'][data-preview-sidebar-position='right'] .admin-shell-aside {
+                    right: 0;
+                    left: auto;
+                    transform: translateX(0);
+                }
+
+                .tenant-shell[data-layout-ready='false'][data-preview-sidebar-style='compact']:not([data-preview-sidebar-position='top']) .admin-shell-aside {
+                    width: 5rem;
+                }
+
+                .tenant-shell[data-layout-ready='false'][data-preview-sidebar-style='floating']:not([data-preview-sidebar-position='top']) .admin-shell-aside {
+                    top: 1rem;
+                    bottom: 1rem;
+                    border: 1px solid rgb(229 231 235 / 1);
+                    border-radius: 1.5rem;
+                    background: rgb(255 255 255 / 0.95);
+                    box-shadow: 0 1px 2px rgb(15 23 42 / 0.08);
+                    backdrop-filter: blur(12px);
+                }
+
+                .dark .tenant-shell[data-layout-ready='false'][data-preview-sidebar-style='floating']:not([data-preview-sidebar-position='top']) .admin-shell-aside {
+                    border-color: rgb(30 41 59 / 1);
+                    background: rgb(15 23 42 / 0.95);
+                }
+
+                .tenant-shell[data-layout-ready='false'][data-preview-sidebar-position='left'][data-preview-sidebar-style='floating'] .admin-shell-aside {
+                    left: 1rem;
+                }
+
+                .tenant-shell[data-layout-ready='false'][data-preview-sidebar-position='right'][data-preview-sidebar-style='floating'] .admin-shell-aside {
+                    right: 1rem;
+                }
+
+                .tenant-shell[data-layout-ready='false'][data-preview-sidebar-position='left']:not([data-preview-sidebar-style='floating']) .admin-shell-aside {
+                    border-right: 1px solid rgb(229 231 235 / 1);
+                    background: rgb(255 255 255 / 1);
+                }
+
+                .tenant-shell[data-layout-ready='false'][data-preview-sidebar-position='right']:not([data-preview-sidebar-style='floating']) .admin-shell-aside {
+                    border-left: 1px solid rgb(229 231 235 / 1);
+                    background: rgb(255 255 255 / 1);
+                }
+
+                .dark .tenant-shell[data-layout-ready='false'][data-preview-sidebar-position='left']:not([data-preview-sidebar-style='floating']) .admin-shell-aside,
+                .dark .tenant-shell[data-layout-ready='false'][data-preview-sidebar-position='right']:not([data-preview-sidebar-style='floating']) .admin-shell-aside {
+                    border-color: rgb(30 41 59 / 1);
+                    background: rgb(15 23 42 / 1);
+                }
+
+                .tenant-shell[data-layout-ready='false'][data-preview-sidebar-position='left'][data-preview-sidebar-style='compact'] .admin-shell-content {
+                    padding-left: 7rem;
+                }
+
+                .tenant-shell[data-layout-ready='false'][data-preview-sidebar-position='left'][data-preview-sidebar-style='floating'] .admin-shell-content {
+                    padding-left: 22rem;
+                }
+
+                .tenant-shell[data-layout-ready='false'][data-preview-sidebar-position='left']:not([data-preview-sidebar-style='compact']):not([data-preview-sidebar-style='floating']) .admin-shell-content {
+                    padding-left: 18rem;
+                }
+
+                .tenant-shell[data-layout-ready='false'][data-preview-sidebar-position='right'][data-preview-sidebar-style='compact'] .admin-shell-content {
+                    padding-right: 7rem;
+                }
+
+                .tenant-shell[data-layout-ready='false'][data-preview-sidebar-position='right'][data-preview-sidebar-style='floating'] .admin-shell-content {
+                    padding-right: 22rem;
+                }
+
+                .tenant-shell[data-layout-ready='false'][data-preview-sidebar-position='right']:not([data-preview-sidebar-style='compact']):not([data-preview-sidebar-style='floating']) .admin-shell-content {
+                    padding-right: 18rem;
+                }
+            }
+
+            @media (max-width: 1023px) {
+                .tenant-shell[data-layout-ready='false'][data-preview-sidebar-position='left'] .admin-shell-aside {
+                    left: 0;
+                    transform: translateX(-100%);
+                }
+
+                .tenant-shell[data-layout-ready='false'][data-preview-sidebar-position='right'] .admin-shell-aside {
+                    right: 0;
+                    left: auto;
+                    transform: translateX(100%);
+                }
+            }
         </style>
     </head>
     <body class="font-sans antialiased">
         <div
             class="tenant-shell min-h-screen"
+            data-layout-ready="false"
+            data-preview-sidebar-position="{{ $resolvedLayout['sidebar_position'] }}"
+            data-preview-sidebar-style="{{ $resolvedLayout['sidebar_style'] }}"
+            data-preview-topbar-behavior="{{ $resolvedLayout['topbar_behavior'] }}"
+            data-preview-topbar-style="{{ $resolvedLayout['topbar_style'] }}"
             x-data="{
                 sidebarOpen: false,
                 customizerOpen: false,
@@ -186,6 +433,9 @@
                 ]),
                 init() {
                     this.applyPreview();
+                    this.$nextTick(() => {
+                        this.$root.dataset.layoutReady = 'true';
+                    });
                 },
                 get isTop() {
                     return this.prefs.sidebar_position === 'top';
@@ -440,6 +690,8 @@
             }"
             :data-preview-sidebar-position="prefs.sidebar_position"
             :data-preview-sidebar-style="prefs.sidebar_style"
+            :data-preview-topbar-behavior="prefs.topbar_behavior"
+            :data-preview-topbar-style="prefs.topbar_style"
         >
             <button
                 type="button"
@@ -541,8 +793,8 @@
 
             <div x-show="sidebarOpen && !isTop" x-transition:enter="transition-opacity ease-linear duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="transition-opacity ease-linear duration-300" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" class="fixed inset-0 z-40 bg-gray-950/60 lg:hidden" x-on:click="sidebarOpen = false" x-cloak></div>
 
-            <aside :class="[asideLayoutClass, asideTranslateClass]" class="transform transition-transform duration-300 ease-in-out">
-                <div class="flex min-h-[5.5rem] items-center justify-between border-b border-gray-200 px-6 pt-5 pb-6 dark:border-slate-800" :class="isTop ? '!h-16 !border-b-0 !border-r !px-3 !py-0' : ''">
+            <aside :class="[asideLayoutClass, asideTranslateClass]" class="admin-shell-aside transform transition-transform duration-300 ease-in-out lg:transition-none">
+                <div class="admin-shell-header flex min-h-[5.5rem] items-center justify-between border-b border-gray-200 px-6 pt-5 pb-6 dark:border-slate-800" :class="isTop ? '!h-16 !border-b-0 !border-r !px-3 !py-0' : ''">
                     <a href="{{ route('admin.dashboard') }}" class="flex min-w-0 items-center gap-3">
                         @if ($logoUrl)
                             <img x-show="showLogo" x-on:error="logoLoadFailed = true" src="{{ $logoUrl }}" alt="Admin Logo" class="h-14 w-14 flex-shrink-0 rounded-full object-cover bg-white border border-gray-300 dark:border-slate-700" x-cloak>
@@ -553,12 +805,12 @@
                             <span>Laundry</span><span class="tenant-wordmark-accent">Track</span>
                         </span>
                     </a>
-                    <button x-show="!isTop" x-on:click="sidebarOpen = false" class="text-gray-400 hover:text-gray-600 dark:text-slate-400 dark:hover:text-slate-100 lg:hidden">
+                    <button x-show="!isTop" x-on:click="sidebarOpen = false" class="admin-shell-sidebar-close text-gray-400 hover:text-gray-600 dark:text-slate-400 dark:hover:text-slate-100 lg:hidden">
                         <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
 
-                <nav :class="navClass" class="admin-nav-list flex-1 space-y-1 overflow-y-auto px-4 py-4">
+                <nav :class="navClass" class="admin-nav-list admin-shell-nav flex-1 space-y-1 overflow-y-auto px-4 py-4">
                     <a href="{{ route('admin.dashboard') }}" title="Dashboard" class="flex items-center px-3 py-2 text-sm font-medium rounded-md {{ $navAlignmentClass }} {{ request()->routeIs('admin.dashboard') ? $activeNavClass : $inactiveNavClass }}">
                         <svg class="admin-nav-item-icon {{ $iconSpacingClass }}" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" /></svg>
                         <span class="admin-nav-label {{ $navLabelVisibilityClass }}">Dashboard</span>
@@ -612,7 +864,7 @@
                     </a>
                 </nav>
 
-                <div x-show="isTop" class="ml-2 hidden items-center gap-2 pr-2 sm:flex" x-cloak>
+                <div x-show="isTop" class="admin-shell-top-tools ml-2 hidden items-center gap-2 pr-2 sm:flex">
                     <!-- Enhanced Notification Bell for 'isTop' Layout -->
                     <div class="relative" x-data="{ open: false }">
                         <button @click="open = !open" type="button" class="relative p-2 text-gray-400 transition-colors rounded-full hover:text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800 focus:outline-none">
@@ -674,7 +926,7 @@
                     </form>
                 </div>
 
-                <div x-show="!isTop" class="border-t border-gray-200 px-4 py-4 dark:border-slate-800" x-cloak>
+                <div x-show="!isTop" class="admin-shell-bottom-user border-t border-gray-200 px-4 py-4 dark:border-slate-800">
                     <div class="flex items-center">
                         <div class="flex-shrink-0">
                             <div class="flex h-8 w-8 items-center justify-center rounded-full {{ $theme['avatar_bg'] }}">
@@ -696,9 +948,9 @@
                 </div>
             </aside>
 
-            <div :class="contentWrapperClass" class="transition-[padding] duration-200">
-                <div x-show="!isTop" x-cloak :class="topbarWrapperClass">
-                    <div :class="topbarSurfaceClass">
+            <div :class="contentWrapperClass" class="admin-shell-content transition-[padding] duration-200 lg:transition-none">
+                <div x-show="!isTop" :class="topbarWrapperClass" class="admin-shell-topbar-wrap">
+                    <div :class="topbarSurfaceClass" class="admin-shell-topbar">
                         <div class="flex items-center gap-3">
                             {{-- Mobile: hamburger to open sidebar --}}
                             <button x-show="!isTop" x-on:click="sidebarOpen = true"
