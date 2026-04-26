@@ -51,6 +51,7 @@ Route::middleware([
     PreventAccessFromCentralDomains::class,
     CheckTenantEnabled::class,
     TrackTenantUsage::class,
+    'tenant.update.maintenance',
 ])->group(function () {
     // Dynamic Favicon Route
     Route::get('/favicon.svg', [\App\Http\Controllers\FaviconController::class, 'tenantFavicon'])->name('tenant.favicon');
@@ -84,7 +85,7 @@ Route::middleware([
     });
 
     // Authenticated routes
-    Route::middleware(['tenant.auth', 'tenant.update.maintenance'])->group(function () {
+    Route::middleware(['tenant.auth'])->group(function () {
         Route::post('/logout', [LoginController::class, 'destroy'])->name(
             'tenant.logout',
         );

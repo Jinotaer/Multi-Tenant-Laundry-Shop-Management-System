@@ -54,13 +54,11 @@ class CheckTenantUpdateMaintenance
 
         if ($request->expectsJson()) {
             return response()->json([
-                'message' => 'This store is temporarily in maintenance while an update is being finalized.',
+                'message' => 'This store is temporarily under maintenance while an update is being applied. Please try again shortly.',
             ], 503);
         }
 
-        return redirect()
-            ->route('tenant.updates.index')
-            ->with('error', 'Your store is currently in maintenance while an update is being finalized.');
+        return response(view('tenant.maintenance'), 503);
     }
 
     /**
