@@ -143,15 +143,15 @@
         }
     </style>
 
-    <div class="shop-show-page space-y-6">
+    <div class="shop-show-page admin-page-stack space-y-6">
         @if (session('error'))
-            <div class="tenant-alert border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
+            <div class="tenant-alert border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
                 {{ session('error') }}
             </div>
         @endif
 
         @if ($errors->any())
-            <div class="tenant-alert border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
+            <div class="tenant-alert border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
                 <p class="font-semibold">Please review the form errors below.</p>
                 <ul class="mt-2 list-disc space-y-1 pl-5">
                     @foreach ($errors->all() as $error)
@@ -639,7 +639,7 @@
             </div>
         </section>
 
-        <section class="rounded-[28px] border border-red-200 bg-white p-6 shadow-sm dark:border-red-500/30 dark:bg-slate-900">
+        <section class="rounded-[28px] border border-red-300 bg-white p-6 shadow-sm dark:border-red-500/30 dark:bg-slate-900">
             <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h2 class="text-lg font-bold text-red-600 dark:text-red-300">Danger Zone</h2>

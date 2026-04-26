@@ -33,7 +33,7 @@
                             @endif
                         </svg>
                         <div>
-                            <h3 class="text-lg font-bold mb-1">{{ $isUpgrade ? '🚀' : '⚠️' }} Confirm {{ $actionText }}</h3>
+                            <h3 class="text-lg font-bold mb-1">{{ $isUpgrade ? '<svg class="inline-block h-4 w-4 align-text-bottom" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.631 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58m-.119-8.54a6 6 0 00-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 00-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 01-2.448-2.448 14.9 14.9 0 01.06-.312m-2.24 2.39a4.493 4.493 0 00-1.757 4.306 4.493 4.493 0 004.306-1.758M16.5 9a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/></svg>' : '<svg class="inline-block h-4 w-4 align-text-bottom" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>' }} Confirm {{ $actionText }}</h3>
                             <p class="text-sm opacity-90">
                                 @if($isUpgrade)
                                     You are about to upgrade your subscription. Review the new features and benefits below.
@@ -105,12 +105,12 @@
 
                 @if(!$isUpgrade && !empty($compatibilityIssues))
                     {{-- Usage Warnings --}}
-                    <div class="bg-amber-50 border border-amber-200 rounded-lg p-6">
-                        <h3 class="text-lg font-semibold text-amber-900 mb-4">⚠️ Current Usage Exceeds New Plan Limits</h3>
+                    <div class="bg-amber-50 border border-amber-300 rounded-lg p-6">
+                        <h3 class="text-lg font-semibold text-amber-900 mb-4"><svg class="inline-block h-4 w-4 align-text-bottom" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg> Current Usage Exceeds New Plan Limits</h3>
                         <p class="text-sm text-amber-800 mb-4">Your existing data will be preserved, but you'll have restrictions until you're within the new limits:</p>
                         <ul class="space-y-3">
                             @foreach($compatibilityIssues as $issue)
-                                <li class="bg-white rounded-lg p-4 border border-amber-200">
+                                <li class="bg-white rounded-lg p-4 border border-amber-300">
                                     <p class="font-semibold text-amber-900 mb-1">{{ $issue['message'] }}</p>
                                     <p class="text-sm text-amber-700">{{ $issue['warning'] }}</p>
                                 </li>
@@ -127,7 +127,7 @@
                         </div>
                         <div class="mt-4">
                             <label class="flex items-start gap-3">
-                                <input type="checkbox" name="acknowledge_limits" value="1" required class="mt-1 h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                                <input type="checkbox" name="acknowledge_limits" value="1" required class="mt-1 h-4 w-4 border-gray-300 rounded">
                                 <span class="text-sm text-amber-900">I understand that I won't be able to add new staff, customers, or orders beyond the plan limits until I reduce my current usage.</span>
                             </label>
                         </div>
@@ -136,8 +136,8 @@
 
                 @if($isUpgrade)
                     {{-- Features You'll Gain --}}
-                    <div class="bg-green-50 border border-green-200 rounded-lg p-6">
-                        <h3 class="text-lg font-semibold text-green-900 mb-4">✨ New Features You'll Get</h3>
+                    <div class="bg-green-50 border border-green-300 rounded-lg p-6">
+                        <h3 class="text-lg font-semibold text-green-900 mb-4"><svg class="inline-block h-4 w-4 align-text-bottom" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"/></svg> New Features You'll Get</h3>
                         <ul class="space-y-2">
                             @if($newPlan->hasFeature('analytics_dashboard') && !$currentPlan->hasFeature('analytics_dashboard'))
                                 <li class="flex items-center gap-2 text-green-800">
@@ -181,8 +181,8 @@
                     </div>
                 @else
                     {{-- Features You'll Lose --}}
-                    <div class="bg-red-50 border border-red-200 rounded-lg p-6">
-                        <h3 class="text-lg font-semibold text-red-900 mb-4">⚠️ Features You'll Lose</h3>
+                    <div class="bg-red-50 border border-red-300 rounded-lg p-6">
+                        <h3 class="text-lg font-semibold text-red-900 mb-4"><svg class="inline-block h-4 w-4 align-text-bottom" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg> Features You'll Lose</h3>
                         <ul class="space-y-2">
                             @if(!$newPlan->hasFeature('analytics_dashboard') && $currentPlan->hasFeature('analytics_dashboard'))
                                 <li class="flex items-center gap-2 text-red-800">
@@ -242,7 +242,7 @@
                                 type="text" 
                                 name="confirmation" 
                                 required
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2"
                                 placeholder="Type {{ strtoupper($actionText) }}"
                             >
                             @error('confirmation')

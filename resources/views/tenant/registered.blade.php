@@ -15,7 +15,7 @@
             <p class="text-xs text-gray-400 mt-2">Make sure to add this domain to your hosts file for local development.</p>
         </div>
 
-        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6 text-left">
+        <div class="bg-yellow-50 border border-yellow-300 rounded-lg p-4 mb-6 text-left">
             <p class="text-sm font-medium text-yellow-800 mb-1">Local Development Setup</p>
             <p class="text-xs text-yellow-700">Add this line to <code class="bg-yellow-100 px-1 rounded">C:\Windows\System32\drivers\etc\hosts</code>:</p>
             <code class="block mt-2 text-xs bg-yellow-100 p-2 rounded">127.0.0.1 {{ $domain }}</code>

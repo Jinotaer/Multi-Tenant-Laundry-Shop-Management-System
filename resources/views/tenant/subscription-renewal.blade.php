@@ -24,7 +24,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
                     </svg>
                     <div>
-                        <h3 class="text-lg font-bold mb-1">⚠️ Grace Period Active</h3>
+                        <h3 class="text-lg font-bold mb-1"><svg class="inline-block h-4 w-4 align-text-bottom" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg> Grace Period Active</h3>
                         <p class="text-sm opacity-90">
                             Your subscription has expired. You have <strong>{{ $graceDaysRemaining }} {{ Str::plural('day', $graceDaysRemaining) }}</strong> remaining in your grace period to renew before your account is suspended.
                         </p>
@@ -38,7 +38,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
                     </svg>
                     <div>
-                        <h3 class="text-lg font-bold mb-1">🚨 Subscription Expired</h3>
+                        <h3 class="text-lg font-bold mb-1"><svg class="inline-block h-4 w-4 align-text-bottom" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg> Subscription Expired</h3>
                         <p class="text-sm opacity-90">
                             Your subscription has expired. Renew now to restore full access to your shop.
                         </p>

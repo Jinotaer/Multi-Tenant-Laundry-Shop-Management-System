@@ -11,7 +11,7 @@
             || $editService !== null;
     @endphp
 
-    <div class="space-y-4">
+    <div class="tenant-page-stack space-y-4">
         <x-tenant-header title="Services & Pricing" description="Configure your laundry services and pricing.">
             @if ($canCreateServices)
                 <x-slot name="actions">
@@ -29,7 +29,7 @@
         </x-tenant-header>
 
         @if (session('success'))
-            <div class="rounded-lg bg-green-50 p-4 text-sm text-green-700 border border-green-200">{{ session('success') }}</div>
+            <div class="rounded-lg bg-green-50 p-4 text-sm text-green-700 border border-green-300">{{ session('success') }}</div>
         @endif
 
         <p class="text-xs text-gray-400 dark:text-slate-500">

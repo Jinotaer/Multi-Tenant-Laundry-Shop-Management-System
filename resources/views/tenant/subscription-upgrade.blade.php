@@ -5,7 +5,7 @@
         </h2>
     </x-slot>
 
-    <div class="max-w-3xl mx-auto space-y-6">
+    <div class="tenant-page-stack max-w-3xl mx-auto space-y-6">
         
         {{-- Plan Comparison --}}
         @if($currentPlan)

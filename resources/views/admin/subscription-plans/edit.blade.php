@@ -7,7 +7,7 @@
         </x-admin-header>
     </x-slot>
 
-    <form method="POST" action="{{ route('admin.subscription-plans.update', $plan) }}">
+    <form method="POST" action="{{ route('admin.subscription-plans.update', $plan) }}" class="admin-page-stack">
         @csrf
         @method('PUT')
         @include('admin.subscription-plans.partials.form', ['plan' => $plan, 'submitLabel' => 'Update Plan'])

@@ -5,7 +5,7 @@
 
     @php $theme = app(\App\Services\ThemeService::class)->getAdminTheme(); @endphp
 
-    <div class="space-y-6">
+    <div class="admin-page-stack space-y-6">
         <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
             <div class="p-4 sm:p-8">
                 <div class="max-w-xl">

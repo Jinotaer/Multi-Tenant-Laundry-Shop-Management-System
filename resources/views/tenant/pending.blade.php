@@ -7,9 +7,9 @@
         </div>
 
         <h2 class="text-lg font-semibold text-gray-700 mb-2">Registration Submitted</h2>
-        <p class="text-sm text-gray-500 mb-6">Thank you — your shop registration has been submitted and is awaiting administrator approval. We will email you once it is reviewed.</p>
+        <p class="text-sm text-gray-500 mb-6">Thank you. your shop registration has been submitted and is awaiting administrator approval. We will email you once it is reviewed.</p>
 
-        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+        <div class="bg-yellow-50 border border-yellow-300 rounded-lg p-4 mb-6">
             <p class="text-sm font-medium text-yellow-800 mb-1">What's next?</p>
             <ul class="text-xs text-yellow-700 text-left list-disc list-inside space-y-1">
                 <li>An administrator will review your registration</li>

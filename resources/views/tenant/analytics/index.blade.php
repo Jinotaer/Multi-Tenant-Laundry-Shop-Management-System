@@ -14,7 +14,7 @@
         };
     @endphp
 
-    <div class="space-y-5">
+    <div class="tenant-page-stack space-y-5">
         <x-tenant-header title="Analytics" description="Track revenue, order volume, customer value, and service demand.">
             <x-slot name="actions">
                 <div class="flex flex-wrap gap-2">
@@ -30,7 +30,7 @@
             </x-slot>
         </x-tenant-header>
 
-        <div class="space-y-6">
+        <div class="tenant-page-stack space-y-6">
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <div class="rounded-xl bg-white p-5 shadow-sm">
                 <p class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">Revenue</p>

@@ -5,7 +5,7 @@
 
     @php $theme = tenant()->getThemePreset(); @endphp
 
-    <div class="max-w-2xl">
+    <div class="tenant-page-stack max-w-2xl">
         <div class="bg-white shadow-sm sm:rounded-lg">
             <div class="p-6">
                 <form method="POST" action="{{ route('tenant.staff.store') }}" class="space-y-6">
@@ -14,14 +14,14 @@
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Full Name <span class="text-red-500">*</span></label>
                         <input type="text" name="name" value="{{ old('name') }}" required
-                            class="block w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500 @error('name', 'staff') border-red-300 @enderror">
+                            class="block w-full rounded-md border-gray-300 shadow-sm text-sm @error('name', 'staff') border-red-300 @enderror">
                         @error('name', 'staff') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
 
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Email Address <span class="text-red-500">*</span></label>
                         <input type="email" name="email" value="{{ old('email') }}" required
-                            class="block w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500 @error('email', 'staff') border-red-300 @enderror">
+                            class="block w-full rounded-md border-gray-300 shadow-sm text-sm @error('email', 'staff') border-red-300 @enderror">
                         @error('email', 'staff') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
 
@@ -29,13 +29,13 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Password <span class="text-red-500">*</span></label>
                             <input type="password" name="password" required
-                                class="block w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500 @error('password', 'staff') border-red-300 @enderror">
+                                class="block w-full rounded-md border-gray-300 shadow-sm text-sm @error('password', 'staff') border-red-300 @enderror">
                             @error('password', 'staff') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Confirm Password <span class="text-red-500">*</span></label>
                             <input type="password" name="password_confirmation" required
-                                class="block w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                class="block w-full rounded-md border-gray-300 shadow-sm text-sm">
                         </div>
                     </div>
 
@@ -50,7 +50,7 @@
                                             name="roles[]"
                                             value="{{ $role->slug }}"
                                             @checked(collect(old('roles', []))->contains($role->slug))
-                                            class="mt-1 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                            class="mt-1 rounded border-gray-300"
                                         >
                                         <span>
                                             <span class="block font-medium text-gray-800">{{ $role->name }}</span>

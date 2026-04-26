@@ -30,7 +30,7 @@
         </div>
     </x-slot>
 
-    <div class="space-y-6">
+    <div class="admin-page-stack space-y-6">
         <!-- Invoice Card -->
         <div class="tenant-panel overflow-hidden">
             <div class="p-8">

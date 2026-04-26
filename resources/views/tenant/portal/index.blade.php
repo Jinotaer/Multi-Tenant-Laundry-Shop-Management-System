@@ -9,9 +9,9 @@
         $inProgressCount = $activeOrders->count() - $readyCount;
     @endphp
 
-    <div class="space-y-6">
+    <div class="tenant-page-stack space-y-6">
         @if (!$customer)
-            <div class="bg-yellow-50 border border-yellow-200 rounded-2xl p-8 text-center dark:bg-yellow-900/20 dark:border-yellow-700">
+            <div class="bg-yellow-50 border border-yellow-300 rounded-2xl p-8 text-center dark:bg-yellow-900/20 dark:border-yellow-700">
                 <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-yellow-100 dark:bg-yellow-900/40">
                     <svg class="h-7 w-7 text-yellow-500 dark:text-yellow-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
@@ -141,7 +141,7 @@
                             <div class="relative">
                                 <svg class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M16.5 10.5a6 6 0 11-12 0 6 6 0 0112 0z" /></svg>
                                 <input type="text" name="search" value="{{ request('search') }}" placeholder="Search order #..."
-                                    class="rounded-full border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 text-sm pl-9 pr-3 py-1.5 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:focus:border-indigo-400">
+                                    class="rounded-full border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 text-sm pl-9 pr-3 py-1.5 shadow-sm dark:focus:border-indigo-400">
                             </div>
                         </form>
                     </div>
@@ -168,7 +168,7 @@
                                                     {{ $order->order_number }}
                                                 </a>
                                             </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-slate-400">{{ $order->service?->name ?? '—' }}</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-slate-400">{{ $order->service?->name ?? 'Not set' }}</td>
                                             <td class="px-6 py-4 whitespace-nowrap">
                                                 <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium {{ $order->status_color }}">{{ $order->status_label }}</span>
                                             </td>
@@ -197,7 +197,7 @@
                                     <div class="flex items-start justify-between gap-3">
                                         <div class="min-w-0">
                                             <p class="font-semibold text-gray-900 dark:text-slate-100">{{ $order->order_number }}</p>
-                                            <p class="text-sm text-gray-500 dark:text-slate-400 truncate">{{ $order->service?->name ?? '—' }}</p>
+                                            <p class="text-sm text-gray-500 dark:text-slate-400 truncate">{{ $order->service?->name ?? 'Not set' }}</p>
                                             <p class="text-xs text-gray-400 dark:text-slate-500 mt-1">{{ $order->created_at->format('M d, Y') }}</p>
                                         </div>
                                         <div class="flex flex-col items-end gap-1.5 shrink-0">

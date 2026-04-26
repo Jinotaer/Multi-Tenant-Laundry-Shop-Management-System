@@ -12,7 +12,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Receipt — {{ $order->order_number }}</title>
+    <title>Receipt {{ $order->order_number }}</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Courier New', monospace; font-size: 12px; max-width: 300px; margin: 0 auto; padding: 20px 10px; color: #000; }
@@ -86,7 +86,7 @@
             </tr>
             @foreach ($order->items as $item)
                 <tr>
-                    <td>{{ $item['name'] ?? '—' }}</td>
+                    <td>{{ $item['name'] ?? 'Not set' }}</td>
                     <td class="center">{{ $item['qty'] ?? 1 }}</td>
                     <td class="right">{{ number_format(($item['qty'] ?? 1) * ($item['price'] ?? 0), 2) }}</td>
                 </tr>

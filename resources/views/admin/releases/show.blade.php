@@ -11,7 +11,7 @@
     </x-slot>
 
     <div class="py-12">
-        <div class="mx-auto max-w-7xl sm:px-6 lg:px-8 space-y-6">
+        <div class="admin-page-stack mx-auto max-w-7xl space-y-6 sm:px-6 lg:px-8">
             
             <div class="p-6 bg-white shadow sm:rounded-lg">
                 <div class="flex items-center justify-between mb-4">

@@ -86,7 +86,7 @@
                     <div class="space-y-5">
                         <div>
                             <x-input-label for="shop_name" :value="__('Shop Name')" class="text-gray-700 font-semibold" />
-                            <x-text-input id="shop_name" class="block mt-1 w-full bg-gray-50/50 border-gray-200 focus:bg-white focus:ring-indigo-500 focus:border-indigo-500 rounded-xl transition-all" type="text" name="shop_name" :value="old('shop_name')" required autofocus placeholder="e.g. Fresh & Clean" />
+                            <x-text-input id="shop_name" class="block mt-1 w-full bg-gray-50/50 border-gray-200 focus:bg-white rounded-xl transition-all" type="text" name="shop_name" :value="old('shop_name')" required autofocus placeholder="e.g. Fresh & Clean" />
                             <x-input-error :messages="$errors->get('shop_name')" class="mt-2" />
                         </div>
 
@@ -101,31 +101,31 @@
 
                         <div>
                             <x-input-label for="name" :value="__('Full Name')" class="text-gray-700 font-semibold"/>
-                            <x-text-input id="name" class="block mt-1 w-full bg-gray-50/50 border-gray-200 focus:bg-white focus:ring-indigo-500 focus:border-indigo-500 rounded-xl transition-all" type="text" name="name" :value="old('name')" required autocomplete="name" placeholder="John Doe" />
+                            <x-text-input id="name" class="block mt-1 w-full bg-gray-50/50 border-gray-200 focus:bg-white rounded-xl transition-all" type="text" name="name" :value="old('name')" required autocomplete="name" placeholder="John Doe" />
                             <x-input-error :messages="$errors->get('name')" class="mt-2" />
                         </div>
 
                         <div>
                             <x-input-label for="email" :value="__('Email Address')" class="text-gray-700 font-semibold"/>
-                            <x-text-input id="email" class="block mt-1 w-full bg-gray-50/50 border-gray-200 focus:bg-white focus:ring-indigo-500 focus:border-indigo-500 rounded-xl transition-all" type="email" name="email" :value="old('email')" required autocomplete="username" placeholder="john@example.com" />
+                            <x-text-input id="email" class="block mt-1 w-full bg-gray-50/50 border-gray-200 focus:bg-white rounded-xl transition-all" type="email" name="email" :value="old('email')" required autocomplete="username" placeholder="john@example.com" />
                             <x-input-error :messages="$errors->get('email')" class="mt-2" />
                         </div>
 
                         <div>
                             <x-input-label for="password" :value="__('Password')" class="text-gray-700 font-semibold" />
-                            <x-text-input id="password" class="block mt-1 w-full bg-gray-50/50 border-gray-200 focus:bg-white focus:ring-indigo-500 focus:border-indigo-500 rounded-xl transition-all" type="password" name="password" required autocomplete="new-password" placeholder="" />
+                            <x-text-input id="password" class="block mt-1 w-full bg-gray-50/50 border-gray-200 focus:bg-white rounded-xl transition-all" type="password" name="password" required autocomplete="new-password" placeholder="" />
                             <x-input-error :messages="$errors->get('password')" class="mt-2" />
                         </div>
 
                         <div>
                             <x-input-label for="password_confirmation" :value="__('Confirm Password')" class="text-gray-700 font-semibold"/>
-                            <x-text-input id="password_confirmation" class="block mt-1 w-full bg-gray-50/50 border-gray-200 focus:bg-white focus:ring-indigo-500 focus:border-indigo-500 rounded-xl transition-all" type="password" name="password_confirmation" required autocomplete="new-password" placeholder="" />
+                            <x-text-input id="password_confirmation" class="block mt-1 w-full bg-gray-50/50 border-gray-200 focus:bg-white rounded-xl transition-all" type="password" name="password_confirmation" required autocomplete="new-password" placeholder="" />
                             <x-input-error :messages="$errors->get('password_confirmation')" class="mt-2" />
                         </div>
                     </div>
 
                     <div class="mt-8">
-                        <button type="submit" class="w-full inline-flex items-center justify-center px-4 py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 border border-transparent rounded-xl font-bold text-white uppercase tracking-widest hover:from-indigo-700 hover:to-violet-700 focus:bg-indigo-700 active:bg-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-300 shadow-lg shadow-indigo-300/50 hover:shadow-xl hover:-translate-y-0.5">
+                        <button type="submit" class="w-full inline-flex items-center justify-center px-4 py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 border border-transparent rounded-xl font-bold text-white uppercase tracking-widest hover:from-indigo-700 hover:to-violet-700 focus:bg-indigo-700 active:bg-indigo-900 focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all duration-300 shadow-lg shadow-indigo-300/50 hover:shadow-xl hover:-translate-y-0.5">
                             {{ __('Complete Registration') }}
                             <svg class="ml-2 -mr-1 w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />

@@ -5,7 +5,7 @@
         $canExportReports = $currentUser !== null && ($currentUser->isOwner() || $currentUser->hasPermission('reports.export'));
     @endphp
 
-    <div class="space-y-4">
+    <div class="tenant-page-stack space-y-4">
         <x-tenant-header title="Reports" description="View business reports and summaries.">
             <x-slot name="actions">
                 <div class="flex flex-wrap items-center gap-2">
@@ -39,7 +39,7 @@
                     <form method="GET" action="{{ route('tenant.reports.index') }}" id="monthForm">
                         <input type="hidden" name="period" value="custom">
                         <select name="month" onchange="this.form.submit()" 
-                            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2">
                             <option value="">Select a month...</option>
                             @php
                                 $currentMonth = request('month');
@@ -68,11 +68,11 @@
                         <input type="hidden" name="period" value="custom">
                         <div class="flex-1">
                             <input type="date" name="start_date" value="{{ request('start_date') }}" placeholder="Start Date"
-                                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2">
                         </div>
                         <div class="flex-1">
                             <input type="date" name="end_date" value="{{ request('end_date') }}" placeholder="End Date"
-                                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2">
                         </div>
                         <button type="submit" class="px-4 py-2 text-sm font-medium rounded-md bg-indigo-600 text-white hover:bg-indigo-700 whitespace-nowrap">
                             Generate
@@ -93,7 +93,7 @@
             
             @if($period === 'custom' && (request('start_date') && request('end_date') || request('month')))
                 <p class="mt-3 text-xs text-indigo-600 font-medium">
-                    📊 {{ $periodLabel }}
+                    <svg class="inline-block h-4 w-4 align-text-bottom" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg> {{ $periodLabel }}
                 </p>
             @endif
         </div>

@@ -9,7 +9,7 @@
             || request()->boolean('create');
     @endphp
 
-    <div class="space-y-4">
+    <div class="tenant-page-stack space-y-4">
         <x-tenant-header title="Expense Tracking" description="Track and manage business expenses.">
             @if ($canCreateExpenses)
                 <x-slot name="actions">
@@ -50,7 +50,7 @@
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Category</label>
                     <select name="category"
-                        class="block w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        class="block w-full rounded-md border-gray-300 shadow-sm text-sm">
                         <option value="">All Categories</option>
                         @foreach ($categories as $key => $label)
                             <option value="{{ $key }}" {{ request('category') === $key ? 'selected' : '' }}>{{ $label }}
@@ -61,7 +61,7 @@
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Month</label>
                     <input type="month" name="month" value="{{ request('month') }}"
-                        class="block w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        class="block w-full rounded-md border-gray-300 shadow-sm text-sm">
                 </div>
                 <div class="flex items-end">
                     <button type="submit"

@@ -1,11 +1,11 @@
 <x-tenant-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">Edit Order — {{ $order->order_number }}</h2>
+        <h2 class="font-semibold text-xl text-gray-800 leading-tight">Edit Order: {{ $order->order_number }}</h2>
     </x-slot>
 
     @php $theme = tenant()->getThemePreset(); @endphp
 
-    <div class="max-w-3xl">
+    <div class="tenant-page-stack max-w-3xl">
         <div class="bg-white shadow-sm sm:rounded-lg">
             <div class="p-6">
                 <form method="POST" action="{{ route('tenant.orders.update', $order) }}" class="space-y-6"
@@ -53,8 +53,8 @@
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Customer <span class="text-red-500">*</span></label>
                         <select name="customer_id" required
-                            class="block w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500 @error('customer_id') border-red-300 @enderror">
-                            <option value="">— Select Customer —</option>
+                            class="block w-full rounded-md border-gray-300 shadow-sm text-sm @error('customer_id') border-red-300 @enderror">
+                            <option value="">Select Customer</option>
                             @foreach ($customers as $customer)
                                 <option value="{{ $customer->id }}" {{ old('customer_id', $order->customer_id) == $customer->id ? 'selected' : '' }}>
                                     {{ $customer->name }}{{ $customer->phone ? ' ('.$customer->phone.')' : '' }}
@@ -69,8 +69,8 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Service</label>
                             <select name="service_id" x-model="serviceId"
-                                class="block w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                <option value="">— No Service —</option>
+                                class="block w-full rounded-md border-gray-300 shadow-sm text-sm">
+                                <option value="">No Service</option>
                                 @foreach ($services as $service)
                                     <option value="{{ $service->id }}">{{ $service->name }} ({{ $service->formatted_price }})</option>
                                 @endforeach
@@ -79,7 +79,7 @@
                         <div x-show="selectedService && selectedService.price_type === 'per_kilo'" x-cloak>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Weight (kg)</label>
                             <input type="number" name="weight" x-model="weight" min="0" step="0.01"
-                                class="block w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                class="block w-full rounded-md border-gray-300 shadow-sm text-sm">
                         </div>
                     </div>
                     <template x-if="selectedService">
@@ -97,7 +97,7 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Status <span class="text-red-500">*</span></label>
                             <select name="status" required
-                                class="block w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                class="block w-full rounded-md border-gray-300 shadow-sm text-sm">
                                 @foreach ($statuses as $key => $label)
                                     <option value="{{ $key }}" {{ old('status', $order->status) === $key ? 'selected' : '' }}>{{ $label }}</option>
                                 @endforeach
@@ -106,7 +106,7 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
                             <input type="date" name="due_date" value="{{ old('due_date', $order->due_date?->format('Y-m-d')) }}"
-                                class="block w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                class="block w-full rounded-md border-gray-300 shadow-sm text-sm">
                         </div>
                     </div>
 
@@ -124,15 +124,15 @@
                                 <div class="grid grid-cols-12 gap-2 items-center">
                                     <div class="col-span-6">
                                         <input type="text" :name="`items[${index}][name]`" x-model="item.name" placeholder="Item"
-                                            class="block w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                            class="block w-full rounded-md border-gray-300 shadow-sm text-sm">
                                     </div>
                                     <div class="col-span-2">
                                         <input type="number" :name="`items[${index}][qty]`" x-model="item.qty" min="1" placeholder="Qty"
-                                            class="block w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                            class="block w-full rounded-md border-gray-300 shadow-sm text-sm">
                                     </div>
                                     <div class="col-span-3">
                                         <input type="number" :name="`items[${index}][price]`" x-model="item.price" min="0" step="0.01" :placeholder="selectedService && selectedService.price_type === 'per_piece' ? 'Default piece price' : 'Price (₱)'"
-                                            class="block w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                            class="block w-full rounded-md border-gray-300 shadow-sm text-sm">
                                     </div>
                                     <div class="col-span-1 text-center">
                                         <button type="button" @click="removeItem(index)"
@@ -154,7 +154,7 @@
                             <span class="text-sm text-gray-500">₱</span>
                             <input type="number" name="total_amount" :value="total.toFixed(2)"
                                 min="0" step="0.01" required readonly
-                                class="w-32 rounded-md border-gray-300 shadow-sm text-sm text-right font-semibold focus:border-indigo-500 focus:ring-indigo-500">
+                                class="w-32 rounded-md border-gray-300 shadow-sm text-sm text-right font-semibold">
                         </div>
                     </div>
 
@@ -162,7 +162,7 @@
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
                         <textarea name="notes" rows="2"
-                            class="block w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">{{ old('notes', $order->notes) }}</textarea>
+                            class="block w-full rounded-md border-gray-300 shadow-sm text-sm">{{ old('notes', $order->notes) }}</textarea>
                     </div>
 
                     <div class="flex items-center gap-3 pt-2">

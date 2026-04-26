@@ -33,7 +33,7 @@
         }
     @endphp
 
-    <div class="max-w-4xl mx-auto space-y-6">
+    <div class="tenant-page-stack max-w-4xl mx-auto space-y-6">
         {{-- Hero summary --}}
         <div class="relative overflow-hidden rounded-3xl p-6 sm:p-7 text-white shadow-lg {{ $theme['primary_bg'] }}">
             <div class="absolute -right-12 -top-12 h-44 w-44 rounded-full bg-white/10 blur-2xl" aria-hidden="true"></div>
@@ -180,7 +180,7 @@
                     </div>
                     <div>
                         <p class="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500">Due Date</p>
-                        <p class="mt-1 text-gray-800 dark:text-slate-200">{{ $order->due_date?->format('M d, Y') ?? '—' }}</p>
+                        <p class="mt-1 text-gray-800 dark:text-slate-200">{{ $order->due_date?->format('M d, Y') ?? 'Not set' }}</p>
                     </div>
                     @if ($order->notes)
                         <div class="sm:col-span-2">
@@ -266,7 +266,7 @@
                                     $price = (float) ($item['price'] ?? 0);
                                 @endphp
                                 <tr>
-                                    <td class="px-6 py-3 text-gray-900 dark:text-slate-100">{{ $item['name'] ?? '—' }}</td>
+                                    <td class="px-6 py-3 text-gray-900 dark:text-slate-100">{{ $item['name'] ?? 'Not set' }}</td>
                                     <td class="px-6 py-3 text-center text-gray-600 dark:text-slate-400">{{ $qty }}</td>
                                     <td class="px-6 py-3 text-right text-gray-600 dark:text-slate-400">₱{{ number_format($price, 2) }}</td>
                                     <td class="px-6 py-3 text-right font-medium text-gray-900 dark:text-slate-100">₱{{ number_format($qty * $price, 2) }}</td>

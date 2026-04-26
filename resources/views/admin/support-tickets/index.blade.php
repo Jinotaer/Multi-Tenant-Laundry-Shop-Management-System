@@ -3,7 +3,7 @@
         <x-admin-header title="Support Tickets" description="Manage shop support inquiries." />
     </x-slot>
 
-    <div class="space-y-4">
+    <div class="admin-page-stack space-y-4">
         <div class="flex items-center gap-3">
             <a href="{{ route('admin.support-tickets.index') }}" class="rounded-md px-3 py-1.5 text-sm font-medium {{ !request('status') ? 'bg-indigo-600 text-white' : 'bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-300' }}">
                 All

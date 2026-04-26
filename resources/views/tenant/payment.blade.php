@@ -3,7 +3,7 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>Complete Payment — {{ config('app.name', 'LaundryTrack') }}</title>
+        <title>Complete Payment {{ config('app.name', 'LaundryTrack') }}</title>
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700,800&display=swap" rel="stylesheet" />
         @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -90,7 +90,7 @@
 
                 {{-- Error Message --}}
                 @if(session('error'))
-                    <div class="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
+                    <div class="bg-red-50 border border-red-300 rounded-xl p-4 mb-6">
                         <div class="flex gap-2">
                             <svg class="h-5 w-5 text-red-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" /></svg>
                             <p class="text-sm text-red-700">{{ session('error') }}</p>

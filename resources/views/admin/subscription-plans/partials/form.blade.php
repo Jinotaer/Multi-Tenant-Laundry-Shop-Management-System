@@ -1,6 +1,6 @@
 @php $theme = app(\App\Services\ThemeService::class)->getAdminTheme(); @endphp
 
-<div class="space-y-6 mb-12">
+<div class="admin-form-stack space-y-6 mb-12">
     <!-- Plan Details -->
     <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
         <div class="p-6">
@@ -25,7 +25,7 @@
                 <!-- Description -->
                 <div class="md:col-span-2">
                     <x-input-label for="description" :value="__('Description')" />
-                    <textarea id="description" name="description" rows="3" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm text-sm" placeholder="Brief description of this plan...">{{ old('description', $plan->description ?? '') }}</textarea>
+                    <textarea id="description" name="description" rows="3" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm" placeholder="Brief description of this plan...">{{ old('description', $plan->description ?? '') }}</textarea>
                     <x-input-error :messages="$errors->get('description')" class="mt-2" />
                 </div>
             </div>
@@ -49,7 +49,7 @@
                 <!-- Billing Cycle -->
                 <div>
                     <x-input-label for="billing_cycle" :value="__('Billing Cycle')" />
-                    <select id="billing_cycle" name="billing_cycle" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm text-sm">
+                    <select id="billing_cycle" name="billing_cycle" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm">
                         <option value="monthly" {{ old('billing_cycle', $plan->billing_cycle ?? 'monthly') === 'monthly' ? 'selected' : '' }}>Monthly</option>
                         <option value="yearly" {{ old('billing_cycle', $plan->billing_cycle ?? '') === 'yearly' ? 'selected' : '' }}>Yearly</option>
                     </select>
@@ -106,7 +106,7 @@
                             type="checkbox"
                             name="features[]"
                             value="{{ $featureKey }}"
-                            class="mt-0.5 rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500"
+                            class="mt-0.5 rounded border-gray-300 shadow-sm"
                             {{ in_array($featureKey, $planFeatures) ? 'checked' : '' }}
                         >
                         <div>
@@ -139,7 +139,7 @@
                         type="checkbox"
                         name="is_active"
                         value="1"
-                        class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500"
+                        class="rounded border-gray-300 shadow-sm"
                         {{ old('is_active', $plan->is_active ?? true) ? 'checked' : '' }}
                     >
                     <div>
@@ -154,7 +154,7 @@
                         type="checkbox"
                         name="is_default"
                         value="1"
-                        class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500"
+                        class="rounded border-gray-300 shadow-sm"
                         {{ old('is_default', $plan->is_default ?? false) ? 'checked' : '' }}
                     >
                     <div>

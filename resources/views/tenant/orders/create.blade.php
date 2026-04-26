@@ -5,11 +5,11 @@
 
     @php $theme = tenant()->getThemePreset(); @endphp
 
-    <div class="max-w-3xl">
+    <div class="tenant-page-stack max-w-3xl">
         {{-- Show validation errors --}}
         @if ($errors->any())
-            <div class="mb-6 rounded-lg border border-red-200 bg-red-50 p-4">
-                <h3 class="font-semibold text-red-800 mb-2">⚠️ Please fix these errors:</h3>
+            <div class="mb-6 rounded-lg border border-red-300 bg-red-50 p-4">
+                <h3 class="font-semibold text-red-800 mb-2"><svg class="inline-block h-4 w-4 align-text-bottom" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg> Please fix these errors:</h3>
                 <ul class="list-disc list-inside space-y-1">
                     @foreach ($errors->all() as $error)
                         <li class="text-sm text-red-700">{{ $error }}</li>
@@ -69,8 +69,8 @@
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Customer <span class="text-red-500">*</span></label>
                         <select name="customer_id" required
-                            class="block w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500 @error('customer_id') border-red-300 @enderror">
-                            <option value="">— Select Customer —</option>
+                            class="block w-full rounded-md border-gray-300 shadow-sm text-sm @error('customer_id') border-red-300 @enderror">
+                            <option value="">Select Customer</option>
                             @foreach ($customers as $customer)
                                 <option value="{{ $customer->id }}" {{ old('customer_id', request('customer_id')) == $customer->id ? 'selected' : '' }}>
                                     {{ $customer->name }}{{ $customer->phone ? ' ('.$customer->phone.')' : '' }}
@@ -86,8 +86,8 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Service</label>
                             <select name="service_id" x-model="serviceId"
-                                class="block w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                <option value="">— No Service —</option>
+                                class="block w-full rounded-md border-gray-300 shadow-sm text-sm">
+                                <option value="">No Service</option>
                                 @foreach ($services as $service)
                                     <option value="{{ $service->id }}">{{ $service->name }} ({{ $service->formatted_price }})</option>
                                 @endforeach
@@ -96,7 +96,7 @@
                         <div x-show="selectedService && selectedService.price_type === 'per_kilo'" x-transition>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Weight (kg) <span class="text-red-500">*</span></label>
                             <input type="number" name="weight" x-model="weight" min="0" step="0.01"
-                                class="block w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                class="block w-full rounded-md border-gray-300 shadow-sm text-sm">
                         </div>
                     </div>
 
@@ -114,7 +114,7 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Status <span class="text-red-500">*</span></label>
                             <select name="status" required
-                                class="block w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                class="block w-full rounded-md border-gray-300 shadow-sm text-sm">
                                 @foreach ($statuses as $key => $label)
                                     <option value="{{ $key }}" {{ old('status', 'received') === $key ? 'selected' : '' }}>{{ $label }}</option>
                                 @endforeach
@@ -123,7 +123,7 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
                             <input type="date" name="due_date" value="{{ old('due_date') }}"
-                                class="block w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                class="block w-full rounded-md border-gray-300 shadow-sm text-sm">
                         </div>
                     </div>
 
@@ -143,17 +143,17 @@
                                     <div class="col-span-6">
                                         <input type="text" :name="`items[${index}][name]`" x-model="item.name"
                                             placeholder="Item (e.g. Shirt, Pants)"
-                                            class="block w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                            class="block w-full rounded-md border-gray-300 shadow-sm text-sm">
                                     </div>
                                     <div class="col-span-2">
                                         <input type="number" :name="`items[${index}][qty]`" x-model="item.qty" min="1"
                                             placeholder="Qty"
-                                            class="block w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                            class="block w-full rounded-md border-gray-300 shadow-sm text-sm">
                                     </div>
                                     <div class="col-span-3">
                                         <input type="number" :name="`items[${index}][price]`" x-model="item.price" min="0" step="0.01"
                                             :placeholder="selectedService && selectedService.price_type === 'per_piece' ? 'Default piece price' : 'Price (₱)'"
-                                            class="block w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                            class="block w-full rounded-md border-gray-300 shadow-sm text-sm">
                                     </div>
                                     <div class="col-span-1 text-center">
                                         <button type="button" @click="removeItem(index)"
@@ -176,7 +176,7 @@
                             <span class="text-sm text-gray-500">₱</span>
                             <input type="number" name="total_amount" :value="total.toFixed(2)"
                                 min="0" step="0.01" required readonly
-                                class="w-32 rounded-md border-gray-300 shadow-sm text-sm text-right font-semibold focus:border-indigo-500 focus:ring-indigo-500">
+                                class="w-32 rounded-md border-gray-300 shadow-sm text-sm text-right font-semibold">
                         </div>
                     </div>
 
@@ -184,7 +184,7 @@
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
                         <textarea name="notes" rows="2"
-                            class="block w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">{{ old('notes') }}</textarea>
+                            class="block w-full rounded-md border-gray-300 shadow-sm text-sm">{{ old('notes') }}</textarea>
                     </div>
 
                     <div class="flex items-center gap-3 pt-2">

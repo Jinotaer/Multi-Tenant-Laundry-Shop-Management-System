@@ -1,4 +1,20 @@
 <x-admin-layout>
+    <x-slot name="header">
+        <x-admin-header title="Shop Registrations" description="Review and manage shop registration requests.">
+            <x-slot name="actions">
+                <a
+                    href="{{ route('shop.register') }}"
+                    class="tenant-primary-action inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold shadow-sm"
+                >
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
+                    New Registration
+                </a>
+            </x-slot>
+        </x-admin-header>
+    </x-slot>
+
     <style>
         .registration-page .registration-shell {
             background: rgb(255 255 255 / 0.92);
@@ -36,15 +52,15 @@
         }
     </style>
 
-    <div class="registration-page space-y-6">
+    <div class="registration-page admin-page-stack space-y-6">
         @if (session('error'))
-            <div class="tenant-alert border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
+            <div class="tenant-alert border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
                 {{ session('error') }}
             </div>
         @endif
 
         @if ($errors->any())
-            <div class="tenant-alert border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
+            <div class="tenant-alert border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
                 <p class="font-semibold">Please review the form errors below.</p>
                 <ul class="mt-2 list-disc space-y-1 pl-5">
                     @foreach ($errors->all() as $error)
@@ -53,20 +69,6 @@
                 </ul>
             </div>
         @endif
-
-        <x-admin-header title="Shop Registrations" description="Review and manage shop registration requests.">
-            <x-slot name="actions">
-                <a
-                    href="{{ route('shop.register') }}"
-                    class="tenant-primary-action inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold shadow-sm"
-                >
-                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                    </svg>
-                    New Registration
-                </a>
-            </x-slot>
-        </x-admin-header>
 
         <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <div class="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950/70">

@@ -99,7 +99,7 @@
                                     name="role"
                                     value="{{ $role->slug }}"
                                     @checked($selectedRoleSlug === $role->slug)
-                                    class="mt-1 border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                    class="mt-1 border-gray-300 text-indigo-600"
                                 >
                                 <span>
                                     <span class="block font-medium text-gray-900">{{ $role->name }}</span>

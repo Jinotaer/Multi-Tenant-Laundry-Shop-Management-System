@@ -9,9 +9,9 @@
         $unpaidCount = $activeOrders->where('payment_status', '!=', 'paid')->count();
     @endphp
 
-    <div class="space-y-6">
+    <div class="tenant-page-stack space-y-6">
         @if (!$customer)
-            <div class="bg-yellow-50 border border-yellow-200 rounded-2xl p-8 text-center dark:bg-yellow-900/20 dark:border-yellow-700">
+            <div class="bg-yellow-50 border border-yellow-300 rounded-2xl p-8 text-center dark:bg-yellow-900/20 dark:border-yellow-700">
                 <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-yellow-100 dark:bg-yellow-900/40">
                     <svg class="h-7 w-7 text-yellow-500 dark:text-yellow-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
@@ -93,7 +93,7 @@
                             <div class="min-w-0">
                                 <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500 dark:text-slate-400">Tier</p>
                                 <p class="mt-2 text-xl sm:text-2xl font-bold text-gray-900 dark:text-slate-100">{{ ucfirst($loyalty->tier) }}</p>
-                                <p class="mt-1 text-xs text-gray-400 dark:text-slate-500">{{ \App\Models\CustomerLoyalty::tierLabels()[$loyalty->tier] ?? '—' }}</p>
+                                <p class="mt-1 text-xs text-gray-400 dark:text-slate-500">{{ \App\Models\CustomerLoyalty::tierLabels()[$loyalty->tier] ?? 'Not set' }}</p>
                             </div>
                             <div class="rounded-xl bg-purple-50 p-2.5 dark:bg-purple-900/30">
                                 <svg class="h-5 w-5 text-purple-600 dark:text-purple-400" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor">
@@ -138,7 +138,9 @@
                             <div class="flex items-start justify-between gap-3">
                                 <div class="min-w-0">
                                     <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500 dark:text-slate-400">All Settled</p>
-                                    <p class="mt-2 text-2xl sm:text-3xl font-bold text-emerald-600 dark:text-emerald-400">✓</p>
+                                    <p class="mt-2 text-2xl sm:text-3xl font-bold text-emerald-600 dark:text-emerald-400" aria-label="All settled">
+                                        <svg class="inline-block h-7 w-7" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+                                    </p>
                                     <p class="mt-1 text-xs text-gray-400 dark:text-slate-500">No unpaid orders</p>
                                 </div>
                                 <div class="rounded-xl bg-emerald-50 p-2.5 dark:bg-emerald-900/30">
@@ -157,7 +159,7 @@
                 <div>
                     <h3 class="text-sm font-semibold text-gray-700 dark:text-slate-300 mb-3">Loyalty Rewards</h3>
                     <div class="grid grid-cols-1 gap-4 lg:grid-cols-4">
-                        <div class="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-white p-6 shadow-sm lg:col-span-2 dark:border-amber-700/60 dark:from-amber-900/20 dark:to-slate-800">
+                        <div class="rounded-2xl border border-amber-300 bg-gradient-to-br from-amber-50 to-white p-6 shadow-sm lg:col-span-2 dark:border-amber-700/60 dark:from-amber-900/20 dark:to-slate-800">
                             <div class="flex items-start justify-between gap-4">
                                 <div>
                                     <p class="text-xs font-semibold uppercase tracking-[0.2em] text-amber-700 dark:text-amber-400">Loyalty Tier</p>
@@ -184,7 +186,7 @@
                             @else
                                 <div class="mt-5 flex items-center gap-2 text-xs font-medium text-amber-700 dark:text-amber-400">
                                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" /></svg>
-                                    Top tier unlocked — you earn the highest loyalty multiplier.
+                                    Top tier unlocked: you earn the highest loyalty multiplier.
                                 </div>
                             @endif
                         </div>
@@ -215,7 +217,7 @@
                         <div class="relative">
                             <svg class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M16.5 10.5a6 6 0 11-12 0 6 6 0 0112 0z" /></svg>
                             <input type="text" name="search" value="{{ request('search') }}" placeholder="Search order #..."
-                                class="rounded-full border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 text-sm pl-9 pr-3 py-1.5 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:focus:border-indigo-400">
+                                class="rounded-full border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 text-sm pl-9 pr-3 py-1.5 shadow-sm dark:focus:border-indigo-400">
                         </div>
                     </form>
                 </div>
@@ -253,7 +255,7 @@
                                                     {{ $order->order_number }}
                                                 </a>
                                             </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-slate-400">{{ $order->service?->name ?? '—' }}</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-slate-400">{{ $order->service?->name ?? 'Not set' }}</td>
                                             <td class="px-6 py-4 whitespace-nowrap">
                                                 <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium {{ $order->status_color }}">{{ $order->status_label }}</span>
                                             </td>
@@ -282,7 +284,7 @@
                                     <div class="flex items-start justify-between gap-3">
                                         <div class="min-w-0">
                                             <p class="font-semibold text-gray-900 dark:text-slate-100">{{ $order->order_number }}</p>
-                                            <p class="text-sm text-gray-500 dark:text-slate-400 truncate">{{ $order->service?->name ?? '—' }}</p>
+                                            <p class="text-sm text-gray-500 dark:text-slate-400 truncate">{{ $order->service?->name ?? 'Not set' }}</p>
                                             <p class="text-xs text-gray-400 dark:text-slate-500 mt-1">{{ $order->created_at->format('M d, Y') }}</p>
                                         </div>
                                         <div class="flex flex-col items-end gap-1.5 shrink-0">

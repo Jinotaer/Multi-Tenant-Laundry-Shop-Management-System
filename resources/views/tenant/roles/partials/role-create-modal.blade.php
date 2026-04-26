@@ -81,7 +81,7 @@
                                         x-bind:checked="moduleSelected(@js($modulePermissionKeys))"
                                         x-on:change="toggleModule(@js($modulePermissionKeys), $event.target.checked)"
                                         x-effect="$el.indeterminate = modulePartiallySelected(@js($modulePermissionKeys))"
-                                        class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                        class="rounded border-gray-300"
                                     >
                                     <span class="text-xs font-semibold uppercase tracking-[0.16em] text-gray-500">{{ str_replace('_', ' ', $module) }}</span>
                                 </label>
@@ -95,7 +95,7 @@
                                             value="{{ $permission->key }}"
                                             @checked(collect(old('permissions', []))->contains($permission->key))
                                             x-model="selectedPermissions"
-                                            class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                            class="rounded border-gray-300"
                                         >
                                         <span>{{ $permission->label }}</span>
                                     </label>

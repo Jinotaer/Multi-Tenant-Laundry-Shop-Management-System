@@ -1,5 +1,5 @@
 <x-tenant-layout>
-    <div class="space-y-6">
+    <div class="tenant-page-stack space-y-6">
         <x-tenant-header title="Notifications" description="Recent in-app alerts for order updates and loyalty activity." />
         <div class="flex items-center justify-between">
             <div>

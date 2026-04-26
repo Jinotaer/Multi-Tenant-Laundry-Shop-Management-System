@@ -1,5 +1,5 @@
 <x-tenant-layout>
-    <div class="space-y-5">
+    <div class="tenant-page-stack space-y-5">
         <x-tenant-header title="Available Updates" description="Review newer releases you can install for this store.">
             <x-slot name="actions">
                 <a
@@ -15,13 +15,13 @@
         </x-tenant-header>
 
         @if (session('success'))
-            <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
+            <div class="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
                 {{ session('success') }}
             </div>
         @endif
 
         @if (session('error'))
-            <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
+            <div class="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
                 {{ session('error') }}
             </div>
         @endif
@@ -42,7 +42,7 @@
     </div>
 
     {{-- Update progress toast --}}
-    <div id="update-progress" class="fixed right-4 top-4 z-[90] hidden w-80 rounded-2xl border border-blue-200 bg-white p-4 shadow-lg dark:border-blue-800 dark:bg-slate-900" role="status" aria-live="polite" aria-atomic="true">
+    <div id="update-progress" class="fixed right-4 top-4 z-[90] hidden w-80 rounded-2xl border border-blue-300 bg-white p-4 shadow-lg dark:border-blue-800 dark:bg-slate-900" role="status" aria-live="polite" aria-atomic="true">
         <div class="flex items-start justify-between gap-3">
             <div>
                 <p id="update-progress-title" class="text-sm font-semibold text-blue-700 dark:text-blue-300">Processing update</p>
@@ -92,7 +92,7 @@
                     }
                     const label = form.dataset.actionLabel || 'Processing update';
                     title.textContent = label;
-                    message.textContent = 'Staging the update — you will be redirected to the progress page shortly.';
+                    message.textContent = 'Staging the update. you will be redirected to the progress page shortly.';
                     panel.classList.remove('hidden');
                     const btn = form.querySelector('button[type="submit"]');
                     if (btn) {

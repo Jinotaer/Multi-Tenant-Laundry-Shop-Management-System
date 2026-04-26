@@ -1,7 +1,7 @@
 <x-tenant-layout>
     @php $theme = tenant()->getThemePreset(); @endphp
 
-    <div class="space-y-6">
+    <div class="tenant-page-stack space-y-6">
         <x-tenant-header title="Subscription & Usage" description="Manage your plan, billing cycle, and feature usage." />
 
         {{-- Grace Period Warning --}}
@@ -58,7 +58,7 @@
                 </div>
                 @if($trialDaysRemaining <= 7)
                     <div class="mt-4 bg-white/20 rounded-lg p-3">
-                        <p class="text-sm font-medium">⚠️ Your trial is ending soon. Contact your administrator to upgrade and
+                        <p class="text-sm font-medium"><svg class="inline-block h-4 w-4 align-text-bottom" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg> Your trial is ending soon. Contact your administrator to upgrade and
                             avoid losing access.</p>
                     </div>
                 @endif
@@ -92,7 +92,7 @@
                 </div>
                 @if($paidDaysRemaining <= 7 && $paidDaysRemaining > 0)
                     <div class="mt-4 bg-white/20 rounded-lg p-3">
-                        <p class="text-sm font-medium">⚠️ Your subscription is expiring soon. Renew now to avoid interruption.</p>
+                        <p class="text-sm font-medium"><svg class="inline-block h-4 w-4 align-text-bottom" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg> Your subscription is expiring soon. Renew now to avoid interruption.</p>
                         <a href="{{ route('tenant.subscription.renew') }}" class="inline-block mt-2 bg-white text-green-600 px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-100 transition">
                             Renew Early
                         </a>
@@ -263,7 +263,7 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     @foreach($allFeatures as $featureKey => $featureDef)
                         <div
-                            class="flex items-start gap-3 p-3 rounded-lg {{ in_array($featureKey, $tenantFeatures) ? 'bg-green-50 border border-green-200' : 'bg-gray-50 border border-gray-200' }}">
+                            class="flex items-start gap-3 p-3 rounded-lg {{ in_array($featureKey, $tenantFeatures) ? 'bg-green-50 border border-green-300' : 'bg-gray-50 border border-gray-200' }}">
                             @if(in_array($featureKey, $tenantFeatures))
                                 <svg class="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24"
                                     stroke-width="2" stroke="currentColor">

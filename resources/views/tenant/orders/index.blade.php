@@ -7,12 +7,12 @@
         $services = \App\Models\Service::active()->orderBy('sort_order')->orderBy('name')->get();
     @endphp
 
-    <div class="space-y-4">
+    <div class="tenant-page-stack space-y-4">
         <x-tenant-header title="Orders" description="Manage and track all laundry orders." />
 
         {{-- Flash --}}
         @if (session('success'))
-            <div class="rounded-lg bg-green-50 p-4 text-sm text-green-700 border border-green-200">
+            <div class="rounded-lg bg-green-50 p-4 text-sm text-green-700 border border-green-300">
                 {{ session('success') }}
             </div>
         @endif
@@ -26,10 +26,10 @@
                     </svg>
                     <input type="text" name="search" value="{{ request('search') }}"
                         placeholder="Search order # or customer..."
-                        class="w-full rounded-md border border-gray-300 bg-white py-2 pl-9 pr-4 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                        class="w-full rounded-md border border-gray-300 bg-white py-2 pl-9 pr-4 text-sm shadow-sm focus:outline-none focus:ring-1">
                 </div>
                 <select name="status" onchange="this.form.submit()"
-                    class="rounded-md border border-gray-300 bg-white py-2 pl-3 pr-8 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                    class="rounded-md border border-gray-300 bg-white py-2 pl-3 pr-8 text-sm shadow-sm focus:outline-none focus:ring-1">
                     <option value="">All Statuses</option>
                     @foreach ($statuses as $key => $label)
                         <option value="{{ $key }}" {{ request('status') === $key ? 'selected' : '' }}>{{ $label }}</option>
@@ -103,7 +103,7 @@
                                         </span>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">₱{{ number_format($order->total_amount, 2) }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $order->due_date?->format('M d, Y') ?? '—' }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $order->due_date?->format('M d, Y') ?? 'Not set' }}</td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-400">{{ $order->created_at->format('M d, Y') }}</td>
                                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
                                         @if ($canUpdateOrder)

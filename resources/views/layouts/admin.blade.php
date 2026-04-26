@@ -818,9 +818,9 @@
                     </div>
                 </div>
 
-                <main class="px-4 pb-6 sm:px-6 lg:px-8">
+                <main class="admin-page-shell px-4 pb-6 sm:px-6 lg:px-8">
                     @isset($header)
-                        <div class="mb-5">{{ $header }}</div>
+                        <div class="mb-5 animate-fade-in">{{ $header }}</div>
                     @endisset
 
                     {{ $slot }}

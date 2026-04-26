@@ -1,5 +1,5 @@
 <x-tenant-layout>
-    <div class="space-y-5">
+    <div class="tenant-page-stack space-y-5">
         <x-tenant-header title="Update Center" description="View the latest platform updates and features.">
             <x-slot name="actions">
                 <form action="{{ route('tenant.updates.check') }}" method="POST" class="inline">
@@ -18,19 +18,19 @@
         </x-tenant-header>
 
         @if (session('success'))
-            <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
+            <div class="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
                 {{ session('success') }}
             </div>
         @endif
 
         @if (session('error'))
-            <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
+            <div class="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
                 {{ session('error') }}
             </div>
         @endif
 
         @if (isset($applyingUpdate) && $applyingUpdate)
-            <div class="flex items-center justify-between gap-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-500/30 dark:bg-amber-500/10">
+            <div class="flex items-center justify-between gap-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 dark:border-amber-500/30 dark:bg-amber-500/10">
                 <div>
                     <p class="text-sm font-semibold text-amber-800 dark:text-amber-300">Update in progress</p>
                     <p class="mt-0.5 text-sm text-amber-700 dark:text-amber-400">
@@ -50,7 +50,7 @@
         @endif
 
         @if (!config('updates.auto_deploy_code', false) || !config('updates.allow_tenant_code_deploy', false))
-            <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-500/30 dark:bg-amber-500/10">
+            <div class="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 dark:border-amber-500/30 dark:bg-amber-500/10">
                 <p class="text-sm font-semibold text-amber-800 dark:text-amber-300">Code deployment notice</p>
                 <p class="mt-1 text-sm text-amber-700 dark:text-amber-400">
                     Tenant update actions run backups and tenant migrations, but shared application code deployment is currently restricted.
@@ -295,7 +295,7 @@
     </div>
 
     {{-- Update progress toast --}}
-    <div id="update-progress" class="fixed right-4 top-4 z-[90] hidden w-80 rounded-2xl border border-blue-200 bg-white p-4 shadow-lg dark:border-blue-800 dark:bg-slate-900" role="status" aria-live="polite" aria-atomic="true">
+    <div id="update-progress" class="fixed right-4 top-4 z-[90] hidden w-80 rounded-2xl border border-blue-300 bg-white p-4 shadow-lg dark:border-blue-800 dark:bg-slate-900" role="status" aria-live="polite" aria-atomic="true">
         <div class="flex items-start justify-between gap-3">
             <div>
                 <p id="update-progress-title" class="text-sm font-semibold text-blue-700 dark:text-blue-300">Processing update</p>

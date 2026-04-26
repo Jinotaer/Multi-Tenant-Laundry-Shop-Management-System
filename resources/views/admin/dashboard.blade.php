@@ -35,6 +35,12 @@
         .admin-dashboard-page .dashboard-card {
             position: relative;
             overflow: hidden;
+            transition: box-shadow var(--transition-base), transform var(--transition-base);
+        }
+
+        .admin-dashboard-page .dashboard-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
         }
 
         .admin-dashboard-page .dashboard-card::after {
@@ -90,7 +96,7 @@
         }
     </style>
 
-    <div class="admin-dashboard-page space-y-6">
+    <div class="admin-dashboard-page admin-page-stack space-y-6">
         <section class="dashboard-hero rounded-[28px] border border-slate-200 px-6 py-6 shadow-sm dark:border-slate-800 sm:px-8">
             <div class="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
                 <div class="min-w-0">
@@ -330,7 +336,7 @@
                 @endif
             </div>
 
-            <div class="space-y-6">
+            <div class="admin-page-stack space-y-6">
                 <div class="tenant-panel p-5">
                     <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100">Revenue by Plan</h2>
                     <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Current shop distribution across active plans.</p>

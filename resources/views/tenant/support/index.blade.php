@@ -3,11 +3,11 @@
         $showCreateTicketModal = $errors->isNotEmpty() && old('form_context') === 'support-ticket-create';
     @endphp
 
-    <div class="space-y-4">
+    <div class="tenant-page-stack space-y-4">
         <x-tenant-header title="Customer Support" description="Submit and track your support tickets." />
 
         @if (session('success'))
-            <div class="rounded-lg bg-green-50 p-4 text-sm text-green-700 border border-green-200 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400">
+            <div class="rounded-lg bg-green-50 p-4 text-sm text-green-700 border border-green-300 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400">
                 {{ session('success') }}
             </div>
         @endif
@@ -121,13 +121,13 @@
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Subject <span class="text-red-500">*</span></label>
                     <input type="text" name="subject" value="{{ old('subject') }}" required
-                        class="block w-full rounded-xl {{ $errors->has('subject') ? 'border-red-300' : 'border-gray-300 dark:border-slate-700' }} dark:bg-slate-800 dark:text-slate-100 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        class="block w-full rounded-xl {{ $errors->has('subject') ? 'border-red-300' : 'border-gray-300 dark:border-slate-700' }} dark:bg-slate-800 dark:text-slate-100 shadow-sm text-sm">
                     @error('subject') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                 </div>
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Category</label>
-                    <select name="category" class="block w-full rounded-xl border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                    <select name="category" class="block w-full rounded-xl border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 shadow-sm text-sm">
                         <option value="general" {{ old('category', 'general') === 'general' ? 'selected' : '' }}>General</option>
                         <option value="technical" {{ old('category') === 'technical' ? 'selected' : '' }}>Technical Issue</option>
                         <option value="billing" {{ old('category') === 'billing' ? 'selected' : '' }}>Billing</option>
@@ -138,7 +138,7 @@
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Priority</label>
-                    <select name="priority" class="block w-full rounded-xl border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                    <select name="priority" class="block w-full rounded-xl border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 shadow-sm text-sm">
                         <option value="normal" {{ old('priority', 'normal') === 'normal' ? 'selected' : '' }}>Normal</option>
                         <option value="priority" {{ old('priority') === 'priority' ? 'selected' : '' }}>High Priority</option>
                         <option value="urgent" {{ old('priority') === 'urgent' ? 'selected' : '' }}>Urgent</option>
@@ -148,7 +148,7 @@
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Message <span class="text-red-500">*</span></label>
                     <textarea name="message" rows="6" required
-                        class="block w-full rounded-xl {{ $errors->has('message') ? 'border-red-300' : 'border-gray-300 dark:border-slate-700' }} dark:bg-slate-800 dark:text-slate-100 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">{{ old('message') }}</textarea>
+                        class="block w-full rounded-xl {{ $errors->has('message') ? 'border-red-300' : 'border-gray-300 dark:border-slate-700' }} dark:bg-slate-800 dark:text-slate-100 shadow-sm text-sm">{{ old('message') }}</textarea>
                     @error('message') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                 </div>
             </div>

@@ -9,7 +9,7 @@
         </x-admin-header>
     </x-slot>
 
-    <div class="space-y-6">
+    <div class="admin-page-stack space-y-6">
         <!-- Summary Cards -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div class="tenant-panel overflow-hidden p-6">
@@ -35,7 +35,7 @@
             <form method="GET" class="flex flex-wrap gap-4 items-end">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Sort By</label>
-                    <select name="sort" class="rounded-md border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                    <select name="sort" class="rounded-md border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 shadow-sm">
                         <option value="current_storage_mb" {{ $currentSort === 'current_storage_mb' ? 'selected' : '' }}>Storage</option>
                         <option value="current_bandwidth_mb" {{ $currentSort === 'current_bandwidth_mb' ? 'selected' : '' }}>Bandwidth</option>
                         <option value="current_api_requests" {{ $currentSort === 'current_api_requests' ? 'selected' : '' }}>API Requests</option>
@@ -44,7 +44,7 @@
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Direction</label>
-                    <select name="direction" class="rounded-md border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                    <select name="direction" class="rounded-md border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 shadow-sm">
                         <option value="desc" {{ $currentDirection === 'desc' ? 'selected' : '' }}>Highest First</option>
                         <option value="asc" {{ $currentDirection === 'asc' ? 'selected' : '' }}>Lowest First</option>
                     </select>
@@ -90,7 +90,7 @@
                                                     {{ $tenant->subscriptionPlan->name }}
                                                 </span>
                                             @else
-                                                <span class="text-gray-400 dark:text-slate-500">—</span>
+                                                <span class="text-gray-400 dark:text-slate-500">No plan</span>
                                             @endif
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">

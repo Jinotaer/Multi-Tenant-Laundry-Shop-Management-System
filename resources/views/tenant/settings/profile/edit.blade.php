@@ -5,7 +5,7 @@
         $isOwner = method_exists($user, 'isOwner') && $user->isOwner();
     @endphp
 
-    <div class="space-y-6">
+    <div class="tenant-page-stack space-y-6">
         <x-tenant-header title="Settings" description="Manage your account and shop settings." />
 
         {{-- Settings Navigation Tabs --}}

@@ -21,7 +21,7 @@
         </div>
     </x-slot>
 
-    <div class="space-y-6">
+    <div class="tenant-page-stack space-y-6">
         <div class="tenant-panel overflow-hidden">
             <div class="p-8">
                 <div class="mb-8 flex items-start justify-between">

@@ -108,8 +108,8 @@
         </nav>
     </div>
 
-    <div class="space-y-8">
-        <section class="space-y-6">
+    <div class="admin-page-stack space-y-8">
+        <section class="admin-page-stack space-y-6">
             <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-slate-100">Admin Layout</h3>
@@ -119,12 +119,12 @@
             </div>
 
             @if ($errors->adminLayoutSettings->any())
-                <div class="tenant-alert border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
+                <div class="tenant-alert border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
                     {{ $errors->adminLayoutSettings->first() }}
                 </div>
             @endif
 
-            <form method="POST" action="{{ route('admin.settings.theme.update') }}" class="space-y-6" x-data='@json($formState)' style="--selection-accent: {{ $selectionAccent }}">
+            <form method="POST" action="{{ route('admin.settings.theme.update') }}" class="admin-form-stack space-y-6" x-data='@json($formState)' style="--selection-accent: {{ $selectionAccent }}">
                 @csrf
                 @method('PATCH')
 
@@ -134,7 +134,7 @@
                         <p class="mt-1 text-sm text-gray-500 dark:text-slate-400">Choose the accent palette for active navigation, badges, and action buttons.</p>
                     </div>
                     <div class="p-6">
-                        <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6">
+                        <div class="admin-grid-stack grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6">
                             @foreach ($presets as $key => $preset)
                                 <label class="tenant-choice-card" :class="selectedTheme === '{{ $key }}' ? 'tenant-choice-card-active' : ''" style="--selection-accent: {{ $preset['preview'] }}">
                                     <input type="radio" name="theme" value="{{ $key }}" class="sr-only" x-model="selectedTheme" {{ $values['theme'] === $key ? 'checked' : '' }}>
@@ -166,7 +166,7 @@
                                 <h4 class="text-base font-semibold text-gray-900 dark:text-slate-100">{{ $section['label'] }}</h4>
                                 <p class="mt-1 text-sm text-gray-500 dark:text-slate-400">{{ $section['description'] }}</p>
                             </div>
-                            <div class="grid gap-3 p-6 md:grid-cols-2">
+                            <div class="admin-grid-stack grid gap-3 p-6 md:grid-cols-2">
                                 @foreach ($optionGroups[$field] as $value => $option)
                                     <label class="tenant-choice-card" :class="selectedOptions.{{ $field }} === '{{ (string) $value }}' ? 'tenant-choice-card-active' : ''">
                                         <input type="radio" name="{{ $field }}" value="{{ $value }}" class="sr-only" x-model="selectedOptions.{{ $field }}" {{ (string) $values[$field] === (string) $value ? 'checked' : '' }}>

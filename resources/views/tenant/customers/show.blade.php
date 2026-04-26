@@ -12,7 +12,7 @@
 
     @php $theme = tenant()->getThemePreset(); @endphp
 
-    <div class="space-y-6">
+    <div class="tenant-page-stack space-y-6">
         @if (tenant()->hasFeature('customer_loyalty'))
             @php $loyalty = $customer->loyalty; @endphp
 
@@ -71,15 +71,15 @@
                 </div>
                 <div>
                     <p class="text-gray-400 text-xs uppercase tracking-wide mb-1">Phone</p>
-                    <p class="text-gray-700">{{ $customer->phone ?? '—' }}</p>
+                    <p class="text-gray-700">{{ $customer->phone ?? 'Not set' }}</p>
                 </div>
                 <div>
                     <p class="text-gray-400 text-xs uppercase tracking-wide mb-1">Email</p>
-                    <p class="text-gray-700">{{ $customer->email ?? '—' }}</p>
+                    <p class="text-gray-700">{{ $customer->email ?? 'Not set' }}</p>
                 </div>
                 <!-- <div>
                     <p class="text-gray-400 text-xs uppercase tracking-wide mb-1">Address</p>
-                    <p class="text-gray-700">{{ $customer->address ?? '—' }}</p>
+                    <p class="text-gray-700">{{ $customer->address ?? 'Not set' }}</p>
                 </div> -->
                 @if ($customer->notes)
                     <div class="sm:col-span-2">
@@ -124,7 +124,7 @@
                                         </span>
                                     </td>
                                     <td class="px-6 py-4 text-sm text-gray-700">₱{{ number_format($order->total_amount, 2) }}</td>
-                                    <td class="px-6 py-4 text-sm text-gray-500">{{ $order->due_date?->format('M d, Y') ?? '—' }}</td>
+                                    <td class="px-6 py-4 text-sm text-gray-500">{{ $order->due_date?->format('M d, Y') ?? 'Not set' }}</td>
                                     <td class="px-6 py-4 text-sm text-gray-400">{{ $order->created_at->format('M d, Y') }}</td>
                                     <td class="px-6 py-4 text-right text-sm">
                                         <a href="{{ route('tenant.orders.show', $order) }}" class="{{ $theme['nav_active_text'] }} hover:underline font-medium">View</a>

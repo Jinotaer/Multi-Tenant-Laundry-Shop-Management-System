@@ -6,7 +6,7 @@
         ]" />
     </x-slot>
 
-    <div class="space-y-6">
+    <div class="admin-page-stack space-y-6">
         <!-- Summary Cards -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div class="tenant-panel overflow-hidden p-6">
@@ -23,7 +23,7 @@
             </div>
             <div class="tenant-panel overflow-hidden p-6">
                 <div class="text-sm font-medium text-gray-500 dark:text-slate-400">Total Revenue</div>
-                <div class="text-2xl font-bold text-indigo-600 dark:text-indigo-400 mt-2">₱{{ number_format($stats['total_revenue'], 2) }}</div>
+                <div class="text-2xl font-bold mt-2" style="color: var(--tenant-theme-accent);">₱{{ number_format($stats['total_revenue'], 2) }}</div>
             </div>
         </div>
 
@@ -34,11 +34,11 @@
                     <label class="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Search</label>
                     <input type="text" name="search" value="{{ request('search') }}" 
                            placeholder="Invoice # or name..."
-                           class="rounded-md border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                           class="rounded-md border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 shadow-sm">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Status</label>
-                    <select name="status" class="rounded-md border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                    <select name="status" class="rounded-md border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 shadow-sm">
                         <option value="all">All Statuses</option>
                         <option value="paid" {{ request('status') === 'paid' ? 'selected' : '' }}>Paid</option>
                         <option value="issued" {{ request('status') === 'issued' ? 'selected' : '' }}>Issued</option>
@@ -48,7 +48,7 @@
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Tenant</label>
-                    <select name="tenant" class="rounded-md border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                    <select name="tenant" class="rounded-md border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 shadow-sm">
                         <option value="">All Tenants</option>
                         @foreach ($tenants as $tenant)
                             <option value="{{ $tenant->id }}" {{ request('tenant') === $tenant->id ? 'selected' : '' }}>
@@ -97,7 +97,7 @@
                                 @foreach ($invoices as $invoice)
                                     <tr>
                                         <td class="px-6 py-4 whitespace-nowrap">
-                                            <a href="{{ route('admin.invoices.show', $invoice) }}" class="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:underline">
+                                            <a href="{{ route('admin.invoices.show', $invoice) }}" class="text-sm font-medium hover:underline" style="color: var(--tenant-theme-accent);">
                                                 {{ $invoice->invoice_number }}
                                             </a>
                                         </td>
@@ -108,7 +108,7 @@
                                             <div class="text-xs text-gray-400 dark:text-slate-500">{{ $invoice->billing_email }}</div>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-slate-400">
-                                            {{ $invoice->subscriptionPlan?->name ?? '—' }}
+                                            {{ $invoice->subscriptionPlan?->name ?? 'No plan' }}
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-slate-100">
                                             {{ $invoice->formatted_total }}
@@ -126,7 +126,7 @@
                                             {{ $invoice->issue_date->format('M d, Y') }}
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                            <a href="{{ route('admin.invoices.show', $invoice) }}" class="text-indigo-600 dark:text-indigo-400 hover:underline mr-3">
+                                            <a href="{{ route('admin.invoices.show', $invoice) }}" class="hover:underline mr-3" style="color: var(--tenant-theme-accent);">
                                                 View
                                             </a>
                                             <a href="{{ route('admin.invoices.download', $invoice) }}" class="text-gray-600 dark:text-gray-400 hover:underline">

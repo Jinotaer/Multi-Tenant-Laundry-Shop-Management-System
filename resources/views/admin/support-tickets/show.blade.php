@@ -15,9 +15,9 @@
         </div>
     </x-slot>
 
-    <div class="max-w-6xl mx-auto">
+    <div class="admin-page-stack max-w-6xl mx-auto">
         @if (session('success'))
-            <div class="rounded-lg bg-green-50 p-4 text-sm text-green-700 border border-green-200 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400 mb-4">
+            <div class="rounded-lg bg-green-50 p-4 text-sm text-green-700 border border-green-300 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400 mb-4">
                 {{ session('success') }}
             </div>
         @endif
@@ -87,7 +87,7 @@
                                 rows="2"
                                 required
                                 placeholder="Type your response..."
-                                class="flex-1 rounded-md border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500 resize-none"
+                                class="flex-1 rounded-md border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 shadow-sm text-sm resize-none"
                             ></textarea>
                             <button type="submit" class="self-end rounded-md bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-sm font-medium text-white shadow-sm">
                                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -106,7 +106,7 @@
             </div>
 
             <!-- Ticket Details & Actions -->
-            <div class="space-y-4">
+            <div class="admin-page-stack space-y-4">
                 <!-- Ticket Info -->
                 <div class="bg-white dark:bg-slate-900 shadow-sm sm:rounded-lg p-6">
                     <h3 class="text-sm font-semibold text-gray-900 dark:text-slate-100 mb-4">Ticket Information</h3>
@@ -142,7 +142,7 @@
 
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Status</label>
-                            <select name="status" class="block w-full rounded-md border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                            <select name="status" class="block w-full rounded-md border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 shadow-sm text-sm">
                                 <option value="open" {{ $ticket->status === 'open' ? 'selected' : '' }}>Open</option>
                                 <option value="in_progress" {{ $ticket->status === 'in_progress' ? 'selected' : '' }}>In Progress</option>
                                 <option value="resolved" {{ $ticket->status === 'resolved' ? 'selected' : '' }}>Resolved</option>
@@ -152,7 +152,7 @@
 
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Admin Notes</label>
-                            <textarea name="admin_notes" rows="3" class="block w-full rounded-md border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">{{ $ticket->admin_notes }}</textarea>
+                            <textarea name="admin_notes" rows="3" class="block w-full rounded-md border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 shadow-sm text-sm">{{ $ticket->admin_notes }}</textarea>
                         </div>
 
                         <button type="submit" class="w-full rounded-md bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-sm font-medium text-white shadow-sm">

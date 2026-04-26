@@ -18,15 +18,15 @@
         </x-admin-header>
     </x-slot>
 
-    <div class="space-y-6">
+    <div class="admin-page-stack space-y-6">
         @if (session('success'))
-            <div class="tenant-alert border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200">
+            <div class="tenant-alert border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200">
                 {{ session('success') }}
             </div>
         @endif
 
         @if (session('error'))
-            <div class="tenant-alert border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
+            <div class="tenant-alert border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
                 {{ session('error') }}
             </div>
         @endif
@@ -41,7 +41,7 @@
 
             <div class="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950/70">
                 <p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Active Tenants</p>
-                <p class="mt-1.5 text-xl font-black tracking-tight text-indigo-600 dark:text-indigo-300">
+                <p class="mt-1.5 text-xl font-black tracking-tight" style="color: var(--tenant-theme-accent);">
                     {{ number_format($totalTenants) }}
                 </p>
             </div>
@@ -49,7 +49,7 @@
             <div class="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950/70">
                 <p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Latest Version</p>
                 <p class="mt-1.5 text-xl font-black tracking-tight text-emerald-600 dark:text-emerald-300">
-                    {{ $releases->first()?->version_tag ?? '—' }}
+                    {{ $releases->first()?->version_tag ?? 'None' }}
                 </p>
             </div>
         </section>
@@ -97,7 +97,7 @@
                                     </td>
 
                                     <td class="px-6 py-5">
-                                        <span class="text-sm text-slate-600 dark:text-slate-300">{{ $release->name ?: '—' }}</span>
+                                        <span class="text-sm text-slate-600 dark:text-slate-300">{{ $release->name ?: 'Untitled' }}</span>
                                     </td>
 
                                     <td class="px-6 py-5">

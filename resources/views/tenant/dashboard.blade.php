@@ -26,7 +26,7 @@
         $totalServiceOrders = $totalServiceOrders > 0 ? $totalServiceOrders : 1;
     @endphp
 
-    <div class="space-y-5">
+    <div class="tenant-page-stack space-y-5">
 
         {{-- ── Page header ──────────────────────────────────────────────── --}}
         <x-tenant-header title="Overview" description="Real-time metrics for today's operations." />
@@ -243,8 +243,8 @@
                                                 {{ $order->order_number }}
                                             </a>
                                         </td>
-                                        <td class="px-5 py-3.5 text-sm text-gray-700 dark:text-slate-300">{{ $order->customer?->name ?? '—' }}</td>
-                                        <td class="px-5 py-3.5 text-sm text-gray-500 dark:text-slate-400">{{ $order->service?->name ?? '—' }}</td>
+                                        <td class="px-5 py-3.5 text-sm text-gray-700 dark:text-slate-300">{{ $order->customer?->name ?? 'Not set' }}</td>
+                                        <td class="px-5 py-3.5 text-sm text-gray-500 dark:text-slate-400">{{ $order->service?->name ?? 'Not set' }}</td>
                                         <td class="px-5 py-3.5">
                                             <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold {{ $order->status_color }}">
                                                 {{ $order->status_label }}

@@ -63,7 +63,7 @@
                             @elseif(!$plan->is_compatible)
                                 <div class="absolute -top-3.5 left-1/2 -translate-x-1/2">
                                     <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-red-600 text-white shadow-md">
-                                        ⚠️ Incompatible
+                                        <svg class="inline-block h-4 w-4 align-text-bottom" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg> Incompatible
                                     </span>
                                 </div>
                             @endif
@@ -119,7 +119,7 @@
                                 {{-- Compatibility Issues --}}
                                 @if(!$plan->is_compatible && count($plan->compatibility_issues) > 0)
                                     <div class="mt-6 pt-6 border-t border-gray-100">
-                                        <p class="text-xs font-semibold text-red-600 uppercase tracking-wider mb-2">⚠️ Why unavailable?</p>
+                                        <p class="text-xs font-semibold text-red-600 uppercase tracking-wider mb-2"><svg class="inline-block h-4 w-4 align-text-bottom" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg> Why unavailable?</p>
                                         <ul class="space-y-1.5">
                                             @foreach($plan->compatibility_issues as $issue)
                                                 <li class="text-xs text-red-600">• {{ $issue }}</li>

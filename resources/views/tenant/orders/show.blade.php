@@ -20,7 +20,7 @@
 
     @php $theme = tenant()->getThemePreset(); @endphp
 
-    <div class="max-w-3xl space-y-6">
+    <div class="tenant-page-stack max-w-3xl space-y-6">
 
         {{-- Quick Actions --}}
         @if (auth()->user()->isOwner() || auth()->user()->isStaff())
@@ -122,7 +122,7 @@
                 </div>
                 <div>
                     <p class="text-gray-400 text-xs uppercase tracking-wide mb-1">Due Date</p>
-                    <p class="text-gray-700">{{ $order->due_date?->format('M d, Y') ?? '—' }}</p>
+                    <p class="text-gray-700">{{ $order->due_date?->format('M d, Y') ?? 'Not set' }}</p>
                 </div>
                 <div>
                     <p class="text-gray-400 text-xs uppercase tracking-wide mb-1">Created</p>
@@ -156,7 +156,7 @@
                         <tbody class="divide-y divide-gray-100">
                             @foreach ($order->items as $item)
                                 <tr>
-                                    <td class="py-2 text-gray-900">{{ $item['name'] ?? '—' }}</td>
+                                    <td class="py-2 text-gray-900">{{ $item['name'] ?? 'Not set' }}</td>
                                     <td class="py-2 text-center text-gray-600">{{ $item['qty'] ?? 1 }}</td>
                                     <td class="py-2 text-right text-gray-600">₱{{ number_format($item['price'] ?? 0, 2) }}</td>
                                     <td class="py-2 text-right font-medium text-gray-900">

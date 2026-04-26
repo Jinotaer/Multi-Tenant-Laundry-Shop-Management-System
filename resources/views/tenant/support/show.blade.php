@@ -13,9 +13,9 @@
         </div>
     </x-slot>
 
-    <div class="max-w-4xl mx-auto">
+    <div class="tenant-page-stack max-w-4xl mx-auto">
         @if (session('success'))
-            <div class="rounded-lg bg-green-50 p-4 text-sm text-green-700 border border-green-200 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400 mb-4">
+            <div class="rounded-lg bg-green-50 p-4 text-sm text-green-700 border border-green-300 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400 mb-4">
                 {{ session('success') }}
             </div>
         @endif
@@ -82,7 +82,7 @@
                             rows="2"
                             required
                             placeholder="Type your message..."
-                            class="flex-1 rounded-md border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500 resize-none"
+                            class="flex-1 rounded-md border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 shadow-sm text-sm resize-none"
                         ></textarea>
                         <button type="submit" class="tenant-primary-action self-end rounded-md px-4 py-2 text-sm font-medium text-white shadow-sm">
                             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">

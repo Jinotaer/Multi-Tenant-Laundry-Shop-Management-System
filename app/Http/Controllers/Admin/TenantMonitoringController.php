@@ -57,8 +57,8 @@ class TenantMonitoringController extends Controller
     {
         $tenant->load(['subscriptionPlan', 'registration']);
 
-        // Get historical metrics
-        $days = $request->get('days', 30);
+        // Get historical metrics for the chart
+        $days = (int) $request->get('days', 30);
         $metrics = TenantMetric::where('tenant_id', $tenant->id)
             ->where('recorded_at', '>=', now()->subDays($days))
             ->orderBy('recorded_at', 'asc')
@@ -73,12 +73,19 @@ class TenantMonitoringController extends Controller
             'apiRequests' => $metrics->pluck('api_requests_count')->toArray(),
         ];
 
+        // Paginated history for the table (most recent first)
+        $paginatedMetrics = TenantMetric::where('tenant_id', $tenant->id)
+            ->orderBy('recorded_at', 'desc')
+            ->paginate(10)
+            ->withQueryString();
+
         // Get latest metric
         $latestMetric = $tenant->latestMetric();
 
         return view('admin.monitoring.show', [
             'tenant' => $tenant,
             'metrics' => $metrics,
+            'paginatedMetrics' => $paginatedMetrics,
             'chartData' => $chartData,
             'latestMetric' => $latestMetric,
             'days' => $days,

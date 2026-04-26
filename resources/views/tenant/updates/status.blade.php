@@ -1,5 +1,5 @@
 <x-tenant-layout>
-    <div class="space-y-5">
+    <div class="tenant-page-stack space-y-5">
         <x-tenant-header title="Updating to {{ $release->version_tag }}" description="Do not close this tab while the update is in progress.">
             <x-slot name="actions">
                 <a
@@ -15,7 +15,7 @@
         </x-tenant-header>
 
         @if (session('error'))
-            <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
+            <div class="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
                 {{ session('error') }}
             </div>
         @endif
@@ -42,7 +42,7 @@
                             Update in progress…
                         </p>
                         <p class="mt-1 text-sm text-slate-500 dark:text-slate-400" id="stage-message">
-                            The updater is starting. Apache may briefly stop — this page will resume polling automatically.
+                            The updater is starting. Apache may briefly stop; this page will resume polling automatically.
                         </p>
                     </div>
                 </div>
@@ -75,10 +75,10 @@
                     <svg class="h-8 w-8 shrink-0 text-red-500 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
                     </svg>
-                    <p class="text-base font-bold text-red-700 dark:text-red-400">Update failed — previous version restored</p>
+                    <p class="text-base font-bold text-red-700 dark:text-red-400">Update failed. previous version restored</p>
                 </div>
                 <p class="mt-3 text-sm text-slate-600 dark:text-slate-400">Error details:</p>
-                <pre id="error-detail" class="mt-2 overflow-x-auto whitespace-pre-wrap rounded-xl border border-red-200 bg-red-50 p-4 font-mono text-xs text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300"></pre>
+                <pre id="error-detail" class="mt-2 overflow-x-auto whitespace-pre-wrap rounded-xl border border-red-300 bg-red-50 p-4 font-mono text-xs text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300"></pre>
             </div>
         </div>
 
@@ -168,7 +168,7 @@
                 failedFetches++;
                 const delay = failedFetches < 5 ? 3000 : 5000;
                 networkHint.textContent = failedFetches < 3
-                    ? 'Apache may be restarting — retrying…'
+                    ? 'Apache may be restarting, retrying…'
                     : `Apache is down. Retrying (attempt ${failedFetches})… Do not close this tab.`;
                 setTimeout(poll, delay);
             });
@@ -204,7 +204,7 @@
             if (data.stalled) {
                 stallWarning.classList.remove('hidden');
                 if (typeof data.stalled_for === 'number') {
-                    stallDetail.textContent = `No progress update for ${data.stalled_for}s. The CLI may be stuck during boot or composer install — see the log below.`;
+                    stallDetail.textContent = `No progress update for ${data.stalled_for}s. The CLI may be stuck during boot or composer install. see the log below.`;
                 }
                 if (logTailBox) logTailBox.open = true;
             } else {
@@ -237,7 +237,7 @@
 
         function stageLabelFor(stage) {
             return {
-                queued:    'Queued — waiting for updater…',
+                queued:    'Queued, waiting for updater…',
                 launching: 'Launching updater process…',
                 booting:   'Booting updater CLI…',
                 start:     'Starting update…',

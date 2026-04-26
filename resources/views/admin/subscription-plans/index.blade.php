@@ -1,4 +1,20 @@
 <x-admin-layout>
+    <x-slot name="header">
+        <x-admin-header title="Subscription Plans" description="Manage and configure subscription plans for shops.">
+            <x-slot name="actions">
+                <a
+                    href="{{ route('admin.subscription-plans.create') }}"
+                    class="tenant-primary-action inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold shadow-sm"
+                >
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
+                    Create Plan
+                </a>
+            </x-slot>
+        </x-admin-header>
+    </x-slot>
+
     @php
         $featureLibraryCount = $plans
             ->flatMap(fn ($plan) => $plan->features ?? [])
@@ -37,32 +53,18 @@
         }
     </style>
 
-    <div class="subscription-plans-page space-y-6">
+    <div class="subscription-plans-page admin-page-stack space-y-6">
         @if (session('success'))
-            <div class="tenant-alert border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200">
+            <div class="tenant-alert border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200">
                 {{ session('success') }}
             </div>
         @endif
 
         @if (session('error'))
-            <div class="tenant-alert border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
+            <div class="tenant-alert border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
                 {{ session('error') }}
             </div>
         @endif
-
-        <x-admin-header title="Subscription Plans" description="Manage and configure subscription plans for shops.">
-            <x-slot name="actions">
-                <a
-                    href="{{ route('admin.subscription-plans.create') }}"
-                    class="tenant-primary-action inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold shadow-sm"
-                >
-                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                    </svg>
-                    Create Plan
-                </a>
-            </x-slot>
-        </x-admin-header>
 
         <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <div class="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950/70">

@@ -39,7 +39,7 @@
                                 </span>
                             </td>
                             <td class="whitespace-nowrap px-6 py-3 text-gray-700">₱{{ number_format($order->total_amount, 2) }}</td>
-                            <td class="whitespace-nowrap px-6 py-3 text-gray-400">{{ $order->due_date?->format('M d') ?? '—' }}</td>
+                            <td class="whitespace-nowrap px-6 py-3 text-gray-400">{{ $order->due_date?->format('M d') ?? 'Not set' }}</td>
                         </tr>
                     @endforeach
                 </tbody>

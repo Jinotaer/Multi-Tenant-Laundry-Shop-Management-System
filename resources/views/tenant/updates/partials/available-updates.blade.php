@@ -5,7 +5,7 @@
     @endphp
 
     {{-- Latest Update (featured) --}}
-    <div class="overflow-hidden rounded-[28px] border border-blue-200 bg-gradient-to-br from-blue-50 to-white shadow-sm dark:border-blue-500/30 dark:from-blue-500/10 dark:to-slate-900">
+    <div class="overflow-hidden rounded-[28px] border border-blue-300 bg-gradient-to-br from-blue-50 to-white shadow-sm dark:border-blue-500/30 dark:from-blue-500/10 dark:to-slate-900">
         <div class="flex items-center justify-between gap-3 border-b border-blue-200 px-6 py-4 dark:border-blue-500/30">
             <div class="flex items-center gap-2">
                 <svg class="h-5 w-5 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">

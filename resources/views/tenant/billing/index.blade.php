@@ -4,7 +4,7 @@
         $canDownloadBilling = $currentUser !== null && ($currentUser->isOwner() || $currentUser->hasPermission('billing.download'));
     @endphp
 
-    <div class="space-y-6">
+    <div class="tenant-page-stack space-y-6">
         <x-tenant-header title="Billing & Invoices" description="View and download your subscription invoices." />
 
         <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
