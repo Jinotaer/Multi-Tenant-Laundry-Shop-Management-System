@@ -105,7 +105,7 @@
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {{-- Current Plan (Left - 2 columns) --}}
             <div class="lg:col-span-2">
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg h-full">
+                <div class="tenant-card overflow-hidden sm:rounded-lg h-full">
                     <div class="p-6">
                         <div class="flex items-center justify-between mb-6">
                             <h3 class="text-lg font-semibold text-gray-900">Current Plan</h3>
@@ -174,13 +174,13 @@
             </div>
         </div>
         {{-- Usage Overview --}}
-        <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+        <div class="tenant-card overflow-hidden sm:rounded-lg">
             <div class="p-6">
                 <h3 class="text-lg font-semibold text-gray-900 mb-6">Usage Overview</h3>
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     {{-- Staff Usage --}}
-                    <div class="border border-gray-200 rounded-lg p-4">
+                    <div class="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-slate-700 dark:bg-slate-800/80">
                         <div class="flex items-center justify-between mb-2">
                             <p class="text-sm font-medium text-gray-700">Staff Accounts</p>
                             <p class="text-sm text-gray-500">
@@ -204,7 +204,7 @@
                     </div>
 
                     {{-- Customer Usage --}}
-                    <div class="border border-gray-200 rounded-lg p-4">
+                    <div class="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-slate-700 dark:bg-slate-800/80">
                         <div class="flex items-center justify-between mb-2">
                             <p class="text-sm font-medium text-gray-700">Customers</p>
                             <p class="text-sm text-gray-500">
@@ -228,7 +228,7 @@
                     </div>
 
                     {{-- Order Usage --}}
-                    <div class="border border-gray-200 rounded-lg p-4">
+                    <div class="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-slate-700 dark:bg-slate-800/80">
                         <div class="flex items-center justify-between mb-2">
                             <p class="text-sm font-medium text-gray-700">Orders (This Month)</p>
                             <p class="text-sm text-gray-500">
@@ -255,17 +255,18 @@
         </div>
 
         {{-- Features --}}
-        <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+        <div class="tenant-card overflow-hidden sm:rounded-lg">
             <div class="p-6">
                 <h3 class="text-lg font-semibold text-gray-900 mb-1">Features</h3>
                 <p class="text-sm text-gray-500 mb-6">Features available on your current plan.</p>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     @foreach($allFeatures as $featureKey => $featureDef)
+                        @php $hasFeature = in_array($featureKey, $tenantFeatures, true); @endphp
                         <div
-                            class="flex items-start gap-3 p-3 rounded-lg {{ in_array($featureKey, $tenantFeatures) ? 'bg-green-50 border border-green-300' : 'bg-gray-50 border border-gray-200' }}">
-                            @if(in_array($featureKey, $tenantFeatures))
-                                <svg class="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24"
+                            class="flex items-start gap-3 rounded-xl border p-4 transition-colors {{ $hasFeature ? 'tenant-feature-card-active' : 'bg-gray-50 border-gray-200 dark:bg-slate-800/80 dark:border-slate-700' }}">
+                            @if($hasFeature)
+                                <svg class="tenant-feature-icon-active h-5 w-5 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24"
                                     stroke-width="2" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round"
                                         d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -279,11 +280,11 @@
                             @endif
                             <div>
                                 <p
-                                    class="text-sm font-medium {{ in_array($featureKey, $tenantFeatures) ? 'text-green-800' : 'text-gray-400' }}">
+                                    class="text-sm font-medium {{ $hasFeature ? 'tenant-feature-title-active' : 'text-gray-400' }}">
                                     {{ $featureDef['label'] }}
                                 </p>
                                 <p
-                                    class="text-xs {{ in_array($featureKey, $tenantFeatures) ? 'text-green-600' : 'text-gray-400' }}">
+                                    class="mt-1 text-xs {{ $hasFeature ? 'tenant-feature-copy-active' : 'text-gray-400' }}">
                                     {{ $featureDef['description'] }}
                                 </p>
                             </div>

@@ -388,6 +388,43 @@
         @apply border-slate-800 bg-slate-900;
     }
 
+    .tenant-feature-card-active {
+        border: 1px solid var(--tenant-theme-accent-soft-strong);
+        background:
+            linear-gradient(180deg, var(--tenant-theme-accent-soft) 0%, rgb(255 255 255 / 0.98) 100%);
+        box-shadow:
+            inset 0 0 0 1px rgb(255 255 255 / 0.42),
+            0 18px 34px -30px var(--tenant-theme-accent);
+    }
+
+    .dark .tenant-feature-card-active {
+        background:
+            linear-gradient(180deg, var(--tenant-theme-accent-soft-strong) 0%, rgb(15 23 42 / 0.96) 20%, rgb(15 23 42 / 0.96) 100%);
+        box-shadow:
+            inset 0 0 0 1px var(--tenant-theme-accent-soft-strong),
+            0 20px 36px -30px rgb(2 6 23 / 0.92);
+    }
+
+    .tenant-feature-icon-active {
+        color: var(--tenant-theme-accent);
+    }
+
+    .tenant-feature-title-active {
+        @apply text-slate-900;
+    }
+
+    .dark .tenant-feature-title-active {
+        @apply text-slate-100;
+    }
+
+    .tenant-feature-copy-active {
+        @apply text-slate-600;
+    }
+
+    .dark .tenant-feature-copy-active {
+        @apply text-slate-300;
+    }
+
     .tenant-auth-shell {
         min-height: 100vh;
         width: 100%;
