@@ -96,14 +96,20 @@
                             placeholder="sk_test_xxxxxxxxxx or sk_live_xxxxxxxxxx"
                             class="block w-full rounded-lg border-gray-300 shadow-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 pr-10"
                         >
-                        <button 
-                            type="button" 
+                        <button
+                            type="button"
                             onclick="togglePassword('paymongo_secret_key')"
                             class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
                         >
-                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <svg id="paymongo_secret_key_eye" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            <svg id="paymongo_secret_key_eye_slash" class="h-5 w-5 hidden" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9.88 9.88a3 3 0 104.243 4.243" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 3l18 18" />
                             </svg>
                         </button>
                     </div>
@@ -237,7 +243,17 @@
     <script>
         function togglePassword(fieldId) {
             const field = document.getElementById(fieldId);
-            field.type = field.type === 'password' ? 'text' : 'password';
+            const eyeIcon = document.getElementById(fieldId + '_eye');
+            const eyeSlashIcon = document.getElementById(fieldId + '_eye_slash');
+            if (field.type === 'password') {
+                field.type = 'text';
+                eyeIcon.classList.add('hidden');
+                eyeSlashIcon.classList.remove('hidden');
+            } else {
+                field.type = 'password';
+                eyeIcon.classList.remove('hidden');
+                eyeSlashIcon.classList.add('hidden');
+            }
         }
     </script>
 </x-tenant-layout>
