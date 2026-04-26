@@ -61,11 +61,11 @@ Route::middleware([
         Route::get('/login', [LoginController::class, 'create'])->name(
             'tenant.login',
         );
-        Route::post('/login', [LoginController::class, 'store']);
+        Route::post('/login', [LoginController::class, 'store'])->middleware('throttle:5,1');
         Route::get('/register', [RegisterController::class, 'create'])->name(
             'tenant.register',
         );
-        Route::post('/register', [RegisterController::class, 'store']);
+        Route::post('/register', [RegisterController::class, 'store'])->middleware('throttle:10,1');
         Route::get('/forgot-password', [
             ForgotPasswordController::class,
             'create',

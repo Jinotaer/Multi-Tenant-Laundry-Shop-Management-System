@@ -8,6 +8,7 @@ use App\Models\Tenant;
 use App\Models\TenantUpdate;
 use Illuminate\Support\Collection;
 use App\Notifications\AdminGenericNotification;
+use App\Notifications\TenantUpdateAvailableNotification;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -164,7 +165,7 @@ class GitHubReleaseService
             // Only notify if the new version is actually newer
             if ($this->isNewerVersion($latestRelease->version_tag, $currentVersion)) {
                 // Create an 'update_available' record if they don't already have one for this release
-                TenantUpdate::firstOrCreate(
+                $record = TenantUpdate::firstOrCreate(
                     [
                         'tenant_id' => $tenant->id,
                         'app_release_id' => $latestRelease->id,
@@ -174,7 +175,34 @@ class GitHubReleaseService
                         'is_current' => false,
                     ]
                 );
+
+                // On first creation, send a bell notification to the tenant owner
+                if ($record->wasRecentlyCreated) {
+                    $this->notifyTenantOwner($tenant, $latestRelease);
+                }
             }
+        }
+    }
+
+    /**
+     * Send a database bell notification to the tenant owner about a new update.
+     * Initializes and ends tenancy context to access the tenant's user table.
+     */
+    private function notifyTenantOwner(Tenant $tenant, AppRelease $release): void
+    {
+        try {
+            tenancy()->initialize($tenant);
+
+            $owner = \App\Models\User::whereHas('roles', fn ($q) => $q->where('slug', 'owner'))->first();
+            $owner?->notify(new TenantUpdateAvailableNotification($release));
+        } catch (\Throwable $e) {
+            Log::warning('Failed to notify tenant owner of update.', [
+                'tenant_id' => $tenant->id,
+                'version'   => $release->version_tag,
+                'error'     => $e->getMessage(),
+            ]);
+        } finally {
+            tenancy()->end();
         }
     }
 

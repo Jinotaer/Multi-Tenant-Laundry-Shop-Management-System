@@ -31,6 +31,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Automatic Update Application
+    |--------------------------------------------------------------------------
+    |
+    | When enabled, the scheduler will automatically apply pending updates to
+    | all tenant stores nightly via the `updates:auto-apply` command.
+    | Set AUTO_APPLY_UPDATES=true in .env to activate.
+    |
+    */
+
+    'auto_apply' => env('AUTO_APPLY_UPDATES', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | Tenant Update Isolation
     |--------------------------------------------------------------------------
     |
