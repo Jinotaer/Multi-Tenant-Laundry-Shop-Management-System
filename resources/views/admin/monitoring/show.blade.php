@@ -30,219 +30,28 @@
             : 'Waiting for first capture';
     @endphp
 
-    <style>
-        .monitoring-command-shell {
-            position: relative;
-            overflow: hidden;
-            background:
-                radial-gradient(circle at top left, var(--tenant-theme-accent-soft) 0%, transparent 26%),
-                linear-gradient(145deg, rgb(255 255 255 / 0.99) 0%, rgb(248 250 252 / 0.98) 56%, rgb(241 245 249 / 0.98) 100%);
-        }
-
-        .monitoring-command-shell::after {
-            content: '';
-            position: absolute;
-            right: -3rem;
-            top: -3rem;
-            height: 10rem;
-            width: 10rem;
-            border-radius: 9999px;
-            background:
-                radial-gradient(circle, var(--tenant-theme-accent-soft-strong) 0%, transparent 70%);
-            opacity: 0.8;
-            pointer-events: none;
-        }
-
-        .dark .monitoring-command-shell {
-            background:
-                radial-gradient(circle at top left, var(--tenant-theme-accent-soft-strong) 0%, transparent 24%),
-                linear-gradient(145deg, rgb(15 23 42 / 0.98) 0%, rgb(2 6 23 / 0.98) 58%, rgb(15 23 42 / 0.96) 100%);
-        }
-
-        .monitoring-command-lead {
-            position: relative;
-        }
-
-        .monitoring-command-lead::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 0.5rem;
-            bottom: 0.5rem;
-            width: 3px;
-            border-radius: 9999px;
-            background: linear-gradient(
-                180deg,
-                var(--tenant-theme-accent) 0%,
-                var(--tenant-theme-accent-soft-strong) 100%
-            );
-        }
-
-        .monitoring-command-kicker {
-            letter-spacing: 0.26em;
-        }
-
-        .monitoring-command-avatar {
-            background: linear-gradient(
-                135deg,
-                var(--tenant-theme-accent) 0%,
-                var(--tenant-theme-accent-soft-strong) 100%
-            );
-        }
-
-        .monitoring-command-aside {
-            position: relative;
-            background:
-                linear-gradient(160deg, rgb(15 23 42 / 0.98) 0%, rgb(2 6 23 / 0.98) 100%);
-        }
-
-        .monitoring-command-aside::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background:
-                radial-gradient(circle at top right, var(--tenant-theme-accent-soft-strong) 0%, transparent 32%);
-            pointer-events: none;
-        }
-
-        .monitoring-command-progress {
-            background: linear-gradient(
-                90deg,
-                var(--tenant-theme-accent) 0%,
-                var(--tenant-theme-accent-soft-strong) 100%
-            );
-        }
-    </style>
-
     <x-slot name="header">
-        <section class="monitoring-command-shell rounded-[30px] border border-slate-200 shadow-sm dark:border-slate-800">
-            <div class="grid gap-0 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.95fr)]">
-                <div class="px-6 py-6 sm:px-8 sm:py-8">
-                    <a href="{{ route('admin.monitoring.index') }}"
-                       class="inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100">
-                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/>
-                        </svg>
-                        Back to Monitoring
-                    </a>
-
-                    <div class="monitoring-command-lead mt-6 pl-5 sm:mt-8 sm:pl-6">
-                        <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-                            <div class="min-w-0">
-                                <p class="monitoring-command-kicker text-[11px] font-semibold uppercase text-slate-500 dark:text-slate-400">
-                                    Resource Monitoring
-                                </p>
-
-                                <div class="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start">
-                                    <div class="monitoring-command-avatar flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl text-lg font-black text-white shadow-lg shadow-slate-900/10">
-                                        {{ $shopInitials }}
-                                    </div>
-
-                                    <div class="min-w-0">
-                                        <h1 class="truncate text-3xl font-black tracking-tight text-slate-900 dark:text-slate-100 sm:text-4xl">
-                                            {{ $shopName }}
-                                        </h1>
-                                        <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">
-                                            Live storage, bandwidth, and request telemetry for this workspace. Refresh before auditing spikes or reviewing historical drift.
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <div class="mt-5 flex flex-wrap items-center gap-2">
-                                    <span class="inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] {{ $tenantStatus['class'] }}">
-                                        {{ $tenantStatus['label'] }}
-                                    </span>
-                                    <span class="inline-flex items-center rounded-full bg-slate-900 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white dark:bg-slate-100 dark:text-slate-900">
-                                        {{ $planName }}
-                                    </span>
-                                    <span class="inline-flex items-center rounded-full border border-slate-300 bg-white/90 px-3 py-1 font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300">
-                                        {{ $tenant->id }}
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div class="flex flex-wrap gap-6 text-sm text-slate-500 dark:text-slate-400">
-                                <div>
-                                    <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Last Capture</p>
-                                    <p class="mt-1 font-semibold text-slate-700 dark:text-slate-200">{{ $latestSnapshotTimestamp }}</p>
-                                </div>
-                                <div>
-                                    <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Bandwidth Window</p>
-                                    <p class="mt-1 font-semibold text-slate-700 dark:text-slate-200">
-                                        {{ $bandwidthResetIn }} {{ \Illuminate\Support\Str::plural('day', $bandwidthResetIn) }} to reset
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <aside class="monitoring-command-aside flex flex-col justify-between gap-6 border-t border-slate-200 px-6 py-6 text-white dark:border-slate-800 sm:px-8 sm:py-8 xl:border-l xl:border-t-0">
-                    <div class="relative z-[1]">
-                        <div class="flex flex-wrap items-start justify-between gap-4">
-                            <div>
-                                <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">Live Snapshot</p>
-                                <p class="mt-2 text-sm text-slate-300">{{ $latestSnapshotLabel }}</p>
-                            </div>
-
-                            <a href="{{ route('admin.tenants.show', $tenant) }}"
-                               class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3.5 py-2 text-sm font-semibold text-slate-100 transition hover:bg-white/10">
-                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 21h19.5M4.5 3h15a.75.75 0 01.75.75v17.25H3.75V3.75A.75.75 0 014.5 3zm3 4.5h9m-9 4.5h9m-9 4.5h6"/>
-                                </svg>
-                                Tenant Details
-                            </a>
-                        </div>
-
-                        <div class="mt-8 space-y-5">
-                            <div>
-                                <div class="flex items-end justify-between gap-4">
-                                    <div>
-                                        <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Storage</p>
-                                        <p class="mt-2 text-3xl font-black tracking-tight text-white">{{ $tenant->formatted_current_storage }}</p>
-                                    </div>
-                                    <span class="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] {{ $storageStatus['class'] }}">
-                                        {{ $storageStatus['label'] }}
-                                    </span>
-                                </div>
-                                <div class="mt-4 h-1.5 overflow-hidden rounded-full bg-white/10">
-                                    <div class="monitoring-command-progress h-full rounded-full" style="width: {{ min(100, max(3, $storagePercent ?? 3)) }}%;"></div>
-                                </div>
-                            </div>
-
-                            <div class="flex items-end justify-between gap-4 border-t border-white/10 pt-5">
-                                <div>
-                                    <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Bandwidth</p>
-                                    <p class="mt-2 text-2xl font-black tracking-tight text-white">{{ $tenant->formatted_current_bandwidth }}</p>
-                                </div>
-                                <p class="text-right text-xs font-medium text-slate-400">
-                                    Reset in<br>{{ $bandwidthResetIn }} {{ \Illuminate\Support\Str::plural('day', $bandwidthResetIn) }}
-                                </p>
-                            </div>
-
-                            <div class="flex items-end justify-between gap-4 border-t border-white/10 pt-5">
-                                <div>
-                                    <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">API Requests</p>
-                                    <p class="mt-2 text-2xl font-black tracking-tight text-white">{{ number_format($tenant->current_api_requests) }}</p>
-                                </div>
-                                <p class="text-right text-xs font-medium text-slate-400">Current monthly volume</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <form method="POST" action="{{ route('admin.monitoring.refresh', $tenant) }}" class="relative z-[1] inline-flex">
-                        @csrf
-                        <button type="submit"
-                                class="tenant-primary-action inline-flex w-full items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-semibold shadow-sm">
-                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992V4.356M2.985 19.644v-4.992h4.992m0 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.183m0-4.991v4.99"/>
-                            </svg>
-                            Refresh Metrics
-                        </button>
-                    </form>
-                </aside>
+        <div class="flex items-center justify-between">
+            <div>
+                <a href="{{ route('admin.monitoring.index') }}" class="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100 mb-2 transition-colors">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/>
+                    </svg>
+                    Back to Monitoring
+                </a>
+                <h2 class="text-2xl font-bold tracking-tight text-gray-900 dark:text-slate-100">{{ $shopName }}</h2>
             </div>
-        </section>
+            
+            <form method="POST" action="{{ route('admin.monitoring.refresh', $tenant) }}" class="m-0">
+                @csrf
+                <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-semibold rounded-full shadow-sm transition-colors active:scale-95">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Refresh Metrics
+                </button>
+            </form>
+        </div>
     </x-slot>
 
     <div class="monitoring-show-page admin-page-stack space-y-6">

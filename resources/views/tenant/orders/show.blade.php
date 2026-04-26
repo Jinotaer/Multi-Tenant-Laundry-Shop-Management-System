@@ -68,13 +68,13 @@
             <div class="lg:col-span-2 space-y-6">
                 <!-- Status Tracker Card -->
                 <div class="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-gray-100 dark:border-slate-800 relative overflow-hidden">
-                    <div class="absolute -top-12 -right-12 w-32 h-32 bg-blue-600/5 rounded-full blur-2xl pointer-events-none"></div>
+                    <div class="absolute -top-12 -right-12 w-32 h-32 rounded-full blur-2xl pointer-events-none" style="background-color: var(--tenant-theme-accent-soft-strong);"></div>
                     <div class="flex items-center justify-between mb-6">
                         <h2 class="text-xl font-bold tracking-tight text-gray-900 dark:text-slate-100 flex items-center space-x-2">
-                            <span class="material-symbols-outlined text-blue-600 dark:text-blue-400">timeline</span>
+                            <span class="material-symbols-outlined" style="color: var(--tenant-theme-accent);">timeline</span>
                             <span>Order Lifecycle</span>
                         </h2>
-                        <span class="px-3 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 text-sm font-semibold rounded-md">
+                        <span class="px-3 py-1 text-sm font-semibold rounded-md" style="background-color: var(--tenant-theme-accent-soft); color: var(--tenant-theme-accent);">
                             {{ $order->status_label }}
                         </span>
                     </div>
@@ -147,7 +147,7 @@
                 <!-- Laundry Items Table Card -->
                 <div class="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-gray-100 dark:border-slate-800">
                     <h2 class="text-xl font-bold tracking-tight text-gray-900 dark:text-slate-100 mb-6 flex items-center space-x-2">
-                        <span class="material-symbols-outlined text-blue-600 dark:text-blue-400">category</span>
+                        <span class="material-symbols-outlined" style="color: var(--tenant-theme-accent);">category</span>
                         <span>Order Items</span>
                     </h2>
                     
@@ -166,7 +166,7 @@
                                     @foreach ($order->items as $item)
                                         <tr class="border-b border-gray-100 dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors h-[56px]">
                                             <td class="py-3 px-4 flex items-center space-x-3">
-                                                <div class="w-8 h-8 rounded bg-gray-100 dark:bg-slate-800 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                                                <div class="w-8 h-8 rounded bg-gray-100 dark:bg-slate-800 flex items-center justify-center" style="color: var(--tenant-theme-accent);">
                                                     <span class="material-symbols-outlined text-[18px]">inventory_2</span>
                                                 </div>
                                                 <span class="font-medium text-gray-900 dark:text-slate-100">{{ $item['name'] ?? 'Not set' }}</span>
@@ -246,9 +246,9 @@
 
                 <!-- Service Details Card -->
                 <div class="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-gray-100 dark:border-slate-800 relative overflow-hidden">
-                    <div class="absolute -top-10 -right-10 w-24 h-24 bg-gray-100 dark:bg-slate-800 rounded-full blur-xl pointer-events-none"></div>
+                    <div class="absolute -top-10 -right-10 w-24 h-24 rounded-full blur-xl pointer-events-none" style="background-color: var(--tenant-theme-accent-soft-strong);"></div>
                     <h2 class="text-xl font-bold tracking-tight text-gray-900 dark:text-slate-100 mb-6 flex items-center space-x-2">
-                        <span class="material-symbols-outlined text-blue-600 dark:text-blue-400">receipt</span>
+                        <span class="material-symbols-outlined" style="color: var(--tenant-theme-accent);">receipt</span>
                         <span>Service Details</span>
                     </h2>
                     
