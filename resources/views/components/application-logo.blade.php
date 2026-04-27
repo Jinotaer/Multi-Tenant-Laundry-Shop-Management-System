@@ -1,10 +1,18 @@
+@props(['logoUrl' => null])
 @php
     $tenant = function_exists('tenant') ? tenant() : null;
-    $logoUrl = global_asset('Laundry3.png');
 
-    // If we are in a tenant context and they have a custom logo uploaded
     if ($tenant && $tenant->hasFeature('custom_branding') && $tenant->logo_path) {
-        $logoUrl = route('stancl.tenancy.asset', ['path' => $tenant->logo_path]);
+        $resolvedUrl = route('stancl.tenancy.asset', ['path' => $tenant->logo_path]);
+    } elseif ($logoUrl) {
+        $resolvedUrl = $logoUrl;
+    } elseif (!$tenant) {
+        $admin = \App\Models\Admin::first();
+        $resolvedUrl = ($admin && $admin->logo_path && \Illuminate\Support\Facades\Storage::disk('public')->exists($admin->logo_path))
+            ? asset('storage/' . $admin->logo_path)
+            : global_asset('Laundry3.png');
+    } else {
+        $resolvedUrl = global_asset('Laundry3.png');
     }
 @endphp
-<img src="{{ $logoUrl }}" alt="Application Logo" {{ $attributes }} />
+<img src="{{ $resolvedUrl }}" alt="Application Logo" {{ $attributes }} />

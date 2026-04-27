@@ -12,6 +12,10 @@
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700,800&display=swap" rel="stylesheet" />
 
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="{{ route('global.favicon') }}">
+    <link rel="alternate icon" type="image/png" href="{{ asset('Laundry3.png') }}">
+
     <!-- Scripts -->
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
@@ -23,7 +27,7 @@
             <div class="flex items-center justify-between h-16">
                 {{-- Brand --}}
                 <a href="{{ route('home') }}" class="flex items-center gap-2">
-                    <x-application-logo class="h-12 w-12 object-cover rounded-full drop-shadow-sm border border-gray-200 dark:border-slate-700" alt="Laundry Track"/>
+                    <x-application-logo :logoUrl="$platformLogoUrl" class="h-12 w-12 object-cover rounded-full drop-shadow-sm border border-gray-200 dark:border-slate-700" alt="Laundry Track"/>
                     <span class="text-xl font-bold text-gray-900">Laundry<span class="text-indigo-600">Track</span></span>
                 </a>
 
@@ -359,7 +363,7 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex flex-col md:flex-row items-center justify-between gap-6">
                 <div class="flex items-center gap-2">
-                    <x-application-logo class="h-8 w-8 object-cover rounded-full" />
+                    <x-application-logo :logoUrl="$platformLogoUrl" class="h-8 w-8 object-cover rounded-full" />
                     <span class="text-lg font-bold text-white">Laundry<span class="text-indigo-400">Track</span></span>
                 </div>
 
