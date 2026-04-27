@@ -10,5 +10,7 @@ class Sampledemo extends Model
     /** @use HasFactory<\Database\Factories\SampledemoFactory> */
     use HasFactory;
 
+    protected $table = 'sampledemo';
+
     protected $fillable = ['name', 'age'];
 }

@@ -13,7 +13,7 @@ class AdminUserSeeder extends Seeder
      */
     public function run(): void
     {
-        Admin::firstOrCreate(
+        Admin::on(config('tenancy.database.central_connection'))->firstOrCreate(
             ['email' => '2301106754@student.buksu.edu.ph'],
             [
                 'name' => 'Spade Kun',
