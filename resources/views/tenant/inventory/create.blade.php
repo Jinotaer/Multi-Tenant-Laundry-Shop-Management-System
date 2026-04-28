@@ -1,15 +1,13 @@
 <x-tenant-layout>
-    <x-slot name="header">
-        <div class="flex items-center justify-between">
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">Add Inventory Item</h2>
-            <a href="{{ route('tenant.inventory.index') }}" class="text-sm text-gray-600 hover:text-gray-900">&larr; Back to inventory</a>
-        </div>
-    </x-slot>
-
     @php $theme = app(\App\Services\ThemeService::class)->getTenantTheme(); @endphp
 
-    <div class="tenant-page-stack max-w-2xl">
-        <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+    <div class="tenant-page-stack max-w-2xl space-y-4">
+        <x-tenant-header title="Add Inventory Item" description="Add a new supply or material to track.">
+            <x-slot name="actions">
+                <a href="{{ route('tenant.inventory.index') }}" class="text-sm text-gray-600 hover:text-gray-900">&larr; Back to inventory</a>
+            </x-slot>
+        </x-tenant-header>
+        <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg max-w-2xl">
             <div class="p-6">
                 <form method="POST" action="{{ route('tenant.inventory.store') }}" class="space-y-6">
                     @csrf
@@ -89,6 +87,7 @@
                     </div>
                 </form>
             </div>
+        </div>
         </div>
     </div>
 </x-tenant-layout>

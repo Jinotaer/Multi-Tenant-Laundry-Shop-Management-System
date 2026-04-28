@@ -1,14 +1,13 @@
 <x-tenant-layout>
-    <x-slot name="header">
-        <div class="flex items-center justify-between">
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">Edit Inventory Item</h2>
-            <a href="{{ route('tenant.inventory.index') }}" class="text-sm text-gray-600 hover:text-gray-900">&larr; Back to inventory</a>
-        </div>
-    </x-slot>
-
     @php $theme = app(\App\Services\ThemeService::class)->getTenantTheme(); @endphp
 
-    <div class="tenant-page-stack max-w-2xl">
+    <div class="tenant-page-stack max-w-2xl space-y-4">
+        <x-tenant-header title="Edit Inventory Item" description="{{ $item->name }}">
+            <x-slot name="actions">
+                <a href="{{ route('tenant.inventory.index') }}" class="text-sm text-gray-600 hover:text-gray-900">&larr; Back to inventory</a>
+            </x-slot>
+        </x-tenant-header>
+
         <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
             <div class="p-6">
                 <form method="POST" action="{{ route('tenant.inventory.update', $item) }}" class="space-y-6">

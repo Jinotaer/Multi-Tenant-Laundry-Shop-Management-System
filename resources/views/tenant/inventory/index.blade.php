@@ -6,21 +6,29 @@
         $canUpdateInventory = $currentUser !== null && ($currentUser->isOwner() || $currentUser->hasPermission('inventory.update'));
         $canDeleteInventory = $currentUser !== null && ($currentUser->isOwner() || $currentUser->hasPermission('inventory.delete'));
         $canAdjustInventory = $currentUser !== null && ($currentUser->isOwner() || $currentUser->hasPermission('inventory.adjust'));
-        $adjustBaseUrl = url('inventory');
+        $inventoryBaseUrl = url('inventory');
+        $adjustBaseUrl = $inventoryBaseUrl;
+        $showCreateModal = ($errors->isNotEmpty() && old('form_context') === 'inventory-create') || request()->boolean('create');
+        $showEditModal = $errors->isNotEmpty() && old('form_context') === 'inventory-edit';
+        $editItemId = old('inventory_edit_id');
+        $editFormAction = $editItemId ? url("inventory/{$editItemId}") : '#';
     @endphp
 
     <div class="tenant-page-stack space-y-4">
         <x-tenant-header title="Inventory Management" description="Track supplies and inventory levels.">
             @if ($canCreateInventory)
                 <x-slot name="actions">
-                    <a href="{{ route('tenant.inventory.create') }}"
+                    <button
+                        type="button"
+                        x-data
+                        x-on:click="$dispatch('open-modal', 'inventory-create-modal')"
                         class="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold text-white shadow-sm transition"
                         style="background: var(--tenant-theme-accent);">
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                         </svg>
                         Add Item
-                    </a>
+                    </button>
                 </x-slot>
             @endif
         </x-tenant-header>
@@ -80,9 +88,7 @@
         @endif
 
         {{-- Inventory Items Table --}}
-        <div
-            x-data="{}"
-            class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+        <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
             @if ($items->isEmpty())
                 <div class="p-12 text-center">
                     <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor">
@@ -92,10 +98,13 @@
                     <p class="mt-1 text-sm text-gray-500">Start by adding supplies and materials to track.</p>
                     @if ($canCreateInventory)
                         <div class="mt-6">
-                            <a href="{{ route('tenant.inventory.create') }}"
+                            <button
+                                type="button"
+                                x-data
+                                x-on:click="$dispatch('open-modal', 'inventory-create-modal')"
                                 class="inline-flex items-center px-4 py-2 {{ $theme['primary_bg'] }} {{ $theme['primary_hover'] }} border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest transition ease-in-out duration-150">
                                 Add First Item
-                            </a>
+                            </button>
                         </div>
                     @endif
                 </div>
@@ -167,7 +176,13 @@
                                                 </button>
                                             @endif
                                             @if ($canUpdateInventory)
-                                                <a href="{{ route('tenant.inventory.edit', $item) }}" class="text-indigo-600 hover:text-indigo-900">Edit</a>
+                                                <button
+                                                    type="button"
+                                                    x-data
+                                                    x-on:click="$dispatch('open-modal', 'inventory-edit-modal'); $dispatch('inventory-edit-open', { id: {{ $item->id }}, name: {{ Js::from($item->name) }}, sku: {{ Js::from($item->sku ?? '') }}, category: {{ Js::from($item->category) }}, unit: {{ Js::from($item->unit) }}, qty: {{ (float) $item->quantity_on_hand }}, reorder_level: {{ (float) $item->reorder_level }}, cost_per_unit: {{ $item->cost_per_unit !== null ? (float) $item->cost_per_unit : 'null' }}, description: {{ Js::from($item->description ?? '') }}, is_active: {{ $item->is_active ? 'true' : 'false' }} })"
+                                                    class="text-indigo-600 hover:text-indigo-900">
+                                                    Edit
+                                                </button>
                                             @endif
                                             @if ($canDeleteInventory)
                                                 <form method="POST" action="{{ route('tenant.inventory.destroy', $item) }}" class="inline"
@@ -243,7 +258,13 @@
             </div>
         @endif
 
-        {{-- Adjust Stock Modal --}}
+        {{-- Modals --}}
+        @if ($canCreateInventory)
+            @include('tenant.inventory.partials.create-modal', ['theme' => $theme, 'showCreateModal' => $showCreateModal])
+        @endif
+        @if ($canUpdateInventory)
+            @include('tenant.inventory.partials.edit-modal', ['theme' => $theme, 'showEditModal' => $showEditModal, 'editFormAction' => $editFormAction, 'editItemId' => $editItemId, 'inventoryBaseUrl' => $inventoryBaseUrl])
+        @endif
         @if ($canAdjustInventory)
             @include('tenant.inventory.partials.adjust-modal', ['theme' => $theme, 'adjustBaseUrl' => $adjustBaseUrl])
         @endif
