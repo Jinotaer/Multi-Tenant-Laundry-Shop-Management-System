@@ -994,11 +994,12 @@
                         @php
                             $canManageServices = $currentUser->isOwner() || $currentUser->hasAnyPermission(['services.view', 'services.create', 'services.update', 'services.delete']);
                             $canManageExpenses = $currentTenant?->hasFeature('expense_tracking') && ($currentUser->isOwner() || $currentUser->hasAnyPermission(['expenses.view', 'expenses.create', 'expenses.update', 'expenses.delete']));
+                            $canManageInventory = $currentTenant?->hasFeature('inventory_management') && ($currentUser->isOwner() || $currentUser->hasAnyPermission(['inventory.view', 'inventory.create', 'inventory.update', 'inventory.delete', 'inventory.adjust']));
                             $canViewReports = $currentTenant?->hasFeature('reports') && ($currentUser->isOwner() || $currentUser->hasAnyPermission(['reports.view', 'reports.export']));
                             $canViewAnalytics = $currentTenant?->hasFeature('analytics_dashboard') && ($currentUser->isOwner() || $currentUser->hasPermission('analytics.view'));
                             $canManageSubscription = $currentUser->isOwner() || $currentUser->hasPermission('subscription.manage');
                             $canViewBilling = $currentUser->isOwner() || $currentUser->hasPermission('billing.view');
-                            $canViewManagementSection = $canManageServices || $canManageExpenses || $canViewReports || $canViewAnalytics || $canManageSubscription || $canViewBilling;
+                            $canViewManagementSection = $canManageServices || $canManageExpenses || $canManageInventory || $canViewReports || $canViewAnalytics || $canManageSubscription || $canViewBilling;
                         @endphp
 
                         @if ($canViewManagementSection)
@@ -1013,6 +1014,13 @@
                                 <a href="{{ route('tenant.expenses.index') }}" title="Expenses" class="flex items-center px-3 py-2 text-sm font-medium rounded-md {{ $navAlignmentClass }} {{ request()->routeIs('tenant.expenses*') ? $activeNavClass : $inactiveNavClass }}">
                                     <svg class="{{ $iconSpacingClass }}" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 3.071-.879 4.242 0M9.75 11.25c.386 0 .75.039 1.102.117m7.5-6.817A3.375 3.375 0 0015 2.25h-7.5A3.375 3.375 0 003.75 5.25m15 6V5.25A3.375 3.375 0 0015 1.5h-7.5A3.375 3.375 0 003.75 5.25v13.5A3.375 3.375 0 007.5 22.5h7.5a3.375 3.375 0 003.75-3.75V8.25m0 0H9" /></svg>
                                     <span class="{{ $navLabelVisibilityClass }}">Expenses</span>
+                                </a>
+                            @endif
+
+                            @if ($canManageInventory)
+                                <a href="{{ route('tenant.inventory.index') }}" title="Inventory" class="flex items-center px-3 py-2 text-sm font-medium rounded-md {{ $navAlignmentClass }} {{ request()->routeIs('tenant.inventory*') ? $activeNavClass : $inactiveNavClass }}">
+                                    <svg class="{{ $iconSpacingClass }}" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" /></svg>
+                                    <span class="{{ $navLabelVisibilityClass }}">Inventory</span>
                                 </a>
                             @endif
 
