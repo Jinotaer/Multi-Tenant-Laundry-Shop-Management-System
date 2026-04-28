@@ -15,6 +15,7 @@ use App\Http\Controllers\Tenant\CustomerPortalController;
 use App\Http\Controllers\Tenant\DashboardController;
 use App\Http\Controllers\Tenant\ExpenseController;
 use App\Http\Controllers\Tenant\InventoryController;
+use App\Http\Controllers\Tenant\ModuleController;
 use App\Http\Controllers\Tenant\NotificationController;
 use App\Http\Controllers\Tenant\OrderController;
 use App\Http\Controllers\Tenant\OrderPaymentController;
@@ -282,6 +283,10 @@ Route::middleware([
                 Route::resource('samplexs', SampleXController::class)
                     ->parameters(['samplexs' => 'sampleX'])
                     ->names('tenant.samplexs');
+
+                // Module demonstration resource
+                Route::resource('modules', ModuleController::class)
+                    ->names('tenant.modules');
 
                 // Expense Tracking (Premium only)
                 Route::middleware('feature:expense_tracking')->group(function () {
