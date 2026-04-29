@@ -3,8 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Update Status {{ $release->version_tag }}</title>
+    <title>Update Center</title>
     <style>
         :root {
             color-scheme: dark;
@@ -15,9 +14,6 @@
             --muted: #9fb0c9;
             --accent: #6d78ff;
             --accent-soft: rgba(109, 120, 255, 0.16);
-            --success: #38d39f;
-            --warn: #f4b740;
-            --danger: #f87171;
             --track: rgba(148, 163, 184, 0.22);
         }
 
@@ -46,14 +42,6 @@
             padding: 32px 0 40px;
         }
 
-        .topbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            gap: 16px;
-            margin-bottom: 24px;
-        }
-
         .eyebrow {
             display: inline-flex;
             align-items: center;
@@ -76,6 +64,14 @@
             box-shadow: 0 0 12px rgba(109, 120, 255, 0.7);
         }
 
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
         h1 {
             margin: 18px 0 10px;
             font-size: clamp(36px, 5vw, 64px);
@@ -89,6 +85,12 @@
             font-size: 16px;
             line-height: 1.7;
             max-width: 720px;
+        }
+
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
         }
 
         .button {
@@ -105,6 +107,11 @@
             font-size: 15px;
             font-weight: 600;
             white-space: nowrap;
+        }
+
+        .button.primary {
+            background: linear-gradient(135deg, #5664ff 0%, #7985ff 100%);
+            border-color: rgba(121, 133, 255, 0.55);
         }
 
         .grid {
@@ -124,20 +131,30 @@
             padding: 28px 30px;
         }
 
-        .status-row {
+        .status-head {
             display: flex;
             align-items: flex-start;
             gap: 18px;
         }
 
-        .spinner {
+        .pulse {
             width: 54px;
             height: 54px;
-            border-radius: 999px;
-            border: 7px solid rgba(109, 120, 255, 0.18);
-            border-top-color: var(--accent);
-            animation: spin 0.85s linear infinite;
+            border-radius: 18px;
+            background: var(--accent-soft);
+            border: 1px solid rgba(109, 120, 255, 0.28);
+            display: grid;
+            place-items: center;
             flex: 0 0 auto;
+        }
+
+        .pulse::after {
+            content: "";
+            width: 14px;
+            height: 14px;
+            border-radius: 999px;
+            background: var(--accent);
+            box-shadow: 0 0 14px rgba(109, 120, 255, 0.6);
         }
 
         .status-title {
@@ -209,81 +226,6 @@
             font-style: italic;
         }
 
-        .alert {
-            display: none;
-            margin-top: 22px;
-            padding: 16px 18px;
-            border-radius: 20px;
-            border: 1px solid rgba(248, 113, 113, 0.3);
-            background: rgba(127, 29, 29, 0.26);
-            color: #fecaca;
-            font-size: 14px;
-            line-height: 1.65;
-            white-space: pre-wrap;
-        }
-
-        .alert.show {
-            display: block;
-        }
-
-        .log-tail {
-            display: none;
-            margin-top: 22px;
-            padding: 18px;
-            border-radius: 20px;
-            border: 1px solid var(--panel-border);
-            background: rgba(2, 6, 23, 0.72);
-        }
-
-        .log-tail.show {
-            display: block;
-        }
-
-        .log-tail-title {
-            margin: 0 0 12px;
-            color: var(--muted);
-            font-size: 12px;
-            letter-spacing: 0.12em;
-            text-transform: uppercase;
-        }
-
-        .log-tail pre {
-            margin: 0;
-            max-height: 280px;
-            overflow: auto;
-            font-family: Consolas, "Courier New", monospace;
-            font-size: 12px;
-            line-height: 1.6;
-            color: #c3d0e7;
-            white-space: pre-wrap;
-        }
-
-        .success {
-            color: #d1fae5;
-        }
-
-        .success .spinner {
-            animation: none;
-            border-color: rgba(56, 211, 159, 0.24);
-            border-top-color: var(--success);
-        }
-
-        .failed .spinner {
-            animation: none;
-            border-color: rgba(248, 113, 113, 0.28);
-            border-top-color: var(--danger);
-        }
-
-        .stalled .spinner {
-            border-top-color: var(--warn);
-        }
-
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
         @media (max-width: 720px) {
             .shell {
                 width: min(100% - 24px, 1080px);
@@ -294,6 +236,7 @@
                 flex-direction: column;
             }
 
+            .actions,
             .button {
                 width: 100%;
             }
@@ -305,7 +248,7 @@
                 padding-right: 18px;
             }
 
-            .status-row {
+            .status-head {
                 flex-direction: column;
             }
         }
@@ -317,29 +260,28 @@
             <div>
                 <div class="eyebrow">
                     <span class="eyebrow-dot"></span>
-                    Update Runner
+                    Update Center
                 </div>
-                <h1 id="hero-title">Updating to {{ $release->version_tag }}</h1>
+                <h1>Applying {{ $release->version_tag }}</h1>
                 <p class="subtitle">
-                    This page stays outside the normal tenant layout so it remains readable even while application assets are changing.
+                    {{ $shopName }} is updating right now. This page stays outside the tenant layout so it remains stable while the update is running.
                 </p>
             </div>
 
-            <a href="{{ route('tenant.updates.index') }}" class="button">Back to Update Center</a>
+            <div class="actions">
+                <a class="button primary" href="{{ route('tenant.updates.status', $release->id) }}">View Live Status</a>
+                <a class="button" href="{{ route('tenant.updates.index') }}">Refresh</a>
+            </div>
         </div>
-
-        @if (session('error'))
-            <div class="alert show">{{ session('error') }}</div>
-        @endif
 
         <div class="grid">
             <section class="panel">
                 <div class="panel-body">
-                    <div class="status-row" id="status-shell">
-                        <div class="spinner" id="spinner"></div>
+                    <div class="status-head">
+                        <div class="pulse"></div>
                         <div>
                             <h2 class="status-title" id="stage-title">Update in progress...</h2>
-                            <p class="status-message" id="stage-message">The updater is starting. Waiting for the first status update.</p>
+                            <p class="status-message" id="stage-message">Waiting for the updater to report the current stage.</p>
                         </div>
                     </div>
 
@@ -347,19 +289,12 @@
                         <div class="progress-bar" id="progress-bar"></div>
                     </div>
 
-                    <div class="meta" id="network-hint">Keep this tab open. The page will update automatically when the process completes.</div>
-
-                    <div class="alert" id="error-detail"></div>
-
-                    <div class="log-tail" id="log-tail-wrapper">
-                        <p class="log-tail-title">Updater log tail</p>
-                        <pre id="log-tail"></pre>
-                    </div>
+                    <div class="meta" id="network-hint">This page checks progress automatically. Open the live status page at any time for detailed logs.</div>
                 </div>
             </section>
 
             <section class="panel">
-                <div class="log-header">Progress Log</div>
+                <div class="log-header">Recent Progress</div>
                 <div class="log-body">
                     <ol class="log-list" id="step-log">
                         <li class="empty-log">Waiting for first status...</li>
@@ -367,27 +302,18 @@
                 </div>
             </section>
         </div>
-
-        <form id="finalize-form" action="{{ route('tenant.updates.finalize', $release->id) }}" method="POST" hidden>
-            @csrf
-        </form>
     </div>
 
     <script>
         (() => {
             const POLL_URL = @json(route('tenant.updates.poll', $release->id));
-            const INITIAL_STATUS = @json($status);
+            const STATUS_URL = @json(route('tenant.updates.status', $release->id));
 
             const stageTitle = document.getElementById('stage-title');
             const stageMessage = document.getElementById('stage-message');
             const progressBar = document.getElementById('progress-bar');
             const networkHint = document.getElementById('network-hint');
             const stepLog = document.getElementById('step-log');
-            const statusShell = document.getElementById('status-shell');
-            const errorDetail = document.getElementById('error-detail');
-            const logTailWrapper = document.getElementById('log-tail-wrapper');
-            const logTail = document.getElementById('log-tail');
-            const finalizeForm = document.getElementById('finalize-form');
 
             const STAGE_PROGRESS = {
                 queued: 4,
@@ -405,9 +331,8 @@
                 rollback: 45
             };
 
-            let finalizeTriggered = false;
-            let failedFetches = 0;
             let renderedHistory = new Set();
+            let failedFetches = 0;
 
             function renderHistory(history) {
                 if (!Array.isArray(history) || history.length === 0) {
@@ -437,48 +362,20 @@
             function renderStatus(data) {
                 const stage = data.stage || 'queued';
                 const state = data.state || 'running';
-                const message = data.message || 'Update in progress...';
                 const percent = STAGE_PROGRESS[stage] || 18;
 
-                stageTitle.textContent = state === 'success'
-                    ? 'Update complete'
-                    : state === 'failed'
-                        ? 'Update failed'
-                        : message;
-
-                stageMessage.textContent = data.error || message;
+                stageTitle.textContent = data.message || 'Update in progress...';
+                stageMessage.textContent = data.error || 'The updater is still running.';
                 progressBar.style.width = `${percent}%`;
 
-                statusShell.classList.remove('success', 'failed', 'stalled');
-
-                if (data.stalled) {
-                    statusShell.classList.add('stalled');
-                }
-
-                if (state === 'success') {
-                    progressBar.style.width = '100%';
-                    stageMessage.textContent = 'Finalizing version record and leaving update mode...';
-                    statusShell.classList.add('success');
-
-                    if (!finalizeTriggered) {
-                        finalizeTriggered = true;
-                        setTimeout(() => finalizeForm.submit(), 1200);
-                    }
-                } else if (state === 'failed') {
-                    statusShell.classList.add('failed');
-                    errorDetail.textContent = data.error || data.message || 'Unknown updater error.';
-                    errorDetail.classList.add('show');
-                } else {
-                    errorDetail.classList.remove('show');
-                    errorDetail.textContent = '';
-                }
-
-                if (data.log_tail) {
-                    logTail.textContent = data.log_tail;
-                    logTailWrapper.classList.add('show');
-                }
-
                 renderHistory(data.history);
+
+                if (state === 'success' || state === 'failed') {
+                    window.location.href = STATUS_URL;
+                    return;
+                }
+
+                setTimeout(poll, 3000);
             }
 
             function poll() {
@@ -498,12 +395,8 @@
                     })
                     .then((data) => {
                         failedFetches = 0;
-                        networkHint.textContent = 'Keep this tab open. The page will update automatically when the process completes.';
+                        networkHint.textContent = 'This page checks progress automatically. Open the live status page at any time for detailed logs.';
                         renderStatus(data);
-
-                        if (data.state !== 'success' && data.state !== 'failed') {
-                            setTimeout(poll, 3000);
-                        }
                     })
                     .catch(() => {
                         failedFetches += 1;
@@ -512,10 +405,6 @@
                             : `Still waiting for the updater to respond (attempt ${failedFetches}).`;
                         setTimeout(poll, failedFetches < 4 ? 3000 : 5000);
                     });
-            }
-
-            if (INITIAL_STATUS && typeof INITIAL_STATUS === 'object') {
-                renderStatus(INITIAL_STATUS);
             }
 
             poll();

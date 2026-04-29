@@ -91,6 +91,19 @@ class UpdateController extends Controller
             Log::warning('Failed to list backups', ['error' => $e->getMessage()]);
         }
 
+        if (
+            $applyingUpdate
+            && $applyingUpdate->release
+            && $this->isTenantMaintenanceActive($tenant)
+        ) {
+            return view('tenant.updates.in-progress', [
+                'release' => $applyingUpdate->release,
+                'shopName' => tenant('data')['shop_name']
+                    ?? $tenant->registration?->shop_name
+                    ?? $tenant->getKey(),
+            ]);
+        }
+
         return view('tenant.updates.index', compact(
             'currentVersion',
             'availableUpdates',
@@ -1038,6 +1051,15 @@ class UpdateController extends Controller
         $store = (string) config('updates.tenant_maintenance.cache_store', config('cache.default'));
 
         return Cache::store($store);
+    }
+
+    private function isTenantMaintenanceActive($tenant): bool
+    {
+        if (! (bool) config('updates.tenant_maintenance.enabled', true)) {
+            return false;
+        }
+
+        return $this->maintenanceCache()->has($this->tenantMaintenanceCacheKey($tenant->id));
     }
 
     /**
