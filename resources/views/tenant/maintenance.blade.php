@@ -29,8 +29,11 @@
                 0%, 100% { opacity: 1; transform: scale(1); }
                 50% { opacity: 0.4; transform: scale(0.85); }
             }
+            .actions { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
             .btn-refresh { display: inline-block; padding: 0.625rem 1.5rem; background-color: #1f2937; color: #fff; font-size: 0.85rem; font-weight: 600; border-radius: 0.5rem; text-decoration: none; border: none; cursor: pointer; transition: background-color 0.15s; }
             .btn-refresh:hover { background-color: #374151; }
+            .btn-secondary { display: inline-block; padding: 0.625rem 1.5rem; background-color: #fff; color: #1f2937; font-size: 0.85rem; font-weight: 600; border-radius: 0.5rem; text-decoration: none; border: 1px solid #d1d5db; transition: background-color 0.15s, border-color 0.15s; }
+            .btn-secondary:hover { background-color: #f9fafb; border-color: #9ca3af; }
             .footer-note { font-size: 0.78rem; color: #9ca3af; margin-top: 1.25rem; }
         </style>
     </head>
@@ -62,7 +65,10 @@
                 Update in progress &mdash; this page refreshes automatically every 30 seconds.
             </div>
 
-            <button class="btn-refresh" onclick="window.location.reload()">Try Again</button>
+            <div class="actions">
+                <button class="btn-refresh" onclick="window.location.reload()">Try Again</button>
+                <a class="btn-secondary" href="{{ route('tenant.updates.index') }}">Open Update Center</a>
+            </div>
 
             <p class="footer-note">
                 If this takes longer than expected, please contact your shop administrator.

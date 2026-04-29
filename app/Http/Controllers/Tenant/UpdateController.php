@@ -96,12 +96,22 @@ class UpdateController extends Controller
             && $applyingUpdate->release
             && $this->isTenantMaintenanceActive($tenant)
         ) {
-            return view('tenant.updates.in-progress', [
-                'release' => $applyingUpdate->release,
-                'shopName' => tenant('data')['shop_name']
-                    ?? $tenant->registration?->shop_name
-                    ?? $tenant->getKey(),
-            ]);
+            $status = $this->readDeploymentStatus();
+            $finalizeData = session('update_finalize');
+
+            return response()->view(
+                'tenant.updates.in-progress',
+                [
+                    'release' => $applyingUpdate->release,
+                    'status' => $status,
+                    'finalizeData' => $finalizeData,
+                    'shopName' => tenant('data')['shop_name']
+                        ?? $tenant->registration?->shop_name
+                        ?? $tenant->getKey(),
+                ],
+                200,
+                $this->updatePageHeaders()
+            );
         }
 
         return view('tenant.updates.index', compact(
@@ -438,19 +448,23 @@ class UpdateController extends Controller
     public function updateStatus(Request $request, AppRelease $release)
     {
         $tenant = tenant();
-        $statusFile = $this->deploymentArtifactPath('status.json');
-
-        $status = null;
-        if (File::exists($statusFile)) {
-            $decoded = json_decode(File::get($statusFile), true);
-            if (is_array($decoded)) {
-                $status = $decoded;
-            }
-        }
-
+        $status = $this->readDeploymentStatus();
         $finalizeData = $request->session()->get('update_finalize');
 
-        return view('tenant.updates.status', compact('release', 'status', 'finalizeData'));
+        return response()->view(
+            'tenant.updates.status',
+            [
+                'release' => $release,
+                'status' => $status,
+                'finalizeData' => $finalizeData,
+                'shopName' => tenant('data')['shop_name']
+                    ?? $tenant?->registration?->shop_name
+                    ?? $tenant?->getKey()
+                    ?? config('app.name'),
+            ],
+            200,
+            $this->updatePageHeaders()
+        );
     }
 
     /**
@@ -1060,6 +1074,37 @@ class UpdateController extends Controller
         }
 
         return $this->maintenanceCache()->has($this->tenantMaintenanceCacheKey($tenant->id));
+    }
+
+    private function readDeploymentStatus(): ?array
+    {
+        $statusFile = $this->deploymentArtifactPath('status.json');
+
+        if (! File::exists($statusFile)) {
+            return null;
+        }
+
+        $decoded = json_decode(File::get($statusFile), true);
+
+        return is_array($decoded) ? $decoded : null;
+    }
+
+    /**
+     * Prevent browsers from reusing stale update HTML while an update is active.
+     *
+     * Without this, some browsers can briefly restore a cached `/updates` page
+     * snapshot while navigating between update routes, which makes the UI look
+     * inconsistent even though the current route now has a maintenance-safe view.
+     *
+     * @return array<string, string>
+     */
+    private function updatePageHeaders(): array
+    {
+        return [
+            'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma' => 'no-cache',
+            'Expires' => '0',
+        ];
     }
 
     /**

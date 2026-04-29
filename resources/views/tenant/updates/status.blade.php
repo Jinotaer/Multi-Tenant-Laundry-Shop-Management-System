@@ -21,9 +21,7 @@
             --track: rgba(148, 163, 184, 0.22);
         }
 
-        * {
-            box-sizing: border-box;
-        }
+        * { box-sizing: border-box; }
 
         body {
             margin: 0;
@@ -88,7 +86,7 @@
             color: var(--muted);
             font-size: 16px;
             line-height: 1.7;
-            max-width: 720px;
+            max-width: 760px;
         }
 
         .button {
@@ -107,10 +105,7 @@
             white-space: nowrap;
         }
 
-        .grid {
-            display: grid;
-            gap: 24px;
-        }
+        .grid { display: grid; gap: 24px; }
 
         .panel {
             border-radius: 28px;
@@ -186,9 +181,7 @@
             color: var(--muted);
         }
 
-        .log-body {
-            padding: 20px 24px 24px;
-        }
+        .log-body { padding: 20px 24px 24px; }
 
         .log-list {
             list-style: none;
@@ -200,9 +193,7 @@
             color: #c3d0e7;
         }
 
-        .log-list li + li {
-            margin-top: 10px;
-        }
+        .log-list li + li { margin-top: 10px; }
 
         .empty-log {
             color: #7f8ba2;
@@ -222,9 +213,7 @@
             white-space: pre-wrap;
         }
 
-        .alert.show {
-            display: block;
-        }
+        .alert.show { display: block; }
 
         .log-tail {
             display: none;
@@ -235,9 +224,7 @@
             background: rgba(2, 6, 23, 0.72);
         }
 
-        .log-tail.show {
-            display: block;
-        }
+        .log-tail.show { display: block; }
 
         .log-tail-title {
             margin: 0 0 12px;
@@ -258,10 +245,6 @@
             white-space: pre-wrap;
         }
 
-        .success {
-            color: #d1fae5;
-        }
-
         .success .spinner {
             animation: none;
             border-color: rgba(56, 211, 159, 0.24);
@@ -279,9 +262,7 @@
         }
 
         @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
+            to { transform: rotate(360deg); }
         }
 
         @media (max-width: 720px) {
@@ -298,9 +279,7 @@
                 width: 100%;
             }
 
-            .panel-body,
-            .log-header,
-            .log-body {
+            .panel-body, .log-header, .log-body {
                 padding-left: 18px;
                 padding-right: 18px;
             }
@@ -319,7 +298,7 @@
                     <span class="eyebrow-dot"></span>
                     Update Runner
                 </div>
-                <h1 id="hero-title">Updating to {{ $release->version_tag }}</h1>
+                <h1>Updating {{ $shopName }} to {{ $release->version_tag }}</h1>
                 <p class="subtitle">
                     This page stays outside the normal tenant layout so it remains readable even while application assets are changing.
                 </p>
@@ -336,7 +315,7 @@
             <section class="panel">
                 <div class="panel-body">
                     <div class="status-row" id="status-shell">
-                        <div class="spinner" id="spinner"></div>
+                        <div class="spinner"></div>
                         <div>
                             <h2 class="status-title" id="stage-title">Update in progress...</h2>
                             <p class="status-message" id="stage-message">The updater is starting. Waiting for the first status update.</p>
@@ -437,40 +416,16 @@
             function renderStatus(data) {
                 const stage = data.stage || 'queued';
                 const state = data.state || 'running';
-                const message = data.message || 'Update in progress...';
                 const percent = STAGE_PROGRESS[stage] || 18;
 
-                stageTitle.textContent = state === 'success'
-                    ? 'Update complete'
-                    : state === 'failed'
-                        ? 'Update failed'
-                        : message;
-
-                stageMessage.textContent = data.error || message;
                 progressBar.style.width = `${percent}%`;
+                stageTitle.textContent = data.message || 'Update in progress...';
+                stageMessage.textContent = data.error || 'The updater is still running.';
 
                 statusShell.classList.remove('success', 'failed', 'stalled');
 
                 if (data.stalled) {
                     statusShell.classList.add('stalled');
-                }
-
-                if (state === 'success') {
-                    progressBar.style.width = '100%';
-                    stageMessage.textContent = 'Finalizing version record and leaving update mode...';
-                    statusShell.classList.add('success');
-
-                    if (!finalizeTriggered) {
-                        finalizeTriggered = true;
-                        setTimeout(() => finalizeForm.submit(), 1200);
-                    }
-                } else if (state === 'failed') {
-                    statusShell.classList.add('failed');
-                    errorDetail.textContent = data.error || data.message || 'Unknown updater error.';
-                    errorDetail.classList.add('show');
-                } else {
-                    errorDetail.classList.remove('show');
-                    errorDetail.textContent = '';
                 }
 
                 if (data.log_tail) {
@@ -479,6 +434,32 @@
                 }
 
                 renderHistory(data.history);
+
+                if (state === 'success') {
+                    progressBar.style.width = '100%';
+                    stageTitle.textContent = 'Update complete';
+                    stageMessage.textContent = 'Finalizing version record and leaving update mode...';
+                    statusShell.classList.add('success');
+
+                    if (!finalizeTriggered) {
+                        finalizeTriggered = true;
+                        setTimeout(() => finalizeForm.submit(), 1200);
+                    }
+
+                    return;
+                }
+
+                if (state === 'failed') {
+                    stageTitle.textContent = 'Update failed';
+                    stageMessage.textContent = data.message || 'The updater reported a failure.';
+                    statusShell.classList.add('failed');
+                    errorDetail.textContent = data.error || data.message || 'Unknown updater error.';
+                    errorDetail.classList.add('show');
+                    return;
+                }
+
+                errorDetail.classList.remove('show');
+                errorDetail.textContent = '';
             }
 
             function poll() {
