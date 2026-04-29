@@ -49,6 +49,13 @@ function invokeDeploymentCheck(CodeDeploymentService $service, string $command):
     $method->invoke($service, $command);
 }
 
+function invokeUpdateFlowCompatibilityValidation(CodeDeploymentService $service, string $path): void
+{
+    $method = new ReflectionMethod($service, 'validateUpdateFlowCompatibility');
+    $method->setAccessible(true);
+    $method->invoke($service, $path);
+}
+
 test('deployment manifest includes deployable release roots and excludes local-only paths', function () {
     $root = storage_path('framework/testing/deployment-manifest-' . Str::random(12));
 
@@ -237,5 +244,121 @@ test('frontend dependency verification fails when required npm files are missing
             File::ensureDirectoryExists(dirname($viteDevServerIndex));
             File::put($viteDevServerIndex, $viteBackup);
         }
+    }
+});
+
+test('update flow compatibility validation accepts standalone maintenance-safe release pages', function () {
+    $root = storage_path('framework/testing/update-flow-compatible-' . Str::random(12));
+
+    File::makeDirectory("{$root}/app/Http/Controllers/Tenant", 0755, true);
+    File::makeDirectory("{$root}/resources/views/tenant/updates", 0755, true);
+
+    File::put(
+        "{$root}/app/Http/Controllers/Tenant/UpdateController.php",
+        <<<'PHP'
+<?php
+class UpdateController {
+    public function index() {
+        return view('tenant.updates.in-progress');
+    }
+    private function updatePageHeaders(): array {
+        return ['Cache-Control' => 'no-store'];
+    }
+}
+PHP
+    );
+
+    File::put(
+        "{$root}/resources/views/tenant/maintenance.blade.php",
+        <<<'BLADE'
+<!DOCTYPE html>
+<a href="{{ route('tenant.updates.index') }}">Open Update Center</a>
+BLADE
+    );
+
+    File::put(
+        "{$root}/resources/views/tenant/updates/in-progress.blade.php",
+        <<<'BLADE'
+<!DOCTYPE html>
+<script>
+fetch('/poll', { cache: 'no-store' });
+</script>
+BLADE
+    );
+
+    File::put(
+        "{$root}/resources/views/tenant/updates/status.blade.php",
+        <<<'BLADE'
+<!DOCTYPE html>
+<script>
+fetch('/poll', { cache: 'no-store' });
+</script>
+BLADE
+    );
+
+    try {
+        expect(fn () => invokeUpdateFlowCompatibilityValidation(app(CodeDeploymentService::class), $root))
+            ->not->toThrow(RuntimeException::class);
+    } finally {
+        File::deleteDirectory($root);
+    }
+});
+
+test('update flow compatibility validation rejects layout-based update pages', function () {
+    $root = storage_path('framework/testing/update-flow-incompatible-' . Str::random(12));
+
+    File::makeDirectory("{$root}/app/Http/Controllers/Tenant", 0755, true);
+    File::makeDirectory("{$root}/resources/views/tenant/updates", 0755, true);
+
+    File::put(
+        "{$root}/app/Http/Controllers/Tenant/UpdateController.php",
+        <<<'PHP'
+<?php
+class UpdateController {
+    public function index() {
+        return view('tenant.updates.in-progress');
+    }
+    private function updatePageHeaders(): array {
+        return ['Cache-Control' => 'no-store'];
+    }
+}
+PHP
+    );
+
+    File::put(
+        "{$root}/resources/views/tenant/maintenance.blade.php",
+        <<<'BLADE'
+<!DOCTYPE html>
+<a href="{{ route('tenant.updates.index') }}">Open Update Center</a>
+BLADE
+    );
+
+    File::put(
+        "{$root}/resources/views/tenant/updates/in-progress.blade.php",
+        <<<'BLADE'
+<!DOCTYPE html>
+<x-tenant-layout>
+<script>
+fetch('/poll', { cache: 'no-store' });
+</script>
+</x-tenant-layout>
+BLADE
+    );
+
+    File::put(
+        "{$root}/resources/views/tenant/updates/status.blade.php",
+        <<<'BLADE'
+<!DOCTYPE html>
+<script>
+fetch('/poll', { cache: 'no-store' });
+</script>
+BLADE
+    );
+
+    try {
+        expect(fn () => invokeUpdateFlowCompatibilityValidation(app(CodeDeploymentService::class), $root))
+            ->toThrow(RuntimeException::class, 'still depends on the tenant layout');
+    } finally {
+        File::deleteDirectory($root);
     }
 });

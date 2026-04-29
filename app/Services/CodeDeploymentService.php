@@ -71,6 +71,7 @@ class CodeDeploymentService
             $extractedArchive = $this->extractArchive($archivePath, $versionTag);
             $extractRootPath = $extractedArchive['root'];
             $extractPath = $extractedArchive['source'];
+            $this->validateUpdateFlowCompatibility($extractPath);
             $manifest = $this->buildDeploymentManifest($extractPath);
             
             // Backup current code
@@ -169,6 +170,7 @@ class CodeDeploymentService
             $extracted       = $this->extractArchive($archivePath, $versionTag);
             $extractRootPath = $extracted['root'];
             $extractPath     = $extracted['source'];
+            $this->validateUpdateFlowCompatibility($extractPath);
             $manifest        = $this->buildDeploymentManifest($extractPath);
             $needsNpmInstall = $this->shouldRunNpmBuild()
                 && $this->frontendDependenciesChanged($extractPath);
@@ -553,6 +555,7 @@ class CodeDeploymentService
             $extracted = $this->extractArchive($archivePath, $versionTag);
             $extractRootPath = $extracted['root'];
             $extractedSource = $extracted['source'];
+            $this->validateUpdateFlowCompatibility($extractedSource);
 
             File::ensureDirectoryExists($pendingDir);
 
@@ -1307,5 +1310,68 @@ class CodeDeploymentService
             'storage',
             'vendor',
         ], true);
+    }
+
+    /**
+     * Reject release archives that would break the live update runner during swap.
+     *
+     * The tenant updater relies on standalone update/maintenance pages that do
+     * not use the normal tenant layout or Vite assets. If a release archive
+     * lacks those files, or reintroduces layout-based update pages, applying it
+     * would regress the shop back to the giant-logo / blank-page failure mode.
+     */
+    private function validateUpdateFlowCompatibility(string $rootPath): void
+    {
+        $requiredFiles = [
+            'app/Http/Controllers/Tenant/UpdateController.php',
+            'resources/views/tenant/maintenance.blade.php',
+            'resources/views/tenant/updates/in-progress.blade.php',
+            'resources/views/tenant/updates/status.blade.php',
+        ];
+
+        foreach ($requiredFiles as $relativePath) {
+            $fullPath = $rootPath . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relativePath);
+
+            if (! is_file($fullPath)) {
+                throw new RuntimeException(
+                    "Release archive is missing required update-flow file [{$relativePath}]. " .
+                    'This release cannot be applied safely during a live tenant update.'
+                );
+            }
+        }
+
+        $controller = File::get($rootPath . DIRECTORY_SEPARATOR . 'app/Http/Controllers/Tenant/UpdateController.php');
+        $maintenance = File::get($rootPath . DIRECTORY_SEPARATOR . 'resources/views/tenant/maintenance.blade.php');
+        $inProgress = File::get($rootPath . DIRECTORY_SEPARATOR . 'resources/views/tenant/updates/in-progress.blade.php');
+        $status = File::get($rootPath . DIRECTORY_SEPARATOR . 'resources/views/tenant/updates/status.blade.php');
+
+        $expectations = [
+            ['needle' => 'tenant.updates.in-progress', 'haystack' => $controller, 'label' => 'UpdateController standalone update-center handoff'],
+            ['needle' => 'updatePageHeaders', 'haystack' => $controller, 'label' => 'UpdateController cache-busting headers'],
+            ['needle' => 'Open Update Center', 'haystack' => $maintenance, 'label' => 'maintenance escape hatch'],
+            ['needle' => '<!DOCTYPE html>', 'haystack' => $inProgress, 'label' => 'standalone in-progress page'],
+            ['needle' => '<!DOCTYPE html>', 'haystack' => $status, 'label' => 'standalone status page'],
+            ['needle' => "cache: 'no-store'", 'haystack' => $inProgress, 'label' => 'in-progress no-store polling'],
+            ['needle' => "cache: 'no-store'", 'haystack' => $status, 'label' => 'status no-store polling'],
+        ];
+
+        foreach ($expectations as $expectation) {
+            if (! str_contains($expectation['haystack'], $expectation['needle'])) {
+                throw new RuntimeException(
+                    "Release archive failed update-flow compatibility validation: missing {$expectation['label']}."
+                );
+            }
+        }
+
+        foreach ([
+            'resources/views/tenant/updates/in-progress.blade.php' => $inProgress,
+            'resources/views/tenant/updates/status.blade.php' => $status,
+        ] as $relativePath => $contents) {
+            if (str_contains($contents, '<x-tenant-layout')) {
+                throw new RuntimeException(
+                    "Release archive failed update-flow compatibility validation: [{$relativePath}] still depends on the tenant layout."
+                );
+            }
+        }
     }
 }
