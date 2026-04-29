@@ -4,6 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>Update Status {{ $release->version_tag }}</title>
     <style>
         :root {
@@ -353,6 +356,12 @@
     </div>
 
     <script>
+        window.addEventListener('pageshow', (event) => {
+            if (event.persisted) {
+                window.location.reload();
+            }
+        });
+
         (() => {
             const POLL_URL = @json(route('tenant.updates.poll', $release->id));
             const INITIAL_STATUS = @json($status);
